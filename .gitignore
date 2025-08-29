@@ -7,6 +7,10 @@
 arnie_file.txt
 .DS_Store
 # *.ipynb
+checkpoints/*
+backup_checkpoints/*
+Miniforge3-Linux-x86_64.sh
+exit/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
