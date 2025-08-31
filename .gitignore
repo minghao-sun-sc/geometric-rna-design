@@ -8,7 +8,7 @@
 arnie_file.txt
 .DS_Store
 # *.ipynb
-checkpoints/*
+checkpoints/
 backup_checkpoints/*
 Miniforge3-Linux-x86_64.sh
 exit/
