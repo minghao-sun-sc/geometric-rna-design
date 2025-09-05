@@ -72,7 +72,8 @@ class gRNAde(object):
     gRNAde: a Geometric Deep Learning pipeline for 3D RNA Inverse Design.
 
     This class loads a gRNAde inverse folding model checkpoint corresponding 
-    to a maximum number of conformers and allows the user to perform fixed 
+    to a maximum number of conforme
+    rs and allows the user to perform fixed 
     backbone re-design of RNA structures.
 
     Args:

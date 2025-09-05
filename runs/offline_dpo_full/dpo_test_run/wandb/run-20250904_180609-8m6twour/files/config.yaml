@@ -1,0 +1,196 @@
+_wandb:
+    value:
+        cli_version: 0.21.2
+        e:
+            nwyn80f5mj2lwyebyo70jkc6425sm92r:
+                args:
+                    - train_offline_dpo
+                    - --config
+                    - dpo/configs/offline_no_lora.yaml
+                    - --checkpoint
+                    - checkpoints/gRNAde_ARv1_1state_all.h5
+                    - --run_name
+                    - dpo_test_run
+                cpu_count: 128
+                cpu_count_logical: 256
+                cudaVersion: "12.6"
+                disk:
+                    /:
+                        total: "462507622400"
+                        used: "7783333888"
+                email: minghao.sun.sc@gmail.com
+                executable: /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/python
+                git:
+                    commit: 2884cd1a78d3f04f9edb2e13308c6a752af52c4a
+                    remote: https://github.com/minghao-sun-sc/geometric-rna-design.git
+                gpu: NVIDIA A100 80GB PCIe
+                gpu_count: 2
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 6912
+                      memoryTotal: "85899345920"
+                      name: NVIDIA A100 80GB PCIe
+                      uuid: GPU-e53f90c7-2181-f60d-cf10-4d1a3542aa0b
+                    - architecture: Ampere
+                      cudaCores: 6912
+                      memoryTotal: "85899345920"
+                      name: NVIDIA A100 80GB PCIe
+                      uuid: GPU-35f2cc08-2451-2803-b086-5478793e7cf8
+                host: zgpuA1002
+                memory:
+                    total: "540822462464"
+                os: Linux-4.18.0-372.9.1.el8.x86_64-x86_64-with-glibc2.28
+                program: -m dpo.cli
+                python: CPython 3.10.18
+                root: runs/offline_dpo_full/dpo_test_run
+                slurm:
+                    conf: /var/spool/slurmd/conf-cache/slurm.conf
+                    cpus_on_node: "2"
+                    distribution: cyclic
+                    gpus_on_node: "2"
+                    gtids: "0"
+                    job_cpus_per_node: "1"
+                    job_end_time: "1757168544"
+                    job_gid: "1049"
+                    job_id: "4378213"
+                    job_name: bash
+                    job_nodelist: zgpuA1002
+                    job_partition: GPUA100
+                    job_start_time: "1756822944"
+                    job_uid: "1048"
+                    job_user: smh
+                    jobid: "4378213"
+                    launch_node_ipaddr: 10.128.10.2
+                    localid: "0"
+                    mem_per_node: "131072"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: zgpuA1002
+                    nprocs: "1"
+                    ntasks: "1"
+                    prio_process: "0"
+                    procid: "0"
+                    pty_port: "39407"
+                    pty_win_col: "155"
+                    pty_win_row: "19"
+                    srun_comm_host: 10.128.10.2
+                    srun_comm_port: "39477"
+                    step_gpus: 0,1
+                    step_id: "3"
+                    step_launcher_port: "39477"
+                    step_nodelist: zgpuA1002
+                    step_num_nodes: "1"
+                    step_num_tasks: "1"
+                    step_tasks_per_node: "1"
+                    stepid: "3"
+                    task_pid: "3301727"
+                    tasks_per_node: "1"
+                    topology_addr: zgpuA1002
+                    topology_addr_pattern: node
+                    umask: "0002"
+                startedAt: "2025-09-04T10:06:09.193324Z"
+                writerId: nwyn80f5mj2lwyebyo70jkc6425sm92r
+        m: []
+        python_version: 3.10.18
+        t:
+            "1":
+                - 1
+                - 11
+                - 49
+                - 77
+            "2":
+                - 1
+                - 11
+                - 49
+                - 77
+            "3":
+                - 13
+                - 15
+                - 16
+                - 61
+            "4": 3.10.18
+            "5": 0.21.2
+            "6": 4.56.0
+            "8":
+                - 2
+            "12": 0.21.2
+            "13": linux-x86_64
+checkpoint:
+    value:
+        keep_last_n: 3
+        save_best: true
+        save_every_round: true
+data:
+    value:
+        max_num_conformers: 1
+dataset:
+    value:
+        bucket_by_length: true
+        cache_features: true
+        compute_weights: true
+        max_pairs: null
+        pairs_file: data/pairs_margin125/dpo_pairs_margin125.json
+        shuffle_each_epoch: true
+        val_pairs_file: null
+device:
+    value: auto
+logging:
+    value:
+        level: INFO
+        log_every_n_steps: 10
+lora:
+    value:
+        enabled: false
+loss:
+    value:
+        beta: 0.163
+        lambda_sft: 0.153
+        weight_abcs:
+            - 0.7
+            - 0.3
+            - 0.2
+        weight_from_confidence: true
+        weight_k: 2
+        weight_m: 0.5
+model:
+    value:
+        checkpoint: checkpoints/gRNAde_ARv1_1state_all.h5
+        drop_rate: 0.5
+        edge_h_dim:
+            - 64
+            - 4
+        edge_in_dim:
+            - 131
+            - 3
+        node_h_dim:
+            - 128
+            - 16
+        node_in_dim:
+            - 15
+            - 4
+        num_layers: 4
+        out_dim: 4
+output_dir:
+    value: runs/offline_dpo_full
+seed:
+    value: 42
+train:
+    value:
+        batch_size: 2
+        epochs_per_round: 2
+        grad_accum_steps: 8
+        grad_clip: 1
+        lr: 5e-05
+        min_lr: 1e-06
+        num_workers: 4
+        optimizer: adamw
+        rounds: 3
+        scheduler: cosine
+        shuffle: true
+        warmup_ratio: 0.1
+        weight_decay: 0.01
+wandb:
+    value:
+        enabled: true
+        entity: minghao-sun-soc
+        project: gRNAde-offline
