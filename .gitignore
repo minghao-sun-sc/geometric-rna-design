@@ -5,6 +5,7 @@
 /wandb
 /slurm
 /docs/milestones/
+/docs
 arnie_file.txt
 .DS_Store
 # *.ipynb

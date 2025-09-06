@@ -1,9 +1,13 @@
 # dpo/eval_from_pdb.py
+from dpo.env_bootstrap import bootstrap_env
+bootstrap_env()
+
 import os, argparse, yaml, math, random
 import numpy as np
 import torch
 from torch_geometric.data import Batch
 from typing import List, Tuple, Optional
+
 
 from src.data.featurizer import RNAGraphFeaturizer
 from src.models import AutoregressiveMultiGNNv1, NonAutoregressiveMultiGNNv1
