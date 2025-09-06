@@ -20,7 +20,6 @@ from dpo.common_id import (
 ##############################
 
 def _load_pairs_any(pairs_path: str) -> List[dict]:
-    """Load pairs from JSONL or JSON (list or {'pairs': [...]})."""
     pairs: List[dict] = []
     if pairs_path.endswith(".jsonl"):
         with open(pairs_path) as f:
@@ -34,24 +33,55 @@ def _load_pairs_any(pairs_path: str) -> List[dict]:
         if isinstance(obj, list):
             pairs = obj
         elif isinstance(obj, dict) and "pairs" in obj:
-            assert isinstance(obj["pairs"], list)
             pairs = obj["pairs"]
         else:
-            raise ValueError("JSON must be a list or a dict with a 'pairs' key.")
+            raise ValueError("JSON must be a list or {'pairs': [...]} format.")
     else:
         raise ValueError(f"Unsupported pairs file format: {pairs_path}")
     return pairs
 
 
 def _maybe_fix_rna_char(c: str) -> str:
-    """Uppercase and map DNA 'T' to RNA 'U'; fall back to '_' for unexpected."""
     c = c.upper()
     if c == "T":
         return "U"
     if c in {"A", "C", "G", "U", "_"}:
         return c
-    # unk/base-modded char -> '_'
     return "_"
+
+def _normalize_seq(s: str) -> str:
+    return "".join(_maybe_fix_rna_char(c) for c in (s or ""))
+
+
+def _best_window_mask(graph_seq: str, pair_seq: str, min_identity: float = 0.7):
+    """
+    Find the best contiguous window in graph_seq for pair_seq.
+    Returns (start, identity, mask_list) or None if no window meets min_identity.
+    """
+    g = _normalize_seq(graph_seq)
+    q = _normalize_seq(pair_seq)
+    Lg, Lq = len(g), len(q)
+    if Lq > Lg or Lq == 0:
+        return None
+    best_s, best_hit = -1, -1
+    for s in range(Lg - Lq + 1):
+        hit = 0
+        for i in range(Lq):
+            a, b = q[i], g[s + i]
+            # treat '_' as wildcard (unknown) → not counted as a match
+            if a != "_" and b != "_" and a == b:
+                hit += 1
+        if hit > best_hit:
+            best_hit, best_s = hit, s
+    if best_s < 0:
+        return None
+    identity = best_hit / max(1, Lq)
+    if identity < float(min_identity):
+        return None
+    mask = [0] * Lg
+    for i in range(Lq):
+        mask[best_s + i] = 1
+    return best_s, identity, mask
 
 
 ##############################
@@ -60,17 +90,12 @@ def _maybe_fix_rna_char(c: str) -> str:
 
 class PreferencePairDataset(Dataset):
     """
-    One item per preference pair:
-      returns (pyg_data, y_w_tokens, y_l_tokens, weight, node_mask_or_none, gid_str)
+    Returns (pyg_data, y_w_tokens, y_l_tokens, weight, node_mask_or_none, gid_str).
 
-    Key behaviors:
-    - Uses DAS split via split_file, and only pairs whose backbone falls in the chosen split.
-    - Resolves pairs by:
-        (1) explicit global index if present (index/idx/graph_index/...)
-        (2) otherwise, canonicalized IDs (including 'pdb_file')
-      mapping those to the local split index.
-    - Reuses gRNAde RNAGraphFeaturizer; caches graphs per (local) index.
-    - Winner/loser sequences are tokenized using the featurizer's letter_to_num.
+    New behavior:
+    - If len(pair) < len(graph), attempt window alignment and supervise only that window
+      via a 0/1 node_mask; y_w/y_l are padded to graph length (outside window not used).
+    - If exact length match, mask is None (supervise entire sequence).
     """
     def __init__(
         self,
@@ -87,13 +112,15 @@ class PreferencePairDataset(Dataset):
         device: str = "cpu",
         use_seq_mask: bool = True,
         strict_length_check: bool = True,
+        window_align: bool = True,
+        min_window_identity: float = 0.7,
     ):
         super().__init__()
         self.device = torch.device(device)
         split = split.lower().strip()
         assert split in {"train", "val", "test"}
 
-        # ---- Load the full processed store and DAS split indices
+        # Load processed store and split
         data_dict = torch.load(processed_pt)
         all_raws: List[dict] = list(data_dict.values())
         train_idx, val_idx, test_idx = torch.load(split_file)
@@ -105,13 +132,10 @@ class PreferencePairDataset(Dataset):
         else:
             idx_map = list(map(int, test_idx))
 
-        # Keep only raw entries belonging to this split
         self.raw_list: List[dict] = [all_raws[i] for i in idx_map]
-
-        # Build global->local index mapping for this split
         self._global_to_local: Dict[int, int] = {g: li for li, g in enumerate(idx_map)}
 
-        # ---- Build canonical id -> local index map using *all* IDs from id_list
+        # Map every canonical id in id_list -> local index
         self._id2local: Dict[str, int] = {}
         for li, raw in enumerate(self.raw_list):
             for it in raw.get("id_list", []):
@@ -119,7 +143,7 @@ class PreferencePairDataset(Dataset):
                 if cid and (cid not in self._id2local):
                     self._id2local[cid] = li
 
-        # ---- RNAGraphFeaturizer (identical to gRNAde)
+        # Featurizer on CPU (avoid CUDA in DataLoader workers)
         self.featurizer = RNAGraphFeaturizer(
             split="train" if split == "train" else "test",
             radius=radius,
@@ -130,59 +154,90 @@ class PreferencePairDataset(Dataset):
             noise_scale=noise_scale,
             device=torch.device("cpu"),
         )
-        self.letter_to_num = self.featurizer.letter_to_num  # {'A','G','C','U','_'}
+        self.letter_to_num = self.featurizer.letter_to_num
         self._graph_cache: Dict[int, "torch_geometric.data.Data"] = {}
 
-        # ---- Load pairs and resolve to local indices
+        # Config flags
+        self.use_seq_mask = bool(use_seq_mask)
+        self.strict_length_check = bool(strict_length_check)
+        self.window_align = bool(window_align)
+        self.min_window_identity = float(min_window_identity)
+
+        # Load pairs and resolve
         raw_pairs = _load_pairs_any(pairs_path)
         self.pairs: List[dict] = []
-        self._dropped_counters = {"unresolved": 0, "len_mismatch": 0}
+        self._dropped_counters = {"unresolved": 0, "len_mismatch": 0, "no_window": 0}
 
         for p in raw_pairs:
-            # 1) try explicit global index
+            # Resolve local index
             global_idx = extract_index_from_pair(p)
             local_idx: Optional[int] = None
             if global_idx is not None:
                 local_idx = self._global_to_local.get(global_idx, None)
-
-            # 2) otherwise resolve via canonical id (supports 'pdb_file')
             gid: str = ""
             if local_idx is None:
                 gid = extract_backbone_id_from_pair(p)
                 local_idx = self._id2local.get(gid, None)
-
             if local_idx is None:
                 self._dropped_counters["unresolved"] += 1
                 continue
 
-            # optional strict length check before featurization
-            if strict_length_check:
-                seq_len = len(self.raw_list[local_idx].get("sequence", ""))
-                wseq = p.get("winner_seq") or p.get("winner") or ""
-                lseq = p.get("loser_seq") or p.get("loser") or ""
-                if (not wseq) or (not lseq) or (len(wseq) != len(lseq)) or (seq_len and len(wseq) != seq_len):
-                    self._dropped_counters["len_mismatch"] += 1
-                    continue
+            raw = self.raw_list[local_idx]
+            gL = len(raw.get("sequence", ""))
 
-            # store the resolved/localized pair
-            self.pairs.append({
-                "_local_index": local_idx,
-                "_gid": gid if gid else canonical_from_id_list(self.raw_list[local_idx].get("id_list", [])),
-                "winner_seq": p.get("winner_seq") or p.get("winner") or "",
-                "loser_seq":  p.get("loser_seq")  or p.get("loser")  or "",
-                "weight": float(p.get("weight", 1.0)),
-                "seq_mask": p.get("seq_mask", None),  # optional [0/1] list
-            })
+            wseq = p.get("winner_seq") or p.get("winner") or ""
+            lseq = p.get("loser_seq")  or p.get("loser")  or ""
+            wL, lL = len(wseq), len(lseq)
+
+            # must be equal-length pair
+            if (wL == 0) or (lL == 0) or (wL != lL):
+                self._dropped_counters["len_mismatch"] += 1
+                continue
+
+            # exact match → keep, no mask
+            if wL == gL:
+                self.pairs.append({
+                    "_local_index": local_idx,
+                    "_gid": gid if gid else canonical_from_id_list(raw.get("id_list", [])),
+                    "winner_seq": wseq,
+                    "loser_seq":  lseq,
+                    "weight": float(p.get("weight", 1.0)),
+                    "seq_mask": None,
+                    "_window": None,
+                })
+                continue
+
+            # shorter-than-graph → try windowing
+            if (wL < gL) and self.window_align:
+                # try alignment against the backbone sequence
+                gseq = raw.get("sequence", "")
+                found = _best_window_mask(gseq, wseq, self.min_window_identity)
+                if found is None:
+                    self._dropped_counters["no_window"] += 1
+                    continue
+                start, ident, mask = found
+                self.pairs.append({
+                    "_local_index": local_idx,
+                    "_gid": gid if gid else canonical_from_id_list(raw.get("id_list", [])),
+                    "winner_seq": wseq,
+                    "loser_seq":  lseq,
+                    "weight": float(p.get("weight", 1.0)),
+                    "seq_mask": mask,         # 0/1 per node
+                    "_window": (start, wL),   # for padding
+                })
+                continue
+
+            # longer-than-graph or no window allowed → drop
+            self._dropped_counters["len_mismatch"] += 1
 
         kept = len(self.pairs)
-        if self._dropped_counters["unresolved"] or self._dropped_counters["len_mismatch"]:
+        if any(self._dropped_counters.values()):
             print(
                 f"[PreferencePairDataset:{split}] kept={kept}, "
                 f"dropped_unresolved={self._dropped_counters['unresolved']}, "
-                f"dropped_len_mismatch={self._dropped_counters['len_mismatch']}"
+                f"dropped_len_mismatch={self._dropped_counters['len_mismatch']}, "
+                f"dropped_no_window={self._dropped_counters['no_window']}"
             )
-
-        self.use_seq_mask = bool(use_seq_mask)
 
     def __len__(self) -> int:
         return len(self.pairs)
@@ -194,7 +249,7 @@ class PreferencePairDataset(Dataset):
         if li in self._graph_cache:
             return self._graph_cache[li]
         raw = self.raw_list[li]
-        data = self.featurizer.featurize(raw)
+        data = self.featurizer.featurize(raw)  # stay on CPU; trainer moves to GPU
         self._graph_cache[li] = data
         return data
 
@@ -202,11 +257,10 @@ class PreferencePairDataset(Dataset):
     # Tokenization
     # --------------------------
     def _encode_seq(self, seq: str) -> torch.Tensor:
-        # Ensure RNA alphabet and map unknowns to '_'
-        seq = "".join(_maybe_fix_rna_char(c) for c in (seq or ""))
+        seq = _normalize_seq(seq)
         return torch.as_tensor(
             [self.letter_to_num[c] for c in seq],
-            device=self.device,
+            device=torch.device("cpu"),
             dtype=torch.long
         )
 
@@ -215,36 +269,45 @@ class PreferencePairDataset(Dataset):
         li = entry["_local_index"]
         data = self._get_graph_by_local(li)
 
-        y_w = self._encode_seq(entry["winner_seq"])
-        y_l = self._encode_seq(entry["loser_seq"])
+        gL = int(data.seq.numel())  # graph length (tokens in featurizer)
+        wseq = entry["winner_seq"]
+        lseq = entry["loser_seq"]
 
-        # Length consistency — keep this assert; earlier we pre-checked against 'sequence' length
-        assert y_w.numel() == y_l.numel() == data.seq.numel(), (
-            f"length mismatch at i={i}, local={li}, gid={entry['_gid']}: "
-            f"Lw={y_w.numel()} Ll={y_l.numel()} Lg={int(data.seq.numel())}"
-        )
+        if entry["_window"] is None:
+            # exact-length case
+            y_w = self._encode_seq(wseq)
+            y_l = self._encode_seq(lseq)
+            assert y_w.numel() == gL == y_l.numel(), "exact-match length mismatch"
+            node_mask = None
+        else:
+            # windowed case: pad to graph length; mask supervises only the window
+            start, Lq = entry["_window"]
 
-        weight = torch.tensor(float(entry["weight"]), device=self.device)
-        node_mask = None
-        if self.use_seq_mask and (entry.get("seq_mask", None) is not None):
-            node_mask = torch.as_tensor(entry["seq_mask"], device=self.device, dtype=torch.float32)
-            assert node_mask.numel() == y_w.numel(), "seq_mask length mismatch"
+            # initialize with '_' tokens (unknown); they won’t be used if mask=0
+            pad_tok = self.letter_to_num["_"]
+            y_w = torch.full((gL,), pad_tok, dtype=torch.long)
+            y_l = torch.full((gL,), pad_tok, dtype=torch.long)
 
+            w_tokens = self._encode_seq(wseq)
+            l_tokens = self._encode_seq(lseq)
+            y_w[start:start+Lq] = w_tokens
+            y_l[start:start+Lq] = l_tokens
+
+            mask_list = entry["seq_mask"]  # list of 0/1
+            node_mask = torch.as_tensor(mask_list, dtype=torch.float32)
+
+        weight = torch.tensor(float(entry["weight"]), dtype=torch.float32)
         gid = entry["_gid"]
         return data, y_w, y_l, weight, node_mask, gid
 
 
 def collate_pairs(batch: List[Tuple[Any, ...]]):
-    """
-    Collate for PreferencePairDataset.
-    Returns: (Batch, y_w, y_l, weights, node_mask|None, gid_list)
-    """
     datas, ys_w, ys_l, ws, masks, gids = zip(*batch)
     data_batch = Batch.from_data_list(datas)
 
     y_w = torch.cat(ys_w, dim=0)
     y_l = torch.cat(ys_l, dim=0)
-    w   = torch.stack(ws)  # per-graph weights, #graphs == num examples in this batch
+    w   = torch.stack(ws)
 
     node_mask = None
     if masks[0] is not None:

@@ -78,6 +78,9 @@ def train_dpo(config, train_loader, val_loader, device):
 
             optim.zero_grad(set_to_none=True)
             for batch_tuple in train_loader:
+
+
+                
                 batch, y_w, y_l, w, node_mask, _ = _to_device_batch(batch_tuple, device)
 
                 # Forward & loss (per-graph reduced)
