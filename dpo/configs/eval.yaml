@@ -1,0 +1,33 @@
+seed: 0
+device: "cuda"
+gpu: 0
+
+# === Model ===
+model: "ARv1"
+checkpoint_path: "runs/offline_dpo_full/final_policy.pt"  # <- your DPO-finetuned weights
+node_in_dim: [15, 4]
+node_h_dim:  [128, 16]
+edge_in_dim: [131, 3]
+edge_h_dim:  [64, 4]
+num_layers: 4
+drop_rate: 0.5
+out_dim: 4
+
+# === PDB eval ===
+eval:
+  pdb_filepath: "tutorial/demo_data/4FE5_1_B.pdb"   # single structure
+  directory: ""                                      # or a folder of PDBs (leave empty if single)
+  n_samples: 16
+  temperature: 0.5
+  seed: 0
+  output_fasta: "tutorial/outputs/dpo_eval_samples.fasta"
+  compute_eterna_mcc: false                          # set true if EternaFold is available
+
+# === Data featurization (mirror tutorial)
+featurizer:
+  max_num_conformers: 1
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  noise_scale: 0.0                                   # no noise for eval
