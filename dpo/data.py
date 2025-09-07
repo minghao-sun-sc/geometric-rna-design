@@ -346,7 +346,20 @@ class PreferencePairDataset(Dataset):
             if copy_len > 0:
                 y_l[start:end_pos] = l_tokens[:copy_len]
 
-            mask_list = entry["seq_mask"]  # list of 0/1
+            # CRITICAL FIX: Ensure mask length matches graph length, not raw sequence length
+            mask_list = entry["seq_mask"]  # list of 0/1 based on raw sequence
+            
+            # If mask length != graph length, we need to align it
+            if len(mask_list) != gL:
+                # Create a new mask of correct length
+                aligned_mask = [0] * gL
+                # The window positions need to be adjusted for the graph length
+                if start < gL and start + actual_len_w <= gL:
+                    # Set the window region to 1
+                    for i in range(start, min(start + actual_len_w, gL)):
+                        aligned_mask[i] = 1
+                mask_list = aligned_mask
+            
             node_mask = torch.as_tensor(mask_list, dtype=torch.float32)
 
         weight = torch.tensor(float(entry["weight"]), dtype=torch.float32)

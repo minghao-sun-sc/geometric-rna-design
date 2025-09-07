@@ -70,12 +70,13 @@ loss:
 
 lora:
   enabled: true
-  r: 8
-  alpha: 16
+  r: 16
+  alpha: 32  
   dropout: 0.05
-  # IMPORTANT: list substrings of layer names you actually want LoRA-applied to.
-  # An empty string [""] can match everything and explode memory or do nothing depending on the matcher.
-  target_modules: ["linear", "proj", "fc", "out_proj"]
+  # Target the actual GVP layer names in the model
+  # ws: scalar projection layers (largest params: 18K-82K each)
+  # wh: hidden layers, wv: vector layers, wsv: scalar-vector gates
+  target_modules: ["ws", "wh", "wv", "wsv"]
   train_bias: "none"
 
 # === Logging ===
