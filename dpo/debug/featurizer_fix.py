@@ -1,61 +1,27 @@
-# dpo/patches.py
-from typing import List, Optional, Sequence, Union
-import numpy as np
-import torch
+#!/usr/bin/env python
+"""
+Analysis and fix for the featurizer patch issue.
 
-ArrayLike = Union[np.ndarray, torch.Tensor, Sequence]
+Problem: The current patch only compresses coordinates AFTER the featurizer
+has already called internal_coords() with the full heavy-atom set.
+This causes a dimension mismatch in internal_coords() which expects exactly 3 atoms.
 
-def _find_index(names_list: List[str], target_names: List[str]) -> Optional[int]:
-    """Find first index in names_list matching any of target_names (case & star/apostrophe tolerant)."""
-    canon = {i: n.upper().replace('*', "'") for i, n in enumerate(names_list)}
-    targets = [t.upper().replace('*', "'") for t in target_names]
-    for i, n in canon.items():
-        if n in targets:
-            return i
-    return None
+Solution: Move the coordinate compression BEFORE internal_coords is called.
+"""
 
-def _to_4d_tensor(coords_list: ArrayLike) -> torch.Tensor:
+def create_fixed_patch():
     """
-    Coerce coords_list into shape [n_conf, n_res, n_atoms, 3] as a float32 torch.Tensor.
-    Accepts:
-      - numpy arrays of shape [..]
-      - torch tensors of shape [..]
-      - nested lists mixing floats/ndarrays/tensors
-    Also adds a conformer dim if missing (i.e., [n_res, n_atoms, 3] -> [1, n_res, n_atoms, 3]).
+    This shows the corrected patch that should be applied to fix the featurizer.
+    The key change is to compress coordinates BEFORE the featurizer processes them.
     """
-    if isinstance(coords_list, torch.Tensor):
-        X = coords_list.detach()
-        if X.dtype != torch.float32:
-            X = X.float()
-    elif isinstance(coords_list, np.ndarray):
-        if coords_list.dtype != np.float32:
-            coords_list = coords_list.astype(np.float32, copy=False)
-        X = torch.from_numpy(coords_list)
-    else:
-        # Python list/tuple; normalize by stacking
-        def _to_numpy(x):
-            if isinstance(x, torch.Tensor):
-                return x.detach().cpu().numpy()
-            elif isinstance(x, np.ndarray):
-                return x
-            else:
-                return np.asarray(x, dtype=np.float32)
-        X = _to_numpy(coords_list)
-        if X.dtype != np.float32:
-            X = X.astype(np.float32)
-        X = torch.from_numpy(X)
-
-    # Ensure rank is 4: [n_conf, n_res, n_atoms, 3]
-    if X.ndim == 3 and X.shape[-1] == 3:
-        X = X.unsqueeze(0)  # add conformer dim
-    if X.ndim != 4 or X.shape[-1] != 3:
-        raise ValueError(f"[three-bead patch] coords_list must be [..., 3] with 3D last axis. Got shape {tuple(X.shape)}")
-    return X
-
+    
+    FIXED_PATCH = '''
 def patch_featurizer_three_bead():
     """
     Force RNAGraphFeaturizer to down-project heavy-atom coords to 3 beads (P, C4', N1/N9).
     Keeps edge_s dim at 131 (num_rbf=32, num_posenc=32) to match ARv1 checkpoints.
+    
+    FIXED VERSION: Compresses coordinates BEFORE calling internal_coords.
     """
     import src.data.featurizer as feat_mod
     from src.constants import RNA_ATOMS
@@ -69,6 +35,8 @@ def patch_featurizer_three_bead():
         raise RuntimeError(f"[three-bead patch] Could not resolve indices in RNA_ATOMS: "
                            f"P={idx_P}, C4'={idx_C4p}, N1={idx_N1}, N9={idx_N9}")
 
+    # Store original methods
+    orig_call = feat_mod.RNAGraphFeaturizer.__call__
     orig_featurize = feat_mod.RNAGraphFeaturizer.featurize
 
     def _compress_to_three_beads(coords_list: torch.Tensor, seq: str) -> torch.Tensor:
@@ -92,7 +60,6 @@ def patch_featurizer_three_bead():
         idx_C4p_all = torch.full((n_res,), idx_C4p, dtype=torch.long, device=coords_list.device)
 
         # Build gather index for atom dim (dim=2)
-        # Gather expects index same shape as output: [n_conf, n_res, 3, 3]
         idx_stack = torch.stack([idx_P_all, idx_C4p_all, idx_res], dim=1)   # [n_res, 3]
         idx_stack = idx_stack.view(1, n_res, 3, 1).expand(n_conf, n_res, 3, 3)
 
@@ -100,15 +67,18 @@ def patch_featurizer_three_bead():
         return X3
 
     def patched_featurize(self, rna_dict):
-        """Patch featurize to compress coordinates BEFORE internal_coords is called."""
-        # Shallow copy; we only change coords_list
+        """
+        Patched featurize method that compresses coordinates BEFORE processing.
+        This ensures internal_coords gets exactly 3 atoms as expected.
+        """
+        # Make a copy and compress coordinates if needed
         rna2 = dict(rna_dict)
-
+        
         X = _to_4d_tensor(rna2["coords_list"])
         if X.shape[2] != 3:
             # compress full heavy-atom set to (P, C4', N1/N9) BEFORE featurization
             X3 = _compress_to_three_beads(X, rna2["sequence"])
-            rna2["coords_list"] = X3.cpu().numpy()  # keep numpy to match original pipeline
+            rna2["coords_list"] = X3.cpu().numpy()
         else:
             # already 3-bead, just normalize to numpy float32
             rna2["coords_list"] = X.cpu().numpy().astype(np.float32, copy=False)
@@ -116,5 +86,25 @@ def patch_featurizer_three_bead():
         # Now call the original featurize with the compressed coordinates
         return orig_featurize(self, rna2)
 
+    # Apply the patch to featurize (not __call__)
     feat_mod.RNAGraphFeaturizer.featurize = patched_featurize
     print("[patches] RNAGraphFeaturizer.featurize patched to 3-bead mode (P, C4', N1/N9).")
+    '''
+    
+    return FIXED_PATCH
+
+if __name__ == "__main__":
+    print("ISSUE ANALYSIS:")
+    print("=" * 60)
+    print("The current patch compresses coordinates in __call__ AFTER featurize")
+    print("is called, but featurize calls internal_coords() which expects 3 atoms.")
+    print("This causes 'too many values to unpack (expected 3)' error.")
+    print()
+    print("SOLUTION:")
+    print("=" * 60)
+    print("Patch the featurize() method instead to compress coordinates")
+    print("BEFORE internal_coords() is called.")
+    print()
+    print("PROPOSED FIX:")
+    print("=" * 60)
+    print(create_fixed_patch())

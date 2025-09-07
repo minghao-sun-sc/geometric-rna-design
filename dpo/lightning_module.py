@@ -300,7 +300,11 @@ class DpoLightningModule(pl.LightningModule):
         lora_cfg = cfg.get("lora") or cfg.get("policy_lora")
         if lora_cfg:
             lora_cfg = _to_dict(lora_cfg)
-            apply_lora(self.model, **lora_cfg)
+            # Check if LoRA is enabled (default to True if not specified)
+            if lora_cfg.get("enabled", True):
+                # Remove 'enabled' key before passing to apply_lora
+                lora_params = {k: v for k, v in lora_cfg.items() if k != "enabled"}
+                apply_lora(self.model, **lora_params)
 
         # ---------------- hyperparams ---------------- #
         loss_cfg = cfg.get("loss", {})

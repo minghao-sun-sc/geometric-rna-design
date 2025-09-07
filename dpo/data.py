@@ -258,11 +258,17 @@ class PreferencePairDataset(Dataset):
     # --------------------------
     def _encode_seq(self, seq: str) -> torch.Tensor:
         seq = _normalize_seq(seq)
-        return torch.as_tensor(
-            [self.letter_to_num[c] for c in seq],
-            device=torch.device("cpu"),
-            dtype=torch.long
-        )
+        try:
+            tokens = [self.letter_to_num[c] for c in seq]
+            # Sanity check: all tokens should be in valid range [0, vocab_size)
+            vocab_size = len(self.letter_to_num)
+            for i, tok in enumerate(tokens):
+                if not (0 <= tok < vocab_size):
+                    raise ValueError(f"Invalid token {tok} at position {i} for char '{seq[i]}' (vocab_size={vocab_size})")
+            
+            return torch.as_tensor(tokens, device=torch.device("cpu"), dtype=torch.long)
+        except KeyError as e:
+            raise ValueError(f"Character {e} not found in vocabulary {self.letter_to_num}. Sequence: '{seq}'")
 
     def __getitem__(self, i: int):
         entry = self.pairs[i]
@@ -283,15 +289,32 @@ class PreferencePairDataset(Dataset):
             # windowed case: pad to graph length; mask supervises only the window
             start, Lq = entry["_window"]
 
-            # initialize with '_' tokens (unknown); they won’t be used if mask=0
+            # initialize with '_' tokens (unknown); they won't be used if mask=0
             pad_tok = self.letter_to_num["_"]
             y_w = torch.full((gL,), pad_tok, dtype=torch.long)
             y_l = torch.full((gL,), pad_tok, dtype=torch.long)
 
             w_tokens = self._encode_seq(wseq)
             l_tokens = self._encode_seq(lseq)
-            y_w[start:start+Lq] = w_tokens
-            y_l[start:start+Lq] = l_tokens
+            
+            # Use actual sequence lengths instead of stored window length
+            # to handle any discrepancies in window calculation
+            actual_len_w = w_tokens.numel()
+            actual_len_l = l_tokens.numel()
+            
+            # Ensure we don't exceed the available space
+            if start < 0 or start >= gL:
+                raise ValueError(f"Invalid window start {start} for graph length {gL}")
+            
+            end_pos = min(start + actual_len_w, gL)
+            copy_len = end_pos - start
+            if copy_len > 0:
+                y_w[start:end_pos] = w_tokens[:copy_len]
+            
+            end_pos = min(start + actual_len_l, gL)  
+            copy_len = end_pos - start
+            if copy_len > 0:
+                y_l[start:end_pos] = l_tokens[:copy_len]
 
             mask_list = entry["seq_mask"]  # list of 0/1
             node_mask = torch.as_tensor(mask_list, dtype=torch.float32)
@@ -302,15 +325,29 @@ class PreferencePairDataset(Dataset):
 
 
 def collate_pairs(batch: List[Tuple[Any, ...]]):
+    """Collate function that attaches all data to the PyG batch for DPO training."""
     datas, ys_w, ys_l, ws, masks, gids = zip(*batch)
+    
+    # Create base PyG batch
     data_batch = Batch.from_data_list(datas)
-
-    y_w = torch.cat(ys_w, dim=0)
-    y_l = torch.cat(ys_l, dim=0)
-    w   = torch.stack(ws)
-
-    node_mask = None
-    if masks[0] is not None:
-        node_mask = torch.cat(masks, dim=0)
-
-    return data_batch, y_w, y_l, w, node_mask, list(gids)
+    
+    # Attach DPO-specific data as batch attributes
+    data_batch.y_w = torch.cat(ys_w, dim=0)
+    data_batch.y_l = torch.cat(ys_l, dim=0) 
+    data_batch.weight = torch.stack(ws)
+    
+    # Handle mixed mask cases: some None (exact match), some tensors (windowed)
+    all_masks = []
+    for i, mask in enumerate(masks):
+        if mask is not None:
+            all_masks.append(mask)
+        else:
+            # For exact match cases, create an all-ones mask of appropriate length
+            seq_len = ys_w[i].shape[0]
+            all_masks.append(torch.ones(seq_len, dtype=torch.float32))
+    
+    data_batch.node_mask = torch.cat(all_masks, dim=0)
+    
+    data_batch.gids = list(gids)
+    
+    return data_batch  # Single object with all attributes
