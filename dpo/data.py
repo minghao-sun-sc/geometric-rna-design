@@ -266,10 +266,17 @@ class PreferencePairDataset(Dataset):
                 if not (0 <= tok < vocab_size):
                     raise ValueError(f"Invalid token {tok} at position {i} for char '{seq[i]}' (vocab_size={vocab_size})")
             
-            # Convert padding token '_' (4) to a valid token for model compatibility
+            # Convert padding token '_' (4) to a valid token for model compatibility  
             # The model only has embedding for {0,1,2,3}, so map '_' -> 0 (A) as placeholder
-            model_vocab_size = 4  # Model embedding size
+            # Note: This should match the model's actual embedding size
+            model_vocab_size = 4  # gRNAde model vocab size: {A, G, C, U}
             tokens = [min(tok, model_vocab_size - 1) for tok in tokens]
+            
+            # Debug: warn if we clamped tokens
+            original_max = max(self.letter_to_num[c] for c in seq)
+            if original_max >= model_vocab_size:
+                print(f"[data] Clamped tokens from {original_max} to {model_vocab_size-1} for seq: '{seq[:20]}...'")
+            
             
             return torch.as_tensor(tokens, device=torch.device("cpu"), dtype=torch.long)
         except KeyError as e:

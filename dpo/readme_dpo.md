@@ -43,7 +43,7 @@ python -m dpo.train_dpo --config dpo/configs/default.yaml --wandb --run_name DPO
 Multi-GPU:
 python -m dpo.train_lightning --config dpo/configs/default.yaml --wandb --project DPO-RNA --run_name DPO_das_beta0.2_lr1e-4_lightning --devices -1 --precision bf16-mixed
 
-
+python -m dpo.train_lightning --config dpo/configs/default.yaml --devices 1 --precision 32
 
 Eval:
 python -m dpo.eval_from_pdb --config dpo/configs/eval.yaml

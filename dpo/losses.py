@@ -71,8 +71,8 @@ def _compute_per_graph_logp(
     """
     ctx = torch.no_grad() if no_grad else torch.enable_grad()
     with ctx:
-        # Set the target sequence for the model to use
-        data_batch.seq = targets
+        # DO NOT modify data_batch.seq - use original sequence for forward pass
+        # The model expects batch.seq to match the graph structure
         logits = _as_logits(model(data_batch))  # [N, C] or [N, 1, C]
         if logits.dim() == 3:
             # [N, 1, C] -> [N, C]
@@ -86,7 +86,19 @@ def _compute_per_graph_logp(
 
         # log_probs per node for the true class
         log_probs = F.log_softmax(logits, dim=-1)
-        per_node = torch.gather(log_probs, dim=-1, index=targets.to(logits.device).unsqueeze(-1)).squeeze(-1)
+        
+        # Ensure target indices are within vocab bounds
+        vocab_size = logits.shape[-1]  # Number of classes in logits
+        targets_safe = torch.clamp(targets.to(logits.device), 0, vocab_size - 1)
+        
+        # Debug: check if we had to clamp any values
+        targets_cpu = targets.cpu() if targets.is_cuda else targets
+        targets_safe_cpu = targets_safe.cpu()
+        if not torch.equal(targets_cpu, targets_safe_cpu):
+            n_clamped = (targets_cpu != targets_safe_cpu).sum().item()
+            print(f"[DPO] Clamped {n_clamped} target tokens from range {targets_cpu.min()}-{targets_cpu.max()} to 0-{vocab_size-1}")
+        
+        per_node = torch.gather(log_probs, dim=-1, index=targets_safe.unsqueeze(-1)).squeeze(-1)
 
         # mask invalid nodes
         mask = node_mask.to(logits.device).to(per_node.dtype)
