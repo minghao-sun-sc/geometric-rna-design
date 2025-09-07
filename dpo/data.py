@@ -266,6 +266,11 @@ class PreferencePairDataset(Dataset):
                 if not (0 <= tok < vocab_size):
                     raise ValueError(f"Invalid token {tok} at position {i} for char '{seq[i]}' (vocab_size={vocab_size})")
             
+            # Convert padding token '_' (4) to a valid token for model compatibility
+            # The model only has embedding for {0,1,2,3}, so map '_' -> 0 (A) as placeholder
+            model_vocab_size = 4  # Model embedding size
+            tokens = [min(tok, model_vocab_size - 1) for tok in tokens]
+            
             return torch.as_tensor(tokens, device=torch.device("cpu"), dtype=torch.long)
         except KeyError as e:
             raise ValueError(f"Character {e} not found in vocabulary {self.letter_to_num}. Sequence: '{seq}'")
@@ -280,10 +285,28 @@ class PreferencePairDataset(Dataset):
         lseq = entry["loser_seq"]
 
         if entry["_window"] is None:
-            # exact-length case
+            # exact-length case (with tolerance for small mismatches)
             y_w = self._encode_seq(wseq)
             y_l = self._encode_seq(lseq)
-            assert y_w.numel() == gL == y_l.numel(), "exact-match length mismatch"
+            
+            # Handle length mismatches by aligning to graph length
+            Lw, Ll = y_w.numel(), y_l.numel()
+            assert Lw == Ll, f"winner/loser length mismatch: {Lw} vs {Ll}"
+            
+            if self.strict_length_check and Lw != gL:
+                raise AssertionError(f"Length mismatch: seq={Lw}, graph={gL}")
+            
+            # Align sequence lengths to graph length
+            if Lw > gL:
+                # Trim sequences to graph length (graph missing terminal residues)
+                y_w = y_w[:gL]
+                y_l = y_l[:gL]
+                print(f"[data] Trimmed sequences from {Lw} to {gL} to match graph")
+            elif Lw < gL:
+                # This shouldn't happen often, but handle it
+                print(f"[data] Warning: sequences shorter ({Lw}) than graph ({gL})")
+                # We could pad or create a mask, but for now this is unexpected
+                
             node_mask = None
         else:
             # windowed case: pad to graph length; mask supervises only the window

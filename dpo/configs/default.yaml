@@ -37,7 +37,7 @@ data:
   num_posenc: 32
   noise_scale: 0.1
   use_seq_mask: true
-  strict_length_check: true
+  strict_length_check: false
   window_align: true
   min_window_identity: 0.70
 

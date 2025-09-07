@@ -71,6 +71,8 @@ def _compute_per_graph_logp(
     """
     ctx = torch.no_grad() if no_grad else torch.enable_grad()
     with ctx:
+        # Set the target sequence for the model to use
+        data_batch.seq = targets
         logits = _as_logits(model(data_batch))  # [N, C] or [N, 1, C]
         if logits.dim() == 3:
             # [N, 1, C] -> [N, C]
@@ -88,6 +90,16 @@ def _compute_per_graph_logp(
 
         # mask invalid nodes
         mask = node_mask.to(logits.device).to(per_node.dtype)
+        
+        # Validate tensor sizes before multiplication
+        if per_node.shape[0] != mask.shape[0]:
+            raise RuntimeError(
+                f"Size mismatch in DPO loss: per_node has {per_node.shape[0]} elements "
+                f"but mask has {mask.shape[0]} elements. "
+                f"targets shape: {targets.shape}, logits shape: {logits.shape}, "
+                f"node_mask shape: {node_mask.shape}"
+            )
+        
         per_node = per_node * mask
 
         # sum tokens per graph
