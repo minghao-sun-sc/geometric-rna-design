@@ -1,33 +1,40 @@
+# dpo/lightning_datamodule.py
+from __future__ import annotations
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from dpo.data import PreferencePairDataset, collate_pairs
-import torch
 
 class DpoDataModule(pl.LightningDataModule):
-    def __init__(self, cfg):
+    def __init__(self, cfg: dict):
         super().__init__()
         self.cfg = cfg
+        self.batch_size = int(cfg["train"]["batch_size"])
+        self.num_workers = int(cfg["train"].get("num_workers", 2))
 
     def setup(self, stage=None):
         dc = self.cfg["data"]
-        tr = self.cfg["train"]
-
         self.train_ds = PreferencePairDataset(
             processed_pt=dc["processed_pt"], split_file=dc["split_file"],
             pairs_path=dc["pairs_path_train"], split="train",
             max_num_conformers=dc["max_num_conformers"], radius=dc["radius"],
             top_k=dc["top_k"], num_rbf=dc["num_rbf"], num_posenc=dc["num_posenc"],
-            noise_scale=dc["noise_scale"], device="cpu", use_seq_mask=dc.get("use_seq_mask", True)
+            noise_scale=dc["noise_scale"], device="cpu",
+            use_seq_mask=dc.get("use_seq_mask", True),
+            strict_length_check=bool(dc.get("strict_length_check", True)),
+            window_align=bool(dc.get("window_align", True)),
+            min_window_identity=float(dc.get("min_window_identity", 0.7)),
         )
         self.val_ds = PreferencePairDataset(
             processed_pt=dc["processed_pt"], split_file=dc["split_file"],
             pairs_path=dc["pairs_path_val"], split="val",
             max_num_conformers=dc["max_num_conformers"], radius=dc["radius"],
             top_k=dc["top_k"], num_rbf=dc["num_rbf"], num_posenc=dc["num_posenc"],
-            noise_scale=dc["noise_scale"], device="cpu", use_seq_mask=dc.get("use_seq_mask", True)
+            noise_scale=dc["noise_scale"], device="cpu",
+            use_seq_mask=dc.get("use_seq_mask", True),
+            strict_length_check=bool(dc.get("strict_length_check", True)),
+            window_align=bool(dc.get("window_align", True)),
+            min_window_identity=float(dc.get("min_window_identity", 0.7)),
         )
-        self.batch_size = int(tr["batch_size"])
-        self.num_workers = int(tr.get("num_workers", 2))
 
     def train_dataloader(self):
         return DataLoader(

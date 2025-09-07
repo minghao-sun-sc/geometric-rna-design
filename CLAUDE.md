@@ -113,31 +113,6 @@ gRNAde/  (in practical, offline)
 
 > Use exact conditioning **T** (backbone graph[s]) for both policy and ref when evaluating Sw,SlS_w, S_l. This mirrors the protein DPO setup: generate candidates via inverse-folding model, evaluate structure with a folding model (done offline here), and optimize with DPO on chosen vs rejected.  
 
-### 5.2 Trainer sketch
-
-```python
-# dpo/trainer.py (sketch)
-for round_idx in range(num_rounds):
-    ref.load_state_dict(policy.state_dict()); ref.eval()  # reset ref each round
-    for epoch_idx in range(epochs_per_round):
-        for batch in loader:  # (T, S_w, S_l, w)
-            lp_w_pol = policy.logprob(S_w, T)
-            lp_l_pol = policy.logprob(S_l, T)
-            with torch.no_grad():
-                lp_w_ref = ref.logprob(S_w, T)
-                lp_l_ref = ref.logprob(S_l, T)
-
-            # DPO term (weighted)
-            z = beta * ((lp_w_pol - lp_w_ref) - (lp_l_pol - lp_l_ref))
-            L_dpo = -(w * torch.log(torch.sigmoid(z) + 1e-12)).mean()
-
-            # SFT winners
-            L_sft = F.nll_loss(policy.token_logprobs(S_w, T), gold=S_w_tokens, reduction='none')
-            L_sft = (L_sft.sum(-1)).mean()
-
-            loss = L_dpo + lambda_sft * L_sft
-            loss.backward(); opt.step(); opt.zero_grad()
-```
 
 ------
 
@@ -150,62 +125,6 @@ for round_idx in range(num_rounds):
   - **Diversity:** unique-n-gram ratio / edit distance. (optional)
 - **Multi-round check:** expect **suppression of low-quality** and upward shift of best-case fold similarity—observed in protein DPO. 
 
-------
-
-## 7) Suggested Defaults (proto config) (suggested)
-
-```yaml
-# dpo/configs/offline.yaml
-dataset:
-  pairs_jsonl: runs/offline_dpo_r01e01/pairs.jsonl
-  shuffle_each_epoch: true
-  bucket_by_length: true
-
-loss:
-  beta: 0.163              # grid: [0.1, 0.163, 0.25]
-  lambda_sft: 0.153
-  weight_from_confidence: true
-  weight_abcs: [0.7, 0.3, 0.2]
-  weight_k_m: [2.0, 0.5]
-
-train:
-  rounds: 3
-  epochs_per_round: 2
-  optimizer: adamw
-  lr: 1.0e-4
-  scheduler: cosine
-  warmup_ratio: 0.1
-  batch_size_tokens_equiv: 128
-  grad_accum_steps: 4
-  lora:
-    enabled: true
-    r: 16
-    alpha: 16
-
-```
-
-------
-
-## 8) CLI (prototype, suggested)
-
-```bash
-# 1) Canonicalize your JSON -> JSONL (adds weights if enabled)
-python -m dpo.cli build_pairs \
-  --in data/pairs_margin125/dpo_pairs_margin125.json \
-  --out runs/offline_dpo_r01e01/pairs.jsonl
-
-# 2) Train offline DPO (no 3D calls)
-python -m dpo.cli train_offline_dpo \
-  --config dpo/configs/offline.yaml \
-  --backbone_mode {single|multi} \
-  --seed 123
-
-# 3) Evaluate (offline scoring script, no gradients)
-python -m dpo.cli eval_offline \
-  --checkpoint runs/offline_dpo/last.ckpt \
-  --targets data/val_backbones.list \
-  --num_samples 10
-```
 
 ------
 

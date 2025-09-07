@@ -1,19 +1,21 @@
-import os, yaml, pytorch_lightning as pl
+# dpo/train_lightning.py
+from __future__ import annotations
+import argparse, yaml, pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+
 from dpo.env_bootstrap import bootstrap_env; bootstrap_env()
 from dpo.lightning_module import DpoLightningModule
 from dpo.lightning_datamodule import DpoDataModule
 
 def main():
-    import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="dpo/configs/default.yaml")
     ap.add_argument("--wandb", action="store_true")
     ap.add_argument("--project", default=None)
     ap.add_argument("--run_name", default=None)
-    ap.add_argument("--precision", default="bf16-mixed")  # or "16-mixed" if Ampere+
-    ap.add_argument("--devices", type=int, default=-1)    # -1 = all
+    ap.add_argument("--precision", default="bf16-mixed")
+    ap.add_argument("--devices", type=int, default=-1)
     args = ap.parse_args()
 
     cfg = yaml.safe_load(open(args.config))
@@ -22,8 +24,7 @@ def main():
     logger = None
     if args.wandb:
         logger = WandbLogger(project=args.project or cfg["logging"]["project"],
-                             name=args.run_name,
-                             log_model=False)
+                             name=args.run_name, log_model=False)
 
     ckpt_cb = ModelCheckpoint(
         dirpath=cfg["train"].get("save_dir", "runs/offline_dpo_full"),

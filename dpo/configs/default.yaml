@@ -59,6 +59,15 @@ loss:
   lambda_sft: 0.05
   length_norm: false
 
+lora:
+  enabled: true
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  # target_modules: ["linear", "proj", "fc", "out_proj"]
+  target_modules: [""] 
+  train_bias: "none"   # or "all"
+
 # === Logging ===
 logging:
   project: "DPO-RNA"
