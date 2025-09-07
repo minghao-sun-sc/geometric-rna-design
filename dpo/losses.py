@@ -1,207 +1,217 @@
 # dpo/losses.py
 from __future__ import annotations
-from typing import Dict, Any, Optional, Tuple
-
 import torch
 import torch.nn.functional as F
+from typing import Dict, Tuple
 
+# ---------- helpers ----------
 
-# -------------------------------
-# Utilities
-# -------------------------------
-
-def _as_logits(out) -> torch.Tensor:
+def _as_logits(model_out) -> torch.Tensor:
     """
-    Some models return (logits, extra), some return logits directly.
+    Make a best-effort to extract token logits from various model outputs.
+    Expected final shape: [N_total_nodes, C] or [N_total_nodes, 1, C].
     """
-    if isinstance(out, (tuple, list)):
-        return out[0]
-    return out
-
-
-@torch.no_grad()
-def _get_ref_model(ref_manager) -> torch.nn.Module:
-    """
-    Try a few common attribute names to find the frozen reference model.
-    """
-    for name in ("ref_model", "reference_model", "model_ref", "model"):
-        if hasattr(ref_manager, name):
-            return getattr(ref_manager, name)
-    raise AttributeError("RefManager does not expose a reference model attribute.")
-
-
-def _gather_logps_from_logits(logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """
-    logits: [N, V]
-    y     : [N] (long)
-    returns per-token log-prob: [N]
-    """
-    log_probs = F.log_softmax(logits, dim=-1)
-    return log_probs.gather(-1, y.view(-1, 1)).squeeze(-1)
-
-
-def _aggregate_per_graph(
-    node_values: torch.Tensor,          # [N] (e.g., per-token log p or per-token loss)
-    node_mask: Optional[torch.Tensor],  # [N] of {0,1} or None
-    batch_index: torch.Tensor,          # [N] int graph ids
-    length_norm: bool,                  # normalize by #supervised tokens if True
-) -> torch.Tensor:
-    """
-    Reduce node-wise values to per-graph scalars.
-    If length_norm: mean over supervised tokens; else: sum.
-    """
-    if node_mask is None:
-        node_mask = torch.ones_like(node_values, dtype=node_values.dtype)
+    if isinstance(model_out, torch.Tensor):
+        logits = model_out
+    elif isinstance(model_out, dict):
+        if "logits_seq" in model_out:
+            logits = model_out["logits_seq"]
+        elif "logits" in model_out:
+            logits = model_out["logits"]
+        else:
+            raise KeyError("Model output dict missing 'logits_seq' or 'logits'.")
+    elif isinstance(model_out, (tuple, list)):
+        logits = model_out[0]
     else:
-        node_mask = node_mask.to(dtype=node_values.dtype)
+        raise TypeError(f"Unrecognized model output type: {type(model_out)}")
 
-    Ngraphs = int(batch_index.max().item()) + 1 if batch_index.numel() > 0 else 0
+    # squeeze any singleton dims after the node dimension
+    while logits.dim() >= 3 and logits.size(-3) == 1:
+        logits = logits.squeeze(-3)
+    # finally ensure [N, C]
+    if logits.dim() == 1:
+        logits = logits.unsqueeze(-1)
+    return logits
 
-    # Sum of masked values per graph
-    sum_vals = torch.zeros(Ngraphs, dtype=node_values.dtype, device=node_values.device)
-    sum_vals.scatter_add_(0, batch_index, node_values * node_mask)
 
-    # Denominator = # supervised tokens per graph
-    denom = torch.zeros(Ngraphs, dtype=node_values.dtype, device=node_values.device)
-    denom.scatter_add_(0, batch_index, node_mask)
-
-    if length_norm:
-        denom = denom.clamp_min(1.0)
-        per_graph = sum_vals / denom
+def _get_batch_index(batch) -> torch.Tensor:
+    """
+    Try to obtain a per-node -> graph index mapping.
+    Assumes PyG-style `batch.graph.batch` if available.
+    """
+    g = None
+    if isinstance(batch, dict) and "graph" in batch:
+        g = batch["graph"]
+    elif hasattr(batch, "graph"):
+        g = batch.graph
     else:
-        per_graph = sum_vals  # unnormalized sum
+        # last resort: sometimes the batch itself is a PyG Batch
+        g = batch
 
-    return per_graph
+    if hasattr(g, "batch") and isinstance(g.batch, torch.Tensor):
+        return g.batch
+    if isinstance(batch, dict) and "node_batch" in batch:
+        return batch["node_batch"]
+    raise RuntimeError(
+        "Could not infer per-node graph indices ('batch'). "
+        "Expected PyG Batch with `.batch` vector."
+    )
 
 
 def _compute_per_graph_logp(
     model: torch.nn.Module,
-    data_batch,          # PyG Batch
-    y_tokens: torch.Tensor,           # [N]
-    node_mask: Optional[torch.Tensor],
+    data_batch,
+    targets: torch.Tensor,
+    node_mask: torch.Tensor,
     length_norm: bool,
-    *,
     no_grad: bool,
 ) -> torch.Tensor:
     """
-    Returns per-graph log p_theta(y|x) as [B] (B = #graphs in batch).
-    Sets batch.seq to y_tokens (teacher-forcing for AR model) before forward.
+    Returns per-graph total (or length-normalized) log-likelihood for the given targets.
     """
-    # Set the sequence that the AR model should condition on
-    # (teacher forcing). This is safe since we operate on the batched copy.
-    data_batch.seq = y_tokens
+    ctx = torch.no_grad() if no_grad else torch.enable_grad()
+    with ctx:
+        logits = _as_logits(model(data_batch))  # [N, C] or [N, 1, C]
+        if logits.dim() == 3:
+            # [N, 1, C] -> [N, C]
+            logits = logits.squeeze(-2)
 
-    if no_grad:
-        with torch.no_grad():
-            logits = _as_logits(model(data_batch))
-    else:
-        logits = _as_logits(model(data_batch))
+        # shapes
+        # targets: [N]
+        # node_mask: [N] (bool or 0/1)
+        # batch_index: [N] in [0..num_graphs-1]
+        batch_index = _get_batch_index(data_batch).to(logits.device)
 
-    # Node-wise log p for the provided tokens
-    node_logps = _gather_logps_from_logits(logits, y_tokens)  # [N]
-    # Reduce to per-graph values
-    per_graph = _aggregate_per_graph(node_logps, node_mask, data_batch.batch, length_norm)
-    return per_graph  # [B]
+        # log_probs per node for the true class
+        log_probs = F.log_softmax(logits, dim=-1)
+        per_node = torch.gather(log_probs, dim=-1, index=targets.to(logits.device).unsqueeze(-1)).squeeze(-1)
+
+        # mask invalid nodes
+        mask = node_mask.to(logits.device).to(per_node.dtype)
+        per_node = per_node * mask
+
+        # sum tokens per graph
+        n_graphs = int(batch_index.max().item()) + 1 if batch_index.numel() > 0 else 0
+        per_graph_sum = torch.zeros(n_graphs, device=per_node.device)
+        per_graph_sum.scatter_add_(0, batch_index, per_node)
+
+        if length_norm:
+            # number of valid tokens per graph
+            ones = mask
+            per_graph_len = torch.zeros(n_graphs, device=per_node.device)
+            per_graph_len.scatter_add_(0, batch_index, ones)
+            # avoid div-by-zero
+            per_graph_len = torch.clamp(per_graph_len, min=1.0)
+            per_graph_sum = per_graph_sum / per_graph_len
+
+        return per_graph_sum  # [G]
 
 
-def _nll_sft(
-    model: torch.nn.Module,
-    data_batch,
-    y_tokens: torch.Tensor,
-    node_mask: Optional[torch.Tensor],
+def _compute_sft_loss(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    node_mask: torch.Tensor,
     length_norm: bool,
 ) -> torch.Tensor:
     """
-    Winner-only SFT: masked CE reduced per-graph then mean over batch.
-    Returns a scalar loss (higher = worse).
+    Token-level cross-entropy reduced to mean over graphs.
     """
-    data_batch.seq = y_tokens
-    logits = _as_logits(model(data_batch))  # [N, V]
+    if logits.dim() == 3:
+        logits = logits.squeeze(-2)  # [N, 1, C] -> [N, C]
 
-    # Per-token CE (negative log-likelihood)
-    # NLL per token: -log p(y)
-    nll_tok = -_gather_logps_from_logits(logits, y_tokens)  # [N]
+    log_probs = F.log_softmax(logits, dim=-1)
+    nll = -torch.gather(log_probs, dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
 
-    # Reduce per graph
-    nll_per_graph = _aggregate_per_graph(nll_tok, node_mask, data_batch.batch, length_norm)  # [B]
-    # Mean over graphs
-    return nll_per_graph.mean()
+    mask = node_mask.to(nll.dtype)
+    nll = nll * mask
+
+    # aggregate by graph
+    # we assume logits & batch_index on same device
+    # get batch index through logits' device via a tiny trick: use targets device
+    # (all data tensors should already be moved together by Lightning)
+    # but call helper to be safe:
+    # Note: we need access to the batch to get per-graph splits; to keep API clean,
+    # SFT loss is computed outside where we already have `batch`. Hence this function
+    # expects node-wise tensors only and will reduce across all nodes.
+    # So instead of per-graph reduction here, we return mean over *masked nodes*.
+    denom = torch.clamp(mask.sum(), min=1.0)
+    if length_norm:
+        # normalizing by number of valid tokens is effectively the same in this scope
+        return nll.sum() / denom
+    else:
+        # without length-norm, we still average to keep scale consistent across batches
+        return nll.sum() / denom
 
 
-# -------------------------------
-# Public API: one training/eval step
-# -------------------------------
+# ---------- main step ----------
 
 def dpo_sft_step(
     model: torch.nn.Module,
-    ref_manager,
-    data_batch,                  # PyG Batch (CPU or already on device; trainer moves it)
-    y_w: torch.Tensor,           # winner tokens [N]
-    y_l: torch.Tensor,           # loser  tokens [N]
-    node_mask: Optional[torch.Tensor],  # [N] or None (if None, supervise all tokens)
-    weight: Optional[torch.Tensor] = None,  # [B] per-graph weights or None
+    data_batch,
     *,
-    beta: float = 0.1,
-    lambda_sft: float = 0.0,
-    length_norm: bool = True,
+    beta: float,
+    lambda_sft: float,
+    length_norm: bool,
+    ref_model: torch.nn.Module | None = None,
     train: bool = True,
-) -> Dict[str, Any]:
+) -> Dict[str, torch.Tensor]:
     """
-    Compute DPO loss (with frozen reference) + optional SFT, return metrics.
+    One combined DPO+SFT step on a batch of preference pairs.
 
-    Returns:
-      {
-        "loss": scalar,
-        "loss_dpo": scalar,
-        "loss_sft": scalar or None,
-        "pref_acc": scalar in [0,1],
-      }
+    Expected keys in `data_batch`:
+      - 'y_w', 'y_l' : Long tensors of size [N_total_nodes] (winner/loser tokens)
+      - 'node_mask'  : Bool/0-1 mask [N_total_nodes]
+      - 'graph' PyG Batch (or anything w/ .batch) to aggregate per-graph
     """
-    # 1) Policy per-graph logps
+    device = next(model.parameters()).device
+
+    # pull labels/masks
+    if isinstance(data_batch, dict):
+        y_w = data_batch["y_w"].to(device).long()
+        y_l = data_batch["y_l"].to(device).long()
+        node_mask = data_batch["node_mask"].to(device)
+    else:
+        # or attribute-style
+        y_w = getattr(data_batch, "y_w").to(device).long()
+        y_l = getattr(data_batch, "y_l").to(device).long()
+        node_mask = getattr(data_batch, "node_mask").to(device)
+
+    # ---- policy log-likelihoods per graph ----
     logp_pol_w = _compute_per_graph_logp(model, data_batch, y_w, node_mask, length_norm, no_grad=not train)
     logp_pol_l = _compute_per_graph_logp(model, data_batch, y_l, node_mask, length_norm, no_grad=not train)
 
-    # 2) Reference per-graph logps (no grad)
-    ref_model = _get_ref_model(ref_manager)
+    # ---- reference (always frozen, no_grad) ----
+    if ref_model is None:
+        raise ValueError("ref_model must be provided for DPO.")
     logp_ref_w = _compute_per_graph_logp(ref_model, data_batch, y_w, node_mask, length_norm, no_grad=True)
     logp_ref_l = _compute_per_graph_logp(ref_model, data_batch, y_l, node_mask, length_norm, no_grad=True)
 
-    # 3) DPO preference loss
-    #    L_dpo = - E[ log σ( β * ( (logπθ(w)-logπθ(l)) - (logπref(w)-logπref(l)) ) ) ]
-    margin_pol = logp_pol_w - logp_pol_l
-    margin_ref = logp_ref_w - logp_ref_l
-    dpo_arg = beta * (margin_pol - margin_ref)
-    loss_dpo_vec = -F.logsigmoid(dpo_arg)  # [B]
+    # ---- DPO objective (policy-only gradients) ----
+    # diff per graph
+    advantage = (logp_pol_w - logp_pol_l) - (logp_ref_w - logp_ref_l)  # [G]
+    loss_dpo = -F.logsigmoid(beta * advantage).mean()
 
-    # 4) Optional SFT (winner-only CE)
-    loss_sft = None
-    if lambda_sft and lambda_sft > 0.0:
-        loss_sft = _nll_sft(model, data_batch, y_w, node_mask, length_norm)  # scalar
+    # ---- optional SFT auxiliary (policy-only) ----
+    # compute token CE on winners; you can also add losers if desired
+    with torch.no_grad():
+        pol_logits = _as_logits(model(data_batch))
+        if pol_logits.dim() == 3:
+            pol_logits = pol_logits.squeeze(-2)
+    # re-enable grad for SFT on policy
+    pol_logits.requires_grad_(True)
+    loss_sft = _compute_sft_loss(pol_logits, y_w, node_mask, length_norm)
 
-    # 5) Weighting and aggregation over batch
-    if weight is not None:
-        # weight is per-graph [B]
-        weight = weight.to(dtype=loss_dpo_vec.dtype, device=loss_dpo_vec.device)
-        wsum = weight.sum().clamp_min(1.0)
-        loss_dpo = (loss_dpo_vec * weight).sum() / wsum
-    else:
-        loss_dpo = loss_dpo_vec.mean()
+    loss = loss_dpo + lambda_sft * loss_sft
 
-    loss = loss_dpo + (lambda_sft * loss_sft if loss_sft is not None else 0.0)
+    # simple accuracy (token-level over masked nodes) for logging
+    with torch.no_grad():
+        pred = pol_logits.argmax(dim=-1)
+        acc_w = ((pred == y_w) & node_mask.bool()).sum().float() / torch.clamp(node_mask.sum(), min=1)
 
-    # 6) Metrics
-    # Preference accuracy (policy-only): does the policy assign higher prob to the winner?
-    pref_acc = (margin_pol > 0).float().mean()
-
-    out = {
+    return {
         "loss": loss,
-        "loss_dpo": loss_dpo,
-        "loss_sft": loss_sft,
-        "pref_acc": pref_acc,
-        # (optional: expose raw means for debugging)
-        # "logp_pol_w": logp_pol_w.mean(),
-        # "logp_pol_l": logp_pol_l.mean(),
-        # "logp_ref_w": logp_ref_w.mean(),
-        # "logp_ref_l": logp_ref_l.mean(),
+        "loss_dpo": loss_dpo.detach(),
+        "loss_sft": loss_sft.detach(),
+        "acc_w": acc_w,
+        "adv_mean": advantage.mean().detach(),
     }
-    return out

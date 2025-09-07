@@ -4,9 +4,20 @@ import argparse, yaml, pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from dpo.patches import patch_featurizer_three_bead
+
 from dpo.env_bootstrap import bootstrap_env; bootstrap_env()
+
+# # NEW: apply compatibility patches before anything builds the featurizer
+# from dpo.compat_patches import patch_featurizer_internal_coords
+# patch_featurizer_internal_coords()
+
 from dpo.lightning_module import DpoLightningModule
 from dpo.lightning_datamodule import DpoDataModule
+
+import torch
+torch.set_float32_matmul_precision("high")
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -31,6 +42,8 @@ def main():
         filename="policy-{epoch:02d}-{val_loss:.4f}",
         save_top_k=2, monitor="val/loss", mode="min", save_last=True
     )
+
+    patch_featurizer_three_bead()
 
     module = DpoLightningModule(cfg)
     datamodule = DpoDataModule(cfg)

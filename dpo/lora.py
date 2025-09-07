@@ -1,117 +1,117 @@
 # dpo/lora.py
 from __future__ import annotations
-import math
-from typing import Sequence, Tuple, Set, List
+from typing import Iterable, List, Optional, Sequence
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class LoRALinear(nn.Module):
-    def __init__(self, base: nn.Linear, r: int = 8, alpha: int = 16, dropout: float = 0.0, train_bias: str = "none"):
+    """
+    Drop-in LoRA wrapper for nn.Linear.
+    y = Linear(x) + scale * Dropout(x) @ A @ B
+    where A in R^{in_features x r}, B in R^{r x out_features}, scale = alpha / r.
+    """
+
+    def __init__(
+        self,
+        linear: nn.Linear,
+        r: int = 8,
+        alpha: int = 16,
+        dropout: float = 0.0,
+        train_bias: str = "none",  # "none" or "all"
+    ):
         super().__init__()
-        assert isinstance(base, nn.Linear)
-        self.base = base
-        in_f, out_f = base.in_features, base.out_features
+        assert isinstance(linear, nn.Linear)
+        self.in_features = linear.in_features
+        self.out_features = linear.out_features
         self.r = int(r)
-        self.scaling = float(alpha) / float(max(1, r))
-        self.dropout = nn.Dropout(p=dropout) if dropout and dropout > 0 else nn.Identity()
+        self.alpha = int(alpha)
+        self.scaling = (alpha / r) if r > 0 else 0.0
 
-        # Freeze base weights
-        self.base.weight.requires_grad_(False)
-        if self.base.bias is not None and train_bias != "all":
-            self.base.bias.requires_grad_(False)
+        # Base (frozen) linear
+        self.linear = linear
+        self.linear.weight.requires_grad_(False)
+        if self.linear.bias is not None:
+            self.linear.bias.requires_grad_(train_bias == "all")
 
+        # LoRA adapters
         if self.r > 0:
-            self.lora_A = nn.Parameter(torch.zeros(in_f, self.r))
-            self.lora_B = nn.Parameter(torch.zeros(self.r, out_f))
-            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_B)
+            # A: in_features x r ; B: r x out_features
+            self.A = nn.Parameter(torch.zeros(self.in_features, self.r))
+            self.B = nn.Parameter(torch.zeros(self.r, self.out_features))
+            nn.init.kaiming_uniform_(self.A, a=5**0.5)
+            nn.init.zeros_(self.B)
         else:
-            self.register_parameter("lora_A", None)
-            self.register_parameter("lora_B", None)
+            self.register_parameter("A", None)
+            self.register_parameter("B", None)
 
-    def forward(self, x):
-        y = self.base(x)
-        if self.r and self.lora_A is not None:
-            x_d = self.dropout(x)
-            update = (x_d @ self.lora_A) @ self.lora_B
-            y = y + self.scaling * update
+        self.drop = nn.Dropout(dropout) if dropout and dropout > 0 else nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.linear(x)
+        if self.r > 0:
+            # (.., in) @ (in, r) @ (r, out) -> (.., out)
+            y = y + self.scaling * (self.drop(x) @ self.A @ self.B)
         return y
 
 
-def _name_matches(name: str, patterns: Sequence[str]) -> bool:
-    # empty string "" matches all; if patterns contains "", match all linear modules
-    return ("" in patterns) or any(p in name for p in patterns)
+def _name_matches_any(name: str, substrings: Sequence[str]) -> bool:
+    # If user passes [""] treat as "match all Linear"
+    if len(substrings) == 0:
+        return False
+    if len(substrings) == 1 and substrings[0] == "":
+        return True
+    return any(s in name for s in substrings)
 
 
-def _iter_module_tree(root: nn.Module) -> List[Tuple[str, nn.Module]]:
+def apply_lora(
+    model: nn.Module,
+    r: int = 8,
+    alpha: int = 16,
+    dropout: float = 0.0,
+    target_modules: Optional[Sequence[str]] = None,
+    train_bias: str = "none",
+) -> nn.Module:
     """
-    Iterative DFS over the module tree, yielding (full_name, module).
-    Avoid recursion and protect against cycles via a visited set.
+    Wrap matching nn.Linear modules in LoRALinear and freeze non-adapter weights.
+    Returns the *same* model instance with modules replaced in-place.
     """
-    stack: List[Tuple[str, nn.Module]] = [("", root)]
-    visited: Set[int] = set()
-    out: List[Tuple[str, nn.Module]] = []
+    if target_modules is None:
+        target_modules = [""]
 
-    while stack:
-        name, mod = stack.pop()
-        mid = id(mod)
-        if mid in visited:
-            continue
-        visited.add(mid)
-        out.append((name, mod))
+    # Replace in-place
+    for name, module in list(model.named_modules()):
+        if isinstance(module, nn.Linear) and _name_matches_any(name, target_modules):
+            # Find the parent to replace attribute
+            parent_name, attr = name.rsplit(".", 1) if "." in name else ("", name)
+            parent = model.get_submodule(parent_name) if parent_name else model
+            wrapped = LoRALinear(module, r=r, alpha=alpha, dropout=dropout, train_bias=train_bias)
+            setattr(parent, attr, wrapped)
 
-        # Push children
-        for child_name, child in mod.named_children():
-            full = f"{name}.{child_name}" if name else child_name
-            stack.append((full, child))
-    return out
-
-
-def apply_lora(model: nn.Module,
-               enabled: bool = True,
-               r: int = 8,
-               alpha: int = 16,
-               dropout: float = 0.0,
-               target_modules: Sequence[str] = ("linear", "proj", "fc", "out_proj"),
-               train_bias: str = "none") -> int:
-    """
-    Replace selected nn.Linear modules with LoRALinear wrappers.
-    Returns number of modules wrapped.
-    If target_modules contains "", wrap ALL Linear modules.
-    """
-    if not enabled:
-        return 0
-
-    patterns = list(target_modules) if target_modules is not None else [""]
-    if len(patterns) == 0:
-        patterns = [""]  # wrap all
-
-    wrapped = 0
-
-    # Iterate parents so we can assign back into them safely
-    for parent_name, parent in _iter_module_tree(model):
-        # work on a snapshot to avoid mutation during iteration
-        for child_name, child in list(parent.named_children()):
-            full_name = f"{parent_name}.{child_name}" if parent_name else child_name
-
-            # Skip if already LoRA-wrapped
-            if isinstance(child, LoRALinear):
-                continue
-
-            if isinstance(child, nn.Linear) and _name_matches(full_name, patterns):
-                lora = LoRALinear(child, r=r, alpha=alpha, dropout=dropout, train_bias=train_bias)
-                setattr(parent, child_name, lora)
-                wrapped += 1
-
-    return wrapped
-
-
-def mark_only_lora_as_trainable(model: nn.Module, train_bias: str = "none"):
-    for n, p in model.named_parameters():
-        if "lora_A" in n or "lora_B" in n:
-            p.requires_grad_(True)
-        elif n.endswith(".bias") and train_bias == "all":
-            p.requires_grad_(True)
+    # Freeze everything except LoRA params (and bias if requested)
+    for m in model.modules():
+        if isinstance(m, LoRALinear):
+            # LoRA params trainable
+            if m.A is not None:
+                m.A.requires_grad_(True)
+            if m.B is not None:
+                m.B.requires_grad_(True)
+            # bias flag handled inside LoRALinear
+        elif isinstance(m, nn.Linear):
+            # Any remaining Linear (not wrapped) is fully frozen unless user wants bias
+            m.weight.requires_grad_(False)
+            if m.bias is not None:
+                m.bias.requires_grad_(train_bias == "all")
         else:
-            p.requires_grad_(False)
+            # leave other modules as-is; the upstream ARv1 has most non-linear params frozen anyway
+            pass
+
+    return model
+
+
+def summarize_lora(model: nn.Module) -> dict:
+    n_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_total = sum(p.numel() for p in model.parameters())
+    n_wrapped = sum(1 for m in model.modules() if isinstance(m, LoRALinear))
+    return {"trainable": n_train, "total": n_total, "wrapped_linear": n_wrapped}
