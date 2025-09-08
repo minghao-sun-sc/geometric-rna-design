@@ -376,13 +376,34 @@ class DpoLightningModule(pl.LightningModule):
         # Log aux metrics
         to_log = {k: v for k, v in out.items() if k != "loss"}
         if to_log:
-            self.log_dict(
-                to_log,
-                prog_bar=True,
-                on_step=False,
-                on_epoch=True,
-                sync_dist=True,
-            )
+            # LIGHTNING FIX: Add batch_size for proper metric aggregation
+            batch_size = batch.num_graphs if hasattr(batch, 'num_graphs') else 1
+            
+            # CRITICAL FIX: Enable per-step logging for real-time progress bar metrics
+            mode_prefix = "train" if train else "val"
+            
+            # Log each metric individually with proper naming and step-level visibility
+            for key, value in to_log.items():
+                self.log(
+                    f"{mode_prefix}/{key}",
+                    value,
+                    prog_bar=True,       # Show in progress bar
+                    on_step=True,        # Log every step (not just per-epoch)
+                    on_epoch=True,       # Also log epoch averages
+                    sync_dist=True,
+                    batch_size=batch_size,
+                )
+        
+        # Also log the main loss for progress bar display
+        self.log(
+            f"{'train' if train else 'val'}/loss",
+            out["loss"],
+            prog_bar=True,
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+            batch_size=batch_size,
+        )
         return out
 
     # ---------------- Lightning hooks ---------------- #

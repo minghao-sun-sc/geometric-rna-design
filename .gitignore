@@ -14,6 +14,10 @@ backup_checkpoints/*
 Miniforge3-Linux-x86_64.sh
 exit/
 
+# DPO-RNA
+dpo/runs/
+runs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -135,6 +139,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+CLAUDE.md
 
 # Spyder project settings
 .spyderproject

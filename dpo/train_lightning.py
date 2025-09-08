@@ -23,7 +23,8 @@ torch.set_float32_matmul_precision("high")
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="dpo/configs/default.yaml")
-    ap.add_argument("--wandb", action="store_true")
+    ap.add_argument("--wandb", action="store_true", default=True, help="Enable wandb logging (default: True)")
+    ap.add_argument("--no-wandb", action="store_true", help="Disable wandb logging")
     ap.add_argument("--project", default=None)
     ap.add_argument("--run_name", default=None)
     ap.add_argument("--precision", default="bf16-mixed")
@@ -33,10 +34,26 @@ def main():
     cfg = yaml.safe_load(open(args.config))
     pl.seed_everything(int(cfg.get("seed", 42)), workers=True)
 
+    # WANDB FIX: Enable wandb by default with proper error handling
     logger = None
-    if args.wandb:
-        logger = WandbLogger(project=args.project or cfg["logging"]["project"],
-                             name=args.run_name, log_model=False)
+    try:
+        # Use wandb unless explicitly disabled with --no-wandb
+        if not args.no_wandb:
+            project_name = args.project or cfg["logging"]["project"]
+            print(f"[wandb] Initializing wandb logger for project: {project_name}")
+            logger = WandbLogger(
+                project=project_name,
+                name=args.run_name, 
+                log_model=False,
+                save_dir=cfg["train"].get("save_dir", "runs/offline_dpo_full")
+            )
+            print(f"[wandb] ✅ Wandb logger initialized successfully")
+        else:
+            print(f"[wandb] Wandb disabled by --no-wandb flag")
+    except Exception as e:
+        print(f"[wandb] ❌ Failed to initialize wandb: {e}")
+        print(f"[wandb] Falling back to CSV logger")
+        logger = None
 
     ckpt_cb = ModelCheckpoint(
         dirpath=cfg["train"].get("save_dir", "runs/offline_dpo_full"),
