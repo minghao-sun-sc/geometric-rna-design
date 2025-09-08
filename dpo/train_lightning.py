@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, yaml, pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies import DDPStrategy
 
 from dpo.patches import patch_featurizer_three_bead
 
@@ -47,7 +48,41 @@ def main():
 
     module = DpoLightningModule(cfg)
     datamodule = DpoDataModule(cfg)
+    
+    # PARAMETER VERIFICATION: Log trainable vs frozen parameters for debugging
+    print(f"\n=== PARAMETER VERIFICATION ===")
+    trainable_params = []
+    frozen_params = []
+    lora_params = []
+    
+    for name, param in module.model.named_parameters():
+        if param.requires_grad:
+            trainable_params.append(name)
+            if "lora" in name.lower() or "A" in name or "B" in name:  # LoRA parameter patterns
+                lora_params.append(name)
+        else:
+            frozen_params.append(name)
+    
+    print(f"Trainable parameters: {len(trainable_params)}")
+    print(f"Frozen parameters: {len(frozen_params)}")
+    print(f"LoRA parameters: {len(lora_params)}")
+    
+    if len(trainable_params) > 0:
+        print(f"Sample trainable params: {trainable_params[:5]}")
+    if len(lora_params) > 0:
+        print(f"Sample LoRA params: {lora_params[:3]}")
+    
+    # Verify reference model is completely frozen
+    ref_trainable = sum(1 for p in module.ref_model.parameters() if p.requires_grad)
+    print(f"Reference model trainable params: {ref_trainable} (should be 0)")
+    
+    if ref_trainable > 0:
+        print("WARNING: Reference model has trainable parameters!")
 
+    # CRITICAL FIX: Use DDPStrategy with find_unused_parameters=True to handle LoRA + reference model
+    # This allows DDP to tolerate parameters that don't contribute to loss in every forward pass
+    ddp_strategy = DDPStrategy(find_unused_parameters=True)
+    
     trainer = pl.Trainer(
         logger=logger,
         max_epochs=int(cfg["train"]["rounds"]) * int(cfg["train"]["epochs_per_round"]),
@@ -56,7 +91,7 @@ def main():
         precision=args.precision,
         accelerator="gpu",
         devices=args.devices,
-        strategy="ddp",
+        strategy=ddp_strategy,
         callbacks=[ckpt_cb],
         log_every_n_steps=int(cfg["train"].get("val_every_steps", 100)),
     )
