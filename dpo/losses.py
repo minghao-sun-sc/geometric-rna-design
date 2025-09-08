@@ -144,7 +144,17 @@ def _compute_sft_loss(
         logits = logits.squeeze(-2)  # [N, 1, C] -> [N, C]
 
     log_probs = F.log_softmax(logits, dim=-1)
-    nll = -torch.gather(log_probs, dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
+    
+    # CRITICAL FIX: Ensure target indices are within vocab bounds (same as DPO loss)
+    vocab_size = logits.shape[-1]  # Number of classes in logits
+    targets_safe = torch.clamp(targets.to(logits.device), 0, vocab_size - 1)
+    
+    # Debug: check if we had to clamp any values
+    if not torch.equal(targets.cpu(), targets_safe.cpu()):
+        n_clamped = (targets.cpu() != targets_safe.cpu()).sum().item()
+        print(f"[SFT] Clamped {n_clamped} target tokens from range {targets.min()}-{targets.max()} to 0-{vocab_size-1}")
+    
+    nll = -torch.gather(log_probs, dim=-1, index=targets_safe.unsqueeze(-1)).squeeze(-1)
 
     mask = node_mask.to(nll.dtype)
     nll = nll * mask

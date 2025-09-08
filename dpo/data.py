@@ -319,8 +319,9 @@ class PreferencePairDataset(Dataset):
             # windowed case: pad to graph length; mask supervises only the window
             start, Lq = entry["_window"]
 
-            # initialize with '_' tokens (unknown); they won't be used if mask=0
-            pad_tok = self.letter_to_num["_"]
+            # initialize with valid token (A=0); they won't be used if mask=0
+            # CRITICAL FIX: Use token 0 instead of 4 to avoid model index out-of-bounds
+            pad_tok = 0  # Use 'A' as padding token instead of '_'
             y_w = torch.full((gL,), pad_tok, dtype=torch.long)
             y_l = torch.full((gL,), pad_tok, dtype=torch.long)
 
@@ -378,6 +379,23 @@ def collate_pairs(batch: List[Tuple[Any, ...]]):
     data_batch.y_w = torch.cat(ys_w, dim=0)
     data_batch.y_l = torch.cat(ys_l, dim=0) 
     data_batch.weight = torch.stack(ws)
+    
+    # CRITICAL FIX: Ensure all tokens are within model vocabulary range [0, 3]
+    model_vocab_size = 4  # gRNAde model vocab: A, C, G, U
+    
+    # Validate and clamp winner targets
+    if data_batch.y_w.max() >= model_vocab_size:
+        n_invalid = (data_batch.y_w >= model_vocab_size).sum().item()
+        max_val = data_batch.y_w.max().item()
+        print(f"[collate] Clamping {n_invalid} invalid winner tokens from max {max_val} to {model_vocab_size-1}")
+        data_batch.y_w = torch.clamp(data_batch.y_w, 0, model_vocab_size - 1)
+    
+    # Validate and clamp loser targets  
+    if data_batch.y_l.max() >= model_vocab_size:
+        n_invalid = (data_batch.y_l >= model_vocab_size).sum().item()
+        max_val = data_batch.y_l.max().item()
+        print(f"[collate] Clamping {n_invalid} invalid loser tokens from max {max_val} to {model_vocab_size-1}")
+        data_batch.y_l = torch.clamp(data_batch.y_l, 0, model_vocab_size - 1)
     
     # Handle mixed mask cases: some None (exact match), some tensors (windowed)
     all_masks = []

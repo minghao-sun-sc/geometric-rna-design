@@ -40,6 +40,10 @@ data:
   strict_length_check: false
   window_align: true
   min_window_identity: 0.70
+  # Vocabulary configuration
+  vocab_size: 4        # gRNAde model vocabulary: A=0, C=1, G=2, U=3
+  pad_token: 0         # Use A as padding token (will be masked anyway)
+  mask_invalid_tokens: true  # Don't supervise tokens outside vocab range
 
 # === Train ===
 train:
