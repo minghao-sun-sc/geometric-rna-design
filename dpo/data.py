@@ -25,6 +25,8 @@ class DPOPairDataset(Dataset):
         super().__init__()
         self.device = device
         self.split_name = split_name
+        # Force featurizer to use CPU to avoid device mismatch
+        featurizer_device = "cpu"
 
         # load processed list
         self.processed = load_processed_pt(processed_pt_path)
@@ -47,7 +49,7 @@ class DPOPairDataset(Dataset):
             max_num_conformers = getattr(featurizer_cfg, "max_num_conformers", 1),
             noise_scale = getattr(featurizer_cfg, "noise_scale", 0.1),
             distance_eps = getattr(featurizer_cfg, "distance_eps", 1e-3),
-            device = device
+            device = featurizer_device
         )
 
         # load pairs (jsonl or json)

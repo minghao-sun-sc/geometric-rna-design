@@ -39,10 +39,15 @@ def build_policy_and_reference(cfg, device):
 
 def save_checkpoint(root, name, model, optimizer, scheduler, step, best_metric, cfg):
     path = os.path.join(root, f"{name}.pt")
+    # Handle custom schedulers that don't have state_dict
+    scheduler_state = None
+    if scheduler is not None and hasattr(scheduler, "state_dict"):
+        scheduler_state = scheduler.state_dict()
+    
     obj = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict() if optimizer is not None else None,
-        "scheduler": scheduler.state_dict() if scheduler is not None else None,
+        "scheduler": scheduler_state,
         "step": step,
         "best_metric": best_metric,
         "cfg": cfg.__dict__ if hasattr(cfg, "__dict__") else None,
