@@ -80,8 +80,22 @@ class DPOPairDataset(Dataset):
             "coords_list": coords_list,
             "sec_struct_list": entry.get("sec_struct_list", ["."*len(entry["sequence"]) for _ in coords_list]),
         }
-        graph = self.featurizer.featurize(raw)
-        return graph
+        
+        try:
+            graph = self.featurizer.featurize(raw)
+            
+            # Additional validation: ensure graph has edges
+            if not hasattr(graph, 'edge_index') or graph.edge_index.size(1) == 0:
+                cid = entry.get("id_list", ["unknown"])[0] if entry.get("id_list") else "unknown"
+                print(f"Warning: Skipping {cid} - generated graph has no edges")
+                return None
+                
+            return graph
+            
+        except Exception as e:
+            cid = entry.get("id_list", ["unknown"])[0] if entry.get("id_list") else "unknown"
+            print(f"Warning: Skipping {cid} due to featurization error: {e}")
+            return None
 
     def __getitem__(self, idx: int) -> PairBatch:
         max_attempts = 10  # Avoid infinite loops
@@ -94,6 +108,14 @@ class DPOPairDataset(Dataset):
                 gi = self.id_index[cid]
 
                 graph = self._build_graph_from_entry(gi)
+                
+                # Check if featurization failed
+                if graph is None:
+                    print(f"Warning: Skipping {cid} due to featurization failure")
+                    # Try next index (with wraparound)
+                    idx = (idx + 1) % len(self.pairs)
+                    attempts += 1
+                    continue
 
                 # winner/loser sequences -> int tensors (ensure same length as graph.seq)
                 def to_int_seq(seq: str):
