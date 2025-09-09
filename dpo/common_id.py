@@ -1,15 +1,14 @@
-# dpo/common_id.py (append or replace extractor section)
-
-from typing import Any, Dict, Optional, Iterable
+# dpo/common_id.py
 import os, re
 from collections import Counter
+from typing import Iterable, Any, Dict, Optional
 
 def canonicalize_id(s: str) -> str:
     s = os.path.basename(str(s))
     s = re.sub(r"\.(pdb|cif|mmcif)$", "", s, flags=re.IGNORECASE)
     parts = s.split("_")
     if len(parts) >= 3:
-        chain = parts[2].split("-")[0]  # drop decorations after '-'
+        chain = parts[2].split("-")[0]
         s = "_".join([parts[0], parts[1], chain])
     else:
         s = s.split("-")[0]
@@ -27,10 +26,12 @@ def canonical_from_id_list(id_list: Iterable[str]) -> str:
 CANDIDATE_ID_KEYS = [
     "backbone_id", "backbone", "target", "target_id",
     "structure_id", "graph_id", "pdb_model_chain",
-    "pdb_chain", "pdb_id", "id", "pdb_file"   # <-- added
+    "pdb_chain", "pdb_id", "id", "pdb_file"
 ]
 
-CANDIDATE_INDEX_KEYS = ["index", "graph_index", "idx", "data_index", "backbone_index"]
+CANDIDATE_INDEX_KEYS = [
+    "index", "graph_index", "idx", "data_index", "backbone_index"
+]
 
 def extract_index_from_pair(p: Dict[str, Any]) -> Optional[int]:
     for k in CANDIDATE_INDEX_KEYS:
@@ -49,7 +50,7 @@ def extract_backbone_id_from_pair(p: Dict[str, Any]) -> str:
         for k in CANDIDATE_ID_KEYS:
             if k in meta and meta[k]:
                 return canonicalize_id(str(meta[k]))
-    # 3) list-style ids
+    # 3) list of ids
     for k in ["id_list", "src_ids", "ids", "graph_ids"]:
         if k in p and isinstance(p[k], (list, tuple)) and p[k]:
             return canonical_from_id_list(p[k])

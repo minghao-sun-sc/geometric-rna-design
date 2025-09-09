@@ -1,0 +1,67 @@
+# dpo/configs/simple_nolora.yaml
+# Simplified configuration for DPO training without LoRA
+# Uses exact-match pairs only, trains full model
+
+seed: 42
+device: "cuda"
+gpu: 0
+
+# === Model ===
+model:
+  model: "ARv1"  # AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim: [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim: [64, 4]
+  num_layers: 4
+  drop_rate: 0.1  # Lower dropout for full model training
+  out_dim: 4
+
+# Pretrained checkpoint
+model_checkpoint: "checkpoints/gRNAde_ARv1_1state_all.h5"
+
+# === Data ===
+data:
+  processed_pt: "data/processed.pt"
+  split_file: "data/das_split.pt"
+  # Use filtered exact-match pairs
+  pairs_path_train: "data/pairs_exact_match/train.jsonl"
+  pairs_path_val: "data/pairs_exact_match/val.jsonl"
+  max_num_conformers: 1
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  noise_scale: 0.1
+
+# === Training ===
+train:
+  batch_size: 8  # Smaller batch for full model
+  grad_accum_steps: 16  # More accumulation for effective batch of 128
+  num_workers: 2
+  grad_clip: 1.0
+  rounds: 2  # Multi-round DPO
+  epochs_per_round: 5  # 10 total epochs
+  val_every_steps: 200
+  save_dir: "runs/simple_nolora"
+
+# === Optimizer ===
+optimizer:
+  lr: 5.0e-5  # Lower LR for full model training
+  weight_decay: 0.01
+  betas: [0.9, 0.98]
+
+# === Loss ===
+loss:
+  beta: 0.2  # DPO temperature
+  lambda_sft: 0.05  # SFT regularization
+  length_norm: true  # Normalize by sequence length
+
+# === LoRA (disabled) ===
+lora:
+  enabled: false  # No LoRA - train full model
+
+# === Logging ===
+logging:
+  project: "DPO-RNA-Simple"
+  log_grads: false

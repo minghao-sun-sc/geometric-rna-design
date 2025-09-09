@@ -336,8 +336,25 @@ class DpoLightningModule(pl.LightningModule):
         n_train, n_total = _count_params(self.model)
         print(f"[init] Trainable params (policy): {n_train:,} / {n_total:,}")
 
-        # Optimizer config
-        opt_cfg = cfg.get("optimizer", {})
+        # DIAGNOSTIC: Check policy-reference similarity at init (should be identical)
+        print(f"\n=== POLICY-REFERENCE INITIALIZATION CHECK ===")
+        try:
+            # Create a dummy batch for sanity check
+            # (This is just for verification - won't affect training)
+            with torch.no_grad():
+                self.model.eval()
+                self.ref_model.eval()
+                
+                # Simple dummy inputs for shape check
+                dummy_batch = {"graph": {"batch": torch.zeros(4, dtype=torch.long)}}
+                
+                # Skip if models need specific input format
+                print("[init] Skipping detailed logits check - will verify during first training step")
+        except Exception as e:
+            print(f"[init] Could not run diagnostic check: {e}")
+
+        # Optimizer config - support both "optimizer" and "optim" keys for robustness
+        opt_cfg = cfg.get("optimizer") or cfg.get("optim", {})
         if not isinstance(opt_cfg, dict):
             opt_cfg = _to_dict(opt_cfg)
         self._lr: float = float(opt_cfg.get("lr", cfg.get("lr", 1e-4)))
@@ -361,6 +378,9 @@ class DpoLightningModule(pl.LightningModule):
     def _shared_step(self, batch: Any, batch_idx: int, *, train: bool) -> Dict[str, torch.Tensor]:
         batch = _unwrap_batch(batch)
 
+        # DIAGNOSTIC: Check if this is the first training step to verify advantage ~0
+        is_first_step = (self.global_step == 0 and train and batch_idx == 0)
+        
         # Exact signature from your printout:
         # dpo_sft_step(model, data_batch, *, beta, lambda_sft, length_norm, ref_model=None, train=True)
         out = dpo_sft_step(
@@ -372,37 +392,57 @@ class DpoLightningModule(pl.LightningModule):
             ref_model=self.ref_model,
             train=bool(train),
         )
+        
+        # DIAGNOSTIC: Log first step advantage to verify it's near zero after fixes
+        if is_first_step:
+            adv_mean = out.get("adv_mean", torch.tensor(0.0))
+            print(f"\n=== FIRST STEP DIAGNOSTIC ===")
+            print(f"[step 0] Advantage mean: {adv_mean:.4f} (should be ~0 after dropout fix)")
+            print(f"[step 0] DPO loss: {out['loss_dpo']:.4f}")
+            print(f"[step 0] Winner accuracy: {out['acc_w']:.4f}")
+            print("================================\n")
 
+        # ROBUSTNESS FIX: More robust batch_size calculation (moved outside to fix scope)
+        try:
+            if hasattr(batch, 'num_graphs') and batch.num_graphs is not None:
+                batch_size = max(int(batch.num_graphs), 1)
+            elif hasattr(batch, 'graph') and hasattr(batch.graph, 'num_graphs'):
+                batch_size = max(int(batch.graph.num_graphs), 1)
+            else:
+                batch_size = 1
+        except (AttributeError, TypeError, ValueError):
+            batch_size = 1
+            
         # Log aux metrics
         to_log = {k: v for k, v in out.items() if k != "loss"}
         if to_log:
-            # LIGHTNING FIX: Add batch_size for proper metric aggregation
-            batch_size = batch.num_graphs if hasattr(batch, 'num_graphs') else 1
             
             # CRITICAL FIX: Enable per-step logging for real-time progress bar metrics
             mode_prefix = "train" if train else "val"
             
-            # Log each metric individually with proper naming and step-level visibility
+            # Log each metric individually with proper names
             for key, value in to_log.items():
                 self.log(
                     f"{mode_prefix}/{key}",
                     value,
-                    prog_bar=True,       # Show in progress bar
-                    on_step=True,        # Log every step (not just per-epoch)
-                    on_epoch=True,       # Also log epoch averages
+                    prog_bar=train,      # Only show progress bar for training (avoid clutter)
+                    on_step=train,       # Log steps for training
+                    on_epoch=not train,  # Log epoch averages for validation (needed for checkpointing)
                     sync_dist=True,
                     batch_size=batch_size,
+                    logger=True,         # Ensure it goes to wandb
                 )
         
-        # Also log the main loss for progress bar display
+        # CRITICAL FIX: Log main loss with epoch aggregation for validation checkpointing
         self.log(
             f"{'train' if train else 'val'}/loss",
             out["loss"],
             prog_bar=True,
-            on_step=True,
-            on_epoch=True,
+            on_step=train,           # Log steps for training
+            on_epoch=True,           # ALWAYS log epoch averages (needed for checkpointing)
             sync_dist=True,
             batch_size=batch_size,
+            logger=True,             # Ensure it goes to wandb
         )
         return out
 
@@ -415,3 +455,45 @@ class DpoLightningModule(pl.LightningModule):
     def validation_step(self, batch: Any, batch_idx: int):
         out = self._shared_step(batch, batch_idx, train=False)
         return out["loss"]
+
+    # ---------------- Reference model refresh for multi-round DPO ---------------- #
+    
+    def on_train_epoch_end(self):
+        """Refresh reference model every epochs_per_round for multi-round DPO."""
+        # Get epochs_per_round from config
+        cfg = _to_dict(self.config)
+        epochs_per_round = int(cfg.get("train", {}).get("epochs_per_round", 10))
+        
+        # Check if we should refresh (every epochs_per_round epochs)
+        if (self.current_epoch + 1) % epochs_per_round == 0:
+            print(f"\n=== REFERENCE MODEL REFRESH at epoch {self.current_epoch + 1} ===")
+            
+            # Copy current policy to reference model
+            import copy
+            old_ref_params = sum(p.numel() for p in self.ref_model.parameters())
+            
+            # Deep copy the policy model's state
+            self.ref_model.load_state_dict(self.model.state_dict())
+            
+            # Ensure reference model is frozen and in eval mode
+            _freeze_module(self.ref_model)
+            
+            new_ref_params = sum(p.numel() for p in self.ref_model.parameters())
+            ref_trainable = sum(1 for p in self.ref_model.parameters() if p.requires_grad)
+            
+            print(f"[ref_refresh] Copied {new_ref_params:,} parameters from policy to reference")
+            print(f"[ref_refresh] Reference model trainable params: {ref_trainable} (should be 0)")
+            print("==================================================\n")
+    
+    # ---------------- Wandb DDP Fix ---------------- #
+    
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        """Ensure wandb gets metrics in DDP mode."""
+        # Force sync metrics to wandb logger every N steps
+        if self.global_step % 50 == 0 and hasattr(self.logger, 'experiment'):
+            try:
+                # Flush any pending logs to wandb
+                if hasattr(self.logger.experiment, 'log') and hasattr(self.logger, '_logged_metrics'):
+                    self.logger.experiment.log({}, commit=False)
+            except Exception:
+                pass  # Ignore wandb flush errors

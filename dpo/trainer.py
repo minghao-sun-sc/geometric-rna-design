@@ -1,252 +1,140 @@
-# dpo/trainer.py
-from __future__ import annotations
-import os
-import math
-from typing import Dict, Any, Optional
+import os, math, json, time, copy
+from collections import defaultdict
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
+import torch.nn.functional as F
+from torch.cuda.amp import GradScaler, autocast
 
-try:
-    import wandb
-    _WANDB_OK = True
-except Exception:
-    _WANDB_OK = False
-
-from dpo.losses import dpo_sft_step
-from dpo.ref_manager import RefManager
-from dpo.lora import apply_lora, mark_only_lora_as_trainable
-from dpo.utils import AverageMeter, set_seed
-from dpo.model_factory import build_model  # <-- use our factory
+from dpo.data import build_dataloaders
+from dpo.losses import dpo_step_losses, ce_on_sequence
+from dpo.ref_manager import build_policy_and_reference, save_checkpoint, load_checkpoint
+from dpo.utils import WarmupCosine, AverageMeter, now_str
+import wandb
 
 
-def _is_rank0() -> bool:
-    return int(os.environ.get("RANK", "0")) == 0
+class DPOTrainer:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
 
+        # data
+        self.train_loader, self.val_loader, self.test_loader, self.meta = build_dataloaders(cfg, device=self.device)
 
-def _maybe_log(step: int, payload: Dict[str, Any]):
-    if _WANDB_OK and wandb.run is not None and _is_rank0():
-        wandb.log(payload, step=step)
+        # models
+        self.policy, self.reference = build_policy_and_reference(cfg, self.device)
 
+        # opt/sched
+        self.optimizer = torch.optim.AdamW(
+            self.policy.parameters(),
+            lr=cfg.optimizer.lr,
+            betas=tuple(cfg.optimizer.betas),
+            eps=cfg.optimizer.eps,
+            weight_decay=cfg.optimizer.weight_decay
+        )
+        total_steps = cfg.training.epochs * len(self.train_loader)
+        self.scheduler = WarmupCosine(
+            self.optimizer, warmup_steps=cfg.scheduler.warmup_steps,
+            total_steps=total_steps, min_lr_ratio=cfg.scheduler.min_lr_ratio
+        )
 
-def _save_ckpt(save_dir: str, model: nn.Module, tag: str):
-    if not _is_rank0():
-        return None
-    os.makedirs(save_dir, exist_ok=True)
-    path = os.path.join(save_dir, f"policy_{tag}.pt")
-    torch.save(model.state_dict(), path)
-    return path
+        self.scaler = GradScaler(enabled=cfg.training.precision in ["fp16", "bf16"])
+        self.global_step = 0
+        self.best_metric = -1.0
+        self.save_root = os.path.join(cfg.paths.save_dir, cfg.wandb.run_name or now_str())
+        os.makedirs(self.save_root, exist_ok=True)
+        os.makedirs(os.path.join(self.save_root, "steps"), exist_ok=True)
 
+        if cfg.training.compile and hasattr(torch, "compile"):
+            self.policy = torch.compile(self.policy)
 
-def _build_optimizer(cfg, model: nn.Module):
-    lr = float(cfg["optim"]["lr"])
-    wd = float(cfg["optim"]["weight_decay"])
-    betas = tuple(cfg["optim"].get("betas", [0.9, 0.98]))
-    return optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()),
-                       lr=lr, weight_decay=wd, betas=betas)
+    def train(self):
+        cfg = self.cfg
+        self.policy.train()
 
+        for epoch in range(cfg.training.epochs):
+            meters = defaultdict(AverageMeter)
 
-def _build_scheduler(cfg, optimizer: optim.Optimizer):
-    sched_name = cfg["optim"].get("scheduler", "none")
-    if sched_name == "cosine_wr":
-        t0 = int(cfg["optim"].get("cosine_t0_steps", 2000))
-        tm = int(cfg["optim"].get("cosine_tmult", 2))
-        return optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=tm)
-    return None
+            for batch in self.train_loader:
+                self.global_step += 1
 
+                with autocast(enabled=cfg.training.precision in ["fp16", "bf16"], dtype=torch.bfloat16 if cfg.training.precision=="bf16" else torch.float16):
+                    # DPO forward
+                    out = dpo_step_losses(
+                        model=self.policy,
+                        ref_model=self.reference,
+                        batch=batch,
+                        beta=cfg.dpo.beta,
+                        label_smoothing=cfg.dpo.label_smoothing,
+                        max_len=cfg.dpo.max_len
+                    )
+                    loss = out["loss_dpo"]
 
-def _move_to_device(batch_tuple, device: torch.device):
-    data_batch, y_w, y_l, w, node_mask, gids = batch_tuple
-    data_batch = data_batch.to(device, non_blocking=True)
-    y_w        = y_w.to(device, non_blocking=True)
-    y_l        = y_l.to(device, non_blocking=True)
-    w          = w.to(device, non_blocking=True)
-    if node_mask is not None:
-        node_mask = node_mask.to(device, non_blocking=True)
-    return (data_batch, y_w, y_l, w, node_mask, gids)
+                    # optional SFT on winners
+                    if cfg.dpo.sft_lambda and cfg.dpo.sft_lambda > 0:
+                        loss_sft = ce_on_sequence(self.policy, batch.graph, batch.winner_seq, max_len=cfg.dpo.max_len)
+                        loss = loss + cfg.dpo.sft_lambda * loss_sft
+                        out["loss_sft"] = loss_sft.detach()
 
+                # backward (grad-accum)
+                self.scaler.scale(loss / cfg.training.grad_accum_steps).backward()
 
-def evaluate_loop(model: nn.Module,
-                  ref_manager: RefManager,
-                  val_loader: DataLoader,
-                  device: torch.device,
-                  cfg) -> Dict[str, float]:
-    model.eval()
-    meters = {k: AverageMeter() for k in ["loss", "loss_dpo", "loss_sft", "pref_acc"]}
+                if self.global_step % cfg.training.grad_accum_steps == 0:
+                    if cfg.optimizer.grad_clip_norm and cfg.optimizer.grad_clip_norm > 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), cfg.optimizer.grad_clip_norm)
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    self.optimizer.zero_grad(set_to_none=True)
+                    self.scheduler.step()
 
-    beta = float(cfg["loss"]["beta"])
-    lambda_sft = float(cfg["loss"]["lambda_sft"])  # mandatory SFT
-    length_norm = bool(cfg["loss"].get("length_norm", True))
+                # meters
+                meters["train/loss"].update(loss.detach().item(), 1)
+                for k in ["loss_dpo", "pref_acc", "margin"]:
+                    meters[f"train/{k}"].update(out[k].item(), 1)
+                meters["train/lr"].update(self.optimizer.param_groups[0]["lr"], 1)
 
-    with torch.no_grad():
-        for batch_tuple in val_loader:
-            data_batch, y_w, y_l, w, node_mask, gids = _move_to_device(batch_tuple, device)
+                # log every step
+                if (self.global_step % cfg.training.log_every) == 0 and wandb.run is not None:
+                    log = {k: v.avg for k, v in meters.items()}
+                    log["epoch"] = epoch
+                    log["step"] = self.global_step
+                    wandb.log(log, step=self.global_step)
 
-            out = dpo_sft_step(
-                model=model,
-                ref_manager=ref_manager,
-                data_batch=data_batch,
-                y_w=y_w,
-                y_l=y_l,
-                node_mask=node_mask,
-                weight=w,
-                beta=beta,
-                lambda_sft=lambda_sft,
-                length_norm=length_norm,
-                train=False,
+                # periodic eval & save
+                if (self.global_step % cfg.training.val_every) == 0:
+                    val_stats = self.evaluate(self.val_loader, split="val")
+                    if wandb.run is not None:
+                        wandb.log({f"val/{k}": v for k, v in val_stats.items()}, step=self.global_step)
+
+                    # save best by val/pref_acc
+                    if val_stats.get("pref_acc", -1.0) > self.best_metric:
+                        self.best_metric = val_stats["pref_acc"]
+                        save_checkpoint(self.save_root, "best", self.policy, self.optimizer, self.scheduler, self.global_step, self.best_metric, self.cfg)
+
+                if (self.global_step % cfg.training.save_every) == 0:
+                    save_checkpoint(self.save_root, f"steps/step_{self.global_step:07d}", self.policy, self.optimizer, self.scheduler, self.global_step, self.best_metric, self.cfg)
+
+            # end epoch
+        # save "latest" symlink-ish
+        save_checkpoint(self.save_root, "latest", self.policy, self.optimizer, self.scheduler, self.global_step, self.best_metric, self.cfg)
+
+    @torch.no_grad()
+    def evaluate(self, loader, split="val"):
+        cfg = self.cfg
+        self.policy.eval()
+        agg = {"loss_dpo": 0.0, "pref_acc": 0.0, "margin": 0.0}
+        n = 0
+        for batch in loader:
+            out = dpo_step_losses(
+                model=self.policy, ref_model=self.reference,
+                batch=batch, beta=cfg.dpo.beta,
+                label_smoothing=cfg.dpo.label_smoothing,
+                max_len=cfg.dpo.max_len
             )
-            for k, meter in meters.items():
-                v = out.get(k, None)
-                if v is not None:
-                    meter.update(float(v), n=1)
-
-    return {k: v.avg for k, v in meters.items()}
-
-
-def train_dpo(cfg: Dict[str, Any],
-              train_loader: DataLoader,
-              val_loader: DataLoader,
-              device: torch.device):
-
-    set_seed(int(cfg.get("seed", 42)))
-
-    # ---- Build policy ----
-    model = build_model(cfg).to(device)
-
-    # ---- LoRA before optimizer + reference ----
-    lcfg = cfg.get("lora", {})
-    wrapped = 0
-    if lcfg.get("enabled", False):
-        wrapped = apply_lora(model,
-                             enabled=True,
-                             r=int(lcfg.get("r", 8)),
-                             alpha=int(lcfg.get("alpha", 16)),
-                             dropout=float(lcfg.get("dropout", 0.0)),
-                             target_modules=tuple(lcfg.get("target_modules", ["linear","proj","fc","out_proj"])),
-                             train_bias=lcfg.get("train_bias", "none"))
-        if wrapped > 0:
-            mark_only_lora_as_trainable(model, train_bias=lcfg.get("train_bias","none"))
-        else:
-            print("[LoRA] WARNING: wrapped=0; keeping full finetune.")
-        
-        # final safety
-        if sum(p.requires_grad for p in model.parameters()) == 0:
-            for p in model.parameters(): p.requires_grad_(True)
-            print("[Safety] No trainable params; enabling full finetune.")
-
-        if _WANDB_OK and wandb.run is not None and _is_rank0():
-            wandb.config.update({"lora_wrapped": wrapped}, allow_val_change=True)
-
-    # ---- Frozen reference cloned from current policy ----
-    ref_manager = RefManager(cfg, device, policy_model=model)
-
-    # ---- Optimizer & Scheduler ----
-    optimizer = _build_optimizer(cfg, model)
-    scheduler = _build_scheduler(cfg, optimizer)
-
-    grad_clip = float(cfg["train"].get("grad_clip", 1.0))
-    grad_accum = int(cfg["train"].get("grad_accum_steps", 1))
-    rounds = int(cfg["train"].get("rounds", 1))
-    epochs_per_round = int(cfg["train"].get("epochs_per_round", 1))
-    val_every_steps = int(cfg["train"].get("val_every_steps", 100))
-    ckpt_every_steps = int(cfg["train"].get("ckpt_every_steps", 0))
-    save_dir = cfg["train"].get("save_dir", "runs/offline_dpo_full")
-
-    beta = float(cfg["loss"]["beta"])
-    lambda_sft = float(cfg["loss"]["lambda_sft"])
-    length_norm = bool(cfg["loss"].get("length_norm", True))
-
-    global_step = 0
-    best_val = math.inf
-    best_path: Optional[str] = None
-
-    if _WANDB_OK and wandb.run is not None and _is_rank0():
-        wandb.config.update({"global_batch_size": train_loader.batch_size * grad_accum}, allow_val_change=True)
-
-    for r in range(rounds):
-        for epoch in range(epochs_per_round):
-            model.train()
-            loss_meter = AverageMeter()
-            dpo_meter = AverageMeter()
-            sft_meter = AverageMeter()
-            acc_meter = AverageMeter()
-
-            optimizer.zero_grad(set_to_none=True)
-
-            for step, batch_tuple in enumerate(train_loader):
-                data_batch, y_w, y_l, w, node_mask, gids = _move_to_device(batch_tuple, device)
-
-                out = dpo_sft_step(
-                    model=model,
-                    ref_manager=ref_manager,
-                    data_batch=data_batch,
-                    y_w=y_w,
-                    y_l=y_l,
-                    node_mask=node_mask,
-                    weight=w,
-                    beta=beta,
-                    lambda_sft=lambda_sft,
-                    length_norm=length_norm,
-                    train=True,
-                )
-
-                loss = out["loss"] / grad_accum
-                loss.backward()
-
-                loss_meter.update(float(out["loss"]))
-                if out.get("loss_dpo") is not None:
-                    dpo_meter.update(float(out["loss_dpo"]))
-                if out.get("loss_sft") is not None:
-                    sft_meter.update(float(out["loss_sft"]))
-                if out.get("pref_acc") is not None:
-                    acc_meter.update(float(out["pref_acc"]))
-
-                if (step + 1) % grad_accum == 0:
-                    if grad_clip and grad_clip > 0:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-                    optimizer.step()
-                    optimizer.zero_grad(set_to_none=True)
-                    if scheduler is not None:
-                        scheduler.step()
-
-                if (global_step % val_every_steps) == 0:
-                    _maybe_log(global_step, {
-                        "train/loss": loss_meter.avg,
-                        "train/loss_dpo": dpo_meter.avg,
-                        "train/loss_sft": sft_meter.avg,
-                        "train/pref_acc": acc_meter.avg,
-                        "lr": optimizer.param_groups[0]["lr"],
-                        "round": r,
-                        "epoch_in_round": epoch,
-                    })
-
-                if (global_step > 0) and (global_step % val_every_steps == 0):
-                    val_metrics = evaluate_loop(model, ref_manager, val_loader, device, cfg)
-                    _maybe_log(global_step, {f"val/{k}": v for k, v in val_metrics.items()})
-                    if val_metrics.get("loss", math.inf) < best_val and _is_rank0():
-                        best_val = val_metrics["loss"]
-                        best_path = _save_ckpt(save_dir, model, f"best_step{global_step}")
-
-                if ckpt_every_steps and (global_step > 0) and (global_step % ckpt_every_steps == 0):
-                    _save_ckpt(save_dir, model, f"step{global_step}")
-
-                global_step += 1
-
-            val_metrics = evaluate_loop(model, ref_manager, val_loader, device, cfg)
-            _maybe_log(global_step, {f"val/{k}": v for k, v in val_metrics.items()})
-            if val_metrics.get("loss", math.inf) < best_val and _is_rank0():
-                best_val = val_metrics["loss"]
-                best_path = _save_ckpt(save_dir, model, f"best_r{r}_e{epoch}")
-
-        # NEW REFERENCE FOR NEXT ROUND
-        ref_manager.update_from_policy(model)
-
-    final_path = _save_ckpt(save_dir, model, "final")
-    if _WANDB_OK and wandb.run is not None and _is_rank0():
-        if best_path:
-            wandb.run.summary["best_ckpt"] = best_path
-        if final_path:
-            wandb.run.summary["final_ckpt"] = final_path
-        wandb.run.summary["best_val_loss"] = best_val
+            bs = 1  # pairs are per-graph
+            agg["loss_dpo"] += out["loss_dpo"].item() * bs
+            agg["pref_acc"] += out["pref_acc"].item() * bs
+            agg["margin"]   += out["margin"].item() * bs
+            n += bs
+        self.policy.train()
+        return {k: (v / max(1, n)) for k, v in agg.items()}

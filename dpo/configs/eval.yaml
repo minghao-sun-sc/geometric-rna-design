@@ -1,33 +1,44 @@
 seed: 0
-device: "cuda"
-gpu: 0
+device: cuda
 
-# === Model ===
-model: "ARv1"
-checkpoint_path: "runs/offline_dpo_full/final_policy.pt"  # <- your DPO-finetuned weights
-node_in_dim: [15, 4]
-node_h_dim:  [128, 16]
-edge_in_dim: [131, 3]
-edge_h_dim:  [64, 4]
-num_layers: 4
-drop_rate: 0.5
-out_dim: 4
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  pairs:
+    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+  checkpoint: runs/offline_dpo/dpo_rna_A100_round1/best.pt  # ← adjust to your run
 
-# === PDB eval ===
-eval:
-  pdb_filepath: "tutorial/demo_data/4FE5_1_B.pdb"   # single structure
-  directory: ""                                      # or a folder of PDBs (leave empty if single)
-  n_samples: 16
-  temperature: 0.5
-  seed: 0
-  output_fasta: "tutorial/outputs/dpo_eval_samples.fasta"
-  compute_eterna_mcc: false                          # set true if EternaFold is available
-
-# === Data featurization (mirror tutorial)
 featurizer:
-  max_num_conformers: 1
+  split: test
   radius: 0.0
   top_k: 32
   num_rbf: 32
   num_posenc: 32
-  noise_scale: 0.0                                   # no noise for eval
+  max_num_conformers: 1
+  noise_scale: 0.0
+  distance_eps: 0.001
+  device: cuda
+
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim:  [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim:  [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+dpo:
+  beta: 0.1
+
+eval:
+  batch_size: 1
+  num_workers: 4
+  pin_memory: true
+  log_to_wandb: true
+  wandb:
+    project: DPO-RNA
+    entity: null
+    run_name: dpo_rna_A100_round1_eval
+    tags: ["eval", "dpo", "rna"]

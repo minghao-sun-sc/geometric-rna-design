@@ -1,112 +1,109 @@
-What’s in processed.pt
+Perfect—now that you’ve got clean split + filtered outputs, here’s a tidy package for:
 
-processed.pt holds the canonical gRNAde graph store (4223 entries in your dump).
+1. a **drop-in doc** you can paste into `dpo/docs/M1_dataset_split.md`, and
+2. a set of **scripts in `dpo/scripts/`** to (a) reproduce the filtering summary, (b) generate a compact EDA, and (c) spit out a Markdown report you can commit alongside the data.
 
-Each entry is a dict with keys like:
-- sequence (native RNA sequence for that backbone)
-- id_list (list of synonymous backbone identifiers; e.g., 3B58_1_B-C-A, 5WF0_1_B, 7M57_1_n-Y)
-- per-structure features: coords_list, sec_struct_list, sasa_list, …
+> heads-up: ensure `dpo/scripts/__init__.py` exists (can be empty) so `python -m dpo.scripts.*` works.
 
-There is no single backbone_id field; the ID must be derived from id_list. We canonicalize every string to the form:
-PDBID_MODEL_CHAIN, i.e. basename → strip extension → keep first 3 “_” parts → drop hyphen suffixes.
-Examples:
-- 3B58_1_B-C-A → 3B58_1_B
-- 7M57_1_qq-bb → 7M57_1_qq
-- ./data/raw/6ZU1_1_AW.pdb → 6ZU1_1_AW
+---
 
-Splits (das_split.pt)
+# 📄 `dpo/docs/M1_dataset_split.md` (paste this)
 
-data/das_split.pt provides indices into processed.pt:
+````markdown
+# M1 — Dataset, Splits, and Pair Filtering (DAS)
 
-train: 4025, val: 100, test: 98 (in the current dataset).
+## TL;DR
+- **Source graphs**: `data/processed.pt` (4223 entries).
+- **Splits**: `data/das_split.pt` → **train 4025**, **val 100**, **test 98**.
+- **IDs**: no single `backbone_id` in `processed.pt`; instead we canonicalize strings in each entry’s `id_list`
+  to **`PDBID_MODEL_CHAIN`** (drop file extensions and hyphen decorations: `3B58_1_B-C-A → 3B58_1_B`).
+- **Pairs**: `data/pairs_margin125/dpo_pairs_margin125.json` store `pdb_file`, `winner_seq`, `loser_seq`, metrics.
+  We canonicalize `pdb_file` the same way and map to the DAS split.
 
-We consider das_split.pt the source of truth, because it was created alongside processed.pt. For each split, we index all canonical IDs in id_list to the same graph index, so any alias from id_list resolves to the correct graph.
+## Why `das_split.pt` (vs external split_ids)
+- `das_split.pt` is the **source of truth** for this repo’s `processed.pt`.  
+- External `split_ids/*.txt` are **larger/older supersets** (e.g., test_ids has 235 vs DAS test 98).
+  Every DAS test ID appears in the external list, but **137** external IDs aren’t in this `processed.pt`.
 
-External split lists (data/split_ids/*.txt)
+## What we actually observed (your latest run)
+- Pairs loaded: **37,928**
+- After ID fix and “index all aliases in `id_list`”:
+  - **train 35,883**, **val 1,103**, **test 928**, **unknown 14**
+- Length screening:
+  - On full set: **kept 21,745**, **mismatches 16,169**, **unknown 14**  
+    (mismatch type is typically **`W==L!=G`**, e.g., winner & loser length 44 vs graph length 46)
+  - By split (after `filter_pairs_by_split`):
+    - train: **kept 20,811 / 35,883**, mismatches **15,072**
+    - val: **kept 505 / 1,103**, mismatches **598**
+    - test: **kept 429 / 928**, mismatches **499**
 
-You also have split_ids/test_ids_das.txt (235 IDs), which is a larger/older superset vs this processed.pt+das_split.pt.
+> Interpretation: a large fraction of pairs point to the correct backbone but have **sequence-length off-by-1** (or similar),
+> likely due to trimming/alt chain annotations. We keep a **clean subset** where winner/loser == graph length.
 
-Comparison result you observed:
+## Canonicalization rule (one-liner)
+We normalize any identifier or path to **`PDBID_MODEL_CHAIN`**, e.g.:
+- `3B58_1_B-C-A` → `3B58_1_B`
+- `7M57_1_qq-bb` → `7M57_1_qq`
+- `./data/raw/6ZU1_1_AW.pdb` → `6ZU1_1_AW`
 
-External test: 235 IDs
+This is applied consistently to:
+- split checks,
+- pair resolution by `pdb_file`,
+- dataset indexing.
 
-DAS test (from das_split.pt): 98 IDs
+## Commands to reproduce
 
-Extra in DAS test (not in external): 0
-
-Missing in DAS test (present in external): 137
-
-Interpretation: every DAS test ID is in the external set, but the external set contains additional backbones not present in this processed.pt. That’s a dataset scope difference, not a bug.
-
-Preference pairs (dpo_pairs_margin125.json)
-
-Your pairs file has entries like:
-
-{
-  "pdb_file": "./data/raw/6ZU1_1_AW.pdb",
-  "winner_seq": "...", "loser_seq": "...",
-  "winner_metrics": {...}, "loser_metrics": {...}
-}
-
-
-We derive the backbone ID from pdb_file using the same canonicalizer (→ 6ZU1_1_AW).
-
-We also support pairs that carry an explicit global index (index, idx, etc.). If found, we map that index into the split via das_split.pt.
-
-What we fixed (and why it mattered)
-
-Canonicalization: unified ID handling across processed.pt, the external lists, and pairs (pdb_file).
-
-Index all IDs: we map every ID in id_list (after canonicalization) to the same backbone → pairs resolve correctly even if they use a different alias than the most common one.
-
-Pairs resolution: pairs are resolved by:
-
-direct index (if present), else
-
-canonicalized id (e.g., from pdb_file or other id keys).
-
-Results (from your latest run):
-
-Pairs: 37,928 total → train 35,883, val 1,103, test 928, unknown 14.
-
-The 928 “test” come from pairs whose backbones fall in DAS test split (as expected).
-
-The 14 “unknown” refer to pairs whose IDs aren’t in processed.pt (different snapshot); you can drop or add those backbones.
-
-Commands you can run
-Inspect the DAS split (counts & sample IDs)
+### Inspect split + compare to external list
+```bash
 python -m dpo.debug.inspect_das_split \
   --split_pt data/das_split.pt \
   --processed_pt data/processed.pt \
   --test_ids_file data/split_ids/test_ids_das.txt
+````
 
-Check pairs vs split (counts & issues)
+### Check pairs against DAS (counts + issues)
+
+```bash
 python -m dpo.debug.check_pairs_against_split \
   --pairs_path data/pairs_margin125/dpo_pairs_margin125.json \
   --processed_pt data/processed.pt \
-  --split_pt data/das_split.pt --allow_test
+  --split_pt data/das_split.pt
+# add --allow_test to silence warnings about test-split pairs
+```
 
+### Split pairs by DAS, then filter length mismatches
 
-Add --allow_test if you don’t want warnings for test-split pairs.
-
-Split the pairs into train/val/test JSONLs (see script below)
-# Split by das_split.pt (recommended)
-python -m dpo.scripts.filter_pairs_by_split \
+```bash
+python -m dpo.scripts.split_and_filter_pairs \
   --pairs_in data/pairs_margin125/dpo_pairs_margin125.json \
   --processed_pt data/processed.pt \
   --split_pt data/das_split.pt \
-  --out_dir data/pairs_margin125/split_by_das
+  --out_dir data/pairs_margin125/by_das
+```
 
-# Split by external ID lists (optional)
-python -m dpo.scripts.filter_pairs_by_split \
-  --pairs_in data/pairs_margin125/dpo_pairs_margin125.json \
-  --processed_pt data/processed.pt \
-  --ids_dir data/split_ids \
-  --split_source ids \
-  --out_dir data/pairs_margin125/split_by_ids
+This writes:
 
-Which split source should we use?
+* `by_das/split/{train,val,test}.jsonl`
+* `by_das/clean/{train, val, test}.clean.jsonl` (length-matched)
+* `by_das/clean/{*.mismatch.jsonl, *.unknown.jsonl}`
 
-Use das_split.pt by default (it matches processed.pt one-to-one).
+### Summarize the filtered data + quick EDA (next section)
 
-The external split_ids/*.txt are still useful for repro or cross-checks, but they include many IDs that aren’t in this processed.pt. The splitter below supports both sources so you can pick what you need per run.
+```bash
+python -m dpo.scripts.summarize_filtered_pairs \
+  --root data/pairs_margin125/by_das \
+  --report_md data/pairs_margin125/by_das/report.md
+
+python -m dpo.scripts.eda_metrics \
+  --pairs_in data/pairs_margin125/by_das/clean/train.clean.jsonl \
+  --out_dir data/pairs_margin125/by_das/eda/train
+
+python -m dpo.scripts.eda_metrics \
+  --pairs_in data/pairs_margin125/by_das/clean/val.clean.jsonl \
+  --out_dir data/pairs_margin125/by_das/eda/val
+
+python -m dpo.scripts.eda_metrics \
+  --pairs_in data/pairs_margin125/by_das/clean/test.clean.jsonl \
+  --out_dir data/pairs_margin125/by_das/eda/test
+```
+

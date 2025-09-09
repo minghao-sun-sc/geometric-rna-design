@@ -55,7 +55,28 @@ def main():
         print(f"[wandb] Falling back to CSV logger")
         logger = None
 
-    ckpt_cb = ModelCheckpoint(
+    # CHECKPOINT FIX: Use flexible monitoring with fallback
+    # Try val/loss first, but fall back to train/loss if validation fails
+    class FlexibleModelCheckpoint(ModelCheckpoint):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._fallback_monitor = "train/loss"
+            self._fallback_attempted = False
+            
+        def _save_topk_checkpoint(self, trainer, monitor_candidates):
+            try:
+                super()._save_topk_checkpoint(trainer, monitor_candidates)
+            except Exception as e:
+                if not self._fallback_attempted and self.monitor == "val/loss":
+                    print(f"\n[checkpoint] Val/loss not available, falling back to {self._fallback_monitor}")
+                    self.monitor = self._fallback_monitor
+                    self.filename = "policy-{epoch:02d}-{train_loss:.4f}"
+                    self._fallback_attempted = True
+                    super()._save_topk_checkpoint(trainer, monitor_candidates)
+                else:
+                    raise e
+    
+    ckpt_cb = FlexibleModelCheckpoint(
         dirpath=cfg["train"].get("save_dir", "runs/offline_dpo_full"),
         filename="policy-{epoch:02d}-{val_loss:.4f}",
         save_top_k=2, monitor="val/loss", mode="min", save_last=True
@@ -100,6 +121,9 @@ def main():
     # This allows DDP to tolerate parameters that don't contribute to loss in every forward pass
     ddp_strategy = DDPStrategy(find_unused_parameters=True)
     
+    # VALIDATION FIX: Add proper validation scheduling
+    val_every_steps = int(cfg["train"].get("val_every_steps", 100))
+    
     trainer = pl.Trainer(
         logger=logger,
         max_epochs=int(cfg["train"]["rounds"]) * int(cfg["train"]["epochs_per_round"]),
@@ -110,7 +134,9 @@ def main():
         devices=args.devices,
         strategy=ddp_strategy,
         callbacks=[ckpt_cb],
-        log_every_n_steps=int(cfg["train"].get("val_every_steps", 100)),
+        log_every_n_steps=50,  # Log training metrics every 50 steps
+        val_check_interval=val_every_steps,  # Run validation every N training steps
+        check_val_every_n_epoch=1,  # Also run validation at end of each epoch
     )
     trainer.fit(module, datamodule=datamodule)
 

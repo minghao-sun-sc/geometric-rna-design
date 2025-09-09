@@ -1,414 +1,131 @@
-# dpo/data.py
-import os
-import json
-from typing import Dict, List, Optional, Tuple, Any
+import os, json, random
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
 
 import torch
-from torch.utils.data import Dataset
-from torch_geometric.data import Batch
+from torch.utils.data import Dataset, DataLoader
 
+import numpy as np
+from src.data.data_utils import get_backbone_coords
+from dpo.utils import load_processed_pt, canonical_id_from_path
 from src.data.featurizer import RNAGraphFeaturizer
-from dpo.common_id import (
-    canonicalize_id,
-    canonical_from_id_list,
-    extract_index_from_pair,
-    extract_backbone_id_from_pair,
-)
-
-##############################
-# Helpers
-##############################
-
-def _load_pairs_any(pairs_path: str) -> List[dict]:
-    pairs: List[dict] = []
-    if pairs_path.endswith(".jsonl"):
-        with open(pairs_path) as f:
-            for line in f:
-                s = line.strip()
-                if s:
-                    pairs.append(json.loads(s))
-    elif pairs_path.endswith(".json"):
-        with open(pairs_path) as f:
-            obj = json.load(f)
-        if isinstance(obj, list):
-            pairs = obj
-        elif isinstance(obj, dict) and "pairs" in obj:
-            pairs = obj["pairs"]
-        else:
-            raise ValueError("JSON must be a list or {'pairs': [...]} format.")
-    else:
-        raise ValueError(f"Unsupported pairs file format: {pairs_path}")
-    return pairs
 
 
-def _maybe_fix_rna_char(c: str) -> str:
-    c = c.upper()
-    if c == "T":
-        return "U"
-    if c in {"A", "C", "G", "U", "_"}:
-        return c
-    return "_"
-
-def _normalize_seq(s: str) -> str:
-    return "".join(_maybe_fix_rna_char(c) for c in (s or ""))
+@dataclass
+class PairBatch:
+    graph: Any                # torch_geometric.data.Data
+    winner_seq: torch.Tensor  # [L]
+    loser_seq:  torch.Tensor  # [L]
+    cid: str
+    split: Optional[str] = None
 
 
-def _best_window_mask(graph_seq: str, pair_seq: str, min_identity: float = 0.7):
-    """
-    Find the best contiguous window in graph_seq for pair_seq.
-    Returns (start, identity, mask_list) or None if no window meets min_identity.
-    """
-    g = _normalize_seq(graph_seq)
-    q = _normalize_seq(pair_seq)
-    Lg, Lq = len(g), len(q)
-    if Lq > Lg or Lq == 0:
-        return None
-    best_s, best_hit = -1, -1
-    for s in range(Lg - Lq + 1):
-        hit = 0
-        for i in range(Lq):
-            a, b = q[i], g[s + i]
-            # treat '_' as wildcard (unknown) → not counted as a match
-            if a != "_" and b != "_" and a == b:
-                hit += 1
-        if hit > best_hit:
-            best_hit, best_s = hit, s
-    if best_s < 0:
-        return None
-    identity = best_hit / max(1, Lq)
-    if identity < float(min_identity):
-        return None
-    mask = [0] * Lg
-    for i in range(Lq):
-        mask[best_s + i] = 1
-    return best_s, identity, mask
-
-
-##############################
-# Dataset
-##############################
-
-class PreferencePairDataset(Dataset):
-    """
-    Returns (pyg_data, y_w_tokens, y_l_tokens, weight, node_mask_or_none, gid_str).
-
-    New behavior:
-    - If len(pair) < len(graph), attempt window alignment and supervise only that window
-      via a 0/1 node_mask; y_w/y_l are padded to graph length (outside window not used).
-    - If exact length match, mask is None (supervise entire sequence).
-    """
-    def __init__(
-        self,
-        processed_pt: str,
-        split_file: str,
-        pairs_path: str,
-        split: str,  # "train" | "val" | "test"
-        max_num_conformers: int = 1,
-        radius: float = 0.0,
-        top_k: int = 32,
-        num_rbf: int = 32,
-        num_posenc: int = 32,
-        noise_scale: float = 0.1,
-        device: str = "cpu",
-        use_seq_mask: bool = True,
-        strict_length_check: bool = True,
-        window_align: bool = True,
-        min_window_identity: float = 0.7,
-    ):
+class DPOPairDataset(Dataset):
+    def __init__(self, pairs_path: str, processed_pt_path: str, featurizer_cfg: dict, split_name: str = "train", device="cpu", id_index: Optional[Dict[str,int]] = None):
         super().__init__()
-        self.device = torch.device(device)
-        split = split.lower().strip()
-        assert split in {"train", "val", "test"}
+        self.device = device
+        self.split_name = split_name
 
-        # Load processed store and split
-        data_dict = torch.load(processed_pt)
-        all_raws: List[dict] = list(data_dict.values())
-        train_idx, val_idx, test_idx = torch.load(split_file)
-
-        if split == "train":
-            idx_map = list(map(int, train_idx))
-        elif split == "val":
-            idx_map = list(map(int, val_idx))
+        # load processed list
+        self.processed = load_processed_pt(processed_pt_path)
+        # index id->entry
+        if id_index is None:
+            self.id_index = {}
+            for gi, item in enumerate(self.processed):
+                for _cid in item["id_list"]:
+                    self.id_index[_cid] = gi
         else:
-            idx_map = list(map(int, test_idx))
+            self.id_index = id_index
 
-        self.raw_list: List[dict] = [all_raws[i] for i in idx_map]
-        self._global_to_local: Dict[int, int] = {g: li for li, g in enumerate(idx_map)}
-
-        # Map every canonical id in id_list -> local index
-        self._id2local: Dict[str, int] = {}
-        for li, raw in enumerate(self.raw_list):
-            for it in raw.get("id_list", []):
-                cid = canonicalize_id(it)
-                if cid and (cid not in self._id2local):
-                    self._id2local[cid] = li
-
-        # Featurizer on CPU (avoid CUDA in DataLoader workers)
+        # featurizer (IMPORTANT: same geometry choices as gRNAde.py)
         self.featurizer = RNAGraphFeaturizer(
-            split="train" if split == "train" else "test",
-            radius=radius,
-            top_k=top_k,
-            num_rbf=num_rbf,
-            num_posenc=num_posenc,
-            max_num_conformers=max_num_conformers,
-            noise_scale=noise_scale,
-            device=torch.device("cpu"),
+            split = getattr(featurizer_cfg, "split", "train"),
+            radius = getattr(featurizer_cfg, "radius", 0.0),
+            top_k = getattr(featurizer_cfg, "top_k", 32),
+            num_rbf = getattr(featurizer_cfg, "num_rbf", 32),
+            num_posenc = getattr(featurizer_cfg, "num_posenc", 32),
+            max_num_conformers = getattr(featurizer_cfg, "max_num_conformers", 1),
+            noise_scale = getattr(featurizer_cfg, "noise_scale", 0.1),
+            distance_eps = getattr(featurizer_cfg, "distance_eps", 1e-3),
+            device = device
         )
+
+        # load pairs (jsonl or json)
+        if pairs_path.endswith(".jsonl"):
+            with open(pairs_path, "r") as f:
+                self.pairs = [json.loads(line) for line in f]
+        else:
+            with open(pairs_path, "r") as f:
+                self.pairs = json.load(f)
+
+        # map to processed entry + pre-featurize or keep raw and featurize on the fly
         self.letter_to_num = self.featurizer.letter_to_num
-        self._graph_cache: Dict[int, "torch_geometric.data.Data"] = {}
 
-        # Config flags
-        self.use_seq_mask = bool(use_seq_mask)
-        self.strict_length_check = bool(strict_length_check)
-        self.window_align = bool(window_align)
-        self.min_window_identity = float(min_window_identity)
-
-        # Load pairs and resolve
-        raw_pairs = _load_pairs_any(pairs_path)
-        self.pairs: List[dict] = []
-        self._dropped_counters = {"unresolved": 0, "len_mismatch": 0, "no_window": 0}
-
-        for p in raw_pairs:
-            # Resolve local index
-            global_idx = extract_index_from_pair(p)
-            local_idx: Optional[int] = None
-            if global_idx is not None:
-                local_idx = self._global_to_local.get(global_idx, None)
-            gid: str = ""
-            if local_idx is None:
-                gid = extract_backbone_id_from_pair(p)
-                local_idx = self._id2local.get(gid, None)
-            if local_idx is None:
-                self._dropped_counters["unresolved"] += 1
-                continue
-
-            raw = self.raw_list[local_idx]
-            gL = len(raw.get("sequence", ""))
-
-            wseq = p.get("winner_seq") or p.get("winner") or ""
-            lseq = p.get("loser_seq")  or p.get("loser")  or ""
-            wL, lL = len(wseq), len(lseq)
-
-            # must be equal-length pair
-            if (wL == 0) or (lL == 0) or (wL != lL):
-                self._dropped_counters["len_mismatch"] += 1
-                continue
-
-            # exact match → keep, no mask
-            if wL == gL:
-                self.pairs.append({
-                    "_local_index": local_idx,
-                    "_gid": gid if gid else canonical_from_id_list(raw.get("id_list", [])),
-                    "winner_seq": wseq,
-                    "loser_seq":  lseq,
-                    "weight": float(p.get("weight", 1.0)),
-                    "seq_mask": None,
-                    "_window": None,
-                })
-                continue
-
-            # shorter-than-graph → try windowing
-            if (wL < gL) and self.window_align:
-                # try alignment against the backbone sequence
-                gseq = raw.get("sequence", "")
-                found = _best_window_mask(gseq, wseq, self.min_window_identity)
-                if found is None:
-                    self._dropped_counters["no_window"] += 1
-                    continue
-                start, ident, mask = found
-                self.pairs.append({
-                    "_local_index": local_idx,
-                    "_gid": gid if gid else canonical_from_id_list(raw.get("id_list", [])),
-                    "winner_seq": wseq,
-                    "loser_seq":  lseq,
-                    "weight": float(p.get("weight", 1.0)),
-                    "seq_mask": mask,         # 0/1 per node
-                    "_window": (start, wL),   # for padding
-                })
-                continue
-
-            # longer-than-graph or no window allowed → drop
-            self._dropped_counters["len_mismatch"] += 1
-
-        kept = len(self.pairs)
-        if any(self._dropped_counters.values()):
-            print(
-                f"[PreferencePairDataset:{split}] kept={kept}, "
-                f"dropped_unresolved={self._dropped_counters['unresolved']}, "
-                f"dropped_len_mismatch={self._dropped_counters['len_mismatch']}, "
-                f"dropped_no_window={self._dropped_counters['no_window']}"
-            )
-
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.pairs)
 
-    # --------------------------
-    # Featurization cache
-    # --------------------------
-    def _get_graph_by_local(self, li: int):
-        if li in self._graph_cache:
-            return self._graph_cache[li]
-        raw = self.raw_list[li]
-        data = self.featurizer.featurize(raw)  # stay on CPU; trainer moves to GPU
-        self._graph_cache[li] = data
-        return data
+    def _build_graph_from_entry(self, entry_idx: int):
+        entry = self.processed[entry_idx]
+        # convert full-atom coords to 3-bead backbone per conformer
+        coords_list = []
+        for coords in entry["coords_list"]:
+            if isinstance(coords, torch.Tensor):
+                coords_list.append(get_backbone_coords(coords.clone().detach(), entry["sequence"]).numpy())
+            else:
+                coords_list.append(get_backbone_coords(torch.tensor(coords), entry["sequence"]).numpy())
+        raw = {
+            "sequence": entry["sequence"],
+            "coords_list": coords_list,
+            "sec_struct_list": entry.get("sec_struct_list", ["."*len(entry["sequence"]) for _ in coords_list]),
+        }
+        graph = self.featurizer.featurize(raw)
+        return graph
 
-    # --------------------------
-    # Tokenization
-    # --------------------------
-    def _encode_seq(self, seq: str) -> torch.Tensor:
-        seq = _normalize_seq(seq)
-        try:
-            tokens = [self.letter_to_num[c] for c in seq]
-            # Sanity check: all tokens should be in valid range [0, vocab_size)
-            vocab_size = len(self.letter_to_num)
-            for i, tok in enumerate(tokens):
-                if not (0 <= tok < vocab_size):
-                    raise ValueError(f"Invalid token {tok} at position {i} for char '{seq[i]}' (vocab_size={vocab_size})")
-            
-            # Convert padding token '_' (4) to a valid token for model compatibility  
-            # The model only has embedding for {0,1,2,3}, so map '_' -> 0 (A) as placeholder
-            # Note: This should match the model's actual embedding size
-            model_vocab_size = 4  # gRNAde model vocab size: {A, G, C, U}
-            tokens = [min(tok, model_vocab_size - 1) for tok in tokens]
-            
-            # Debug: warn if we clamped tokens
-            original_max = max(self.letter_to_num[c] for c in seq)
-            if original_max >= model_vocab_size:
-                print(f"[data] Clamped tokens from {original_max} to {model_vocab_size-1} for seq: '{seq[:20]}...'")
-            
-            
-            return torch.as_tensor(tokens, device=torch.device("cpu"), dtype=torch.long)
-        except KeyError as e:
-            raise ValueError(f"Character {e} not found in vocabulary {self.letter_to_num}. Sequence: '{seq}'")
+    def __getitem__(self, idx: int) -> PairBatch:
+        pair = self.pairs[idx]
+        cid = canonical_id_from_path(pair["pdb_file"])
+        gi = self.id_index[cid]
 
-    def __getitem__(self, i: int):
-        entry = self.pairs[i]
-        li = entry["_local_index"]
-        data = self._get_graph_by_local(li)
+        graph = self._build_graph_from_entry(gi)
 
-        gL = int(data.seq.numel())  # graph length (tokens in featurizer)
-        wseq = entry["winner_seq"]
-        lseq = entry["loser_seq"]
+        # winner/loser sequences -> int tensors (ensure same length as graph.seq)
+        def to_int_seq(seq: str):
+            if len(seq) != len(graph.seq):
+                raise ValueError(f"Sequence length mismatch for {cid}: pair={len(seq)} graph={len(graph.seq)}")
+            return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device=self.device)
 
-        if entry["_window"] is None:
-            # exact-length case (with tolerance for small mismatches)
-            y_w = self._encode_seq(wseq)
-            y_l = self._encode_seq(lseq)
-            
-            # Handle length mismatches by aligning to graph length
-            Lw, Ll = y_w.numel(), y_l.numel()
-            assert Lw == Ll, f"winner/loser length mismatch: {Lw} vs {Ll}"
-            
-            if self.strict_length_check and Lw != gL:
-                raise AssertionError(f"Length mismatch: seq={Lw}, graph={gL}")
-            
-            # Align sequence lengths to graph length
-            if Lw > gL:
-                # Trim sequences to graph length (graph missing terminal residues)
-                y_w = y_w[:gL]
-                y_l = y_l[:gL]
-                print(f"[data] Trimmed sequences from {Lw} to {gL} to match graph")
-            elif Lw < gL:
-                # This shouldn't happen often, but handle it
-                print(f"[data] Warning: sequences shorter ({Lw}) than graph ({gL})")
-                # We could pad or create a mask, but for now this is unexpected
-                
-            node_mask = None
-        else:
-            # windowed case: pad to graph length; mask supervises only the window
-            start, Lq = entry["_window"]
+        w = to_int_seq(pair["winner_seq"])
+        l = to_int_seq(pair["loser_seq"])
 
-            # initialize with valid token (A=0); they won't be used if mask=0
-            # CRITICAL FIX: Use token 0 instead of 4 to avoid model index out-of-bounds
-            pad_tok = 0  # Use 'A' as padding token instead of '_'
-            y_w = torch.full((gL,), pad_tok, dtype=torch.long)
-            y_l = torch.full((gL,), pad_tok, dtype=torch.long)
-
-            w_tokens = self._encode_seq(wseq)
-            l_tokens = self._encode_seq(lseq)
-            
-            # Use actual sequence lengths instead of stored window length
-            # to handle any discrepancies in window calculation
-            actual_len_w = w_tokens.numel()
-            actual_len_l = l_tokens.numel()
-            
-            # Ensure we don't exceed the available space
-            if start < 0 or start >= gL:
-                raise ValueError(f"Invalid window start {start} for graph length {gL}")
-            
-            end_pos = min(start + actual_len_w, gL)
-            copy_len = end_pos - start
-            if copy_len > 0:
-                y_w[start:end_pos] = w_tokens[:copy_len]
-            
-            end_pos = min(start + actual_len_l, gL)  
-            copy_len = end_pos - start
-            if copy_len > 0:
-                y_l[start:end_pos] = l_tokens[:copy_len]
-
-            # CRITICAL FIX: Ensure mask length matches graph length, not raw sequence length
-            mask_list = entry["seq_mask"]  # list of 0/1 based on raw sequence
-            
-            # If mask length != graph length, we need to align it
-            if len(mask_list) != gL:
-                # Create a new mask of correct length
-                aligned_mask = [0] * gL
-                # The window positions need to be adjusted for the graph length
-                if start < gL and start + actual_len_w <= gL:
-                    # Set the window region to 1
-                    for i in range(start, min(start + actual_len_w, gL)):
-                        aligned_mask[i] = 1
-                mask_list = aligned_mask
-            
-            node_mask = torch.as_tensor(mask_list, dtype=torch.float32)
-
-        weight = torch.tensor(float(entry["weight"]), dtype=torch.float32)
-        gid = entry["_gid"]
-        return data, y_w, y_l, weight, node_mask, gid
+        return PairBatch(graph=graph.to(self.device), winner_seq=w, loser_seq=l, cid=cid, split=self.split_name)
 
 
-def collate_pairs(batch: List[Tuple[Any, ...]]):
-    """Collate function that attaches all data to the PyG batch for DPO training."""
-    datas, ys_w, ys_l, ws, masks, gids = zip(*batch)
+def _collate_identity(x):
+    # we operate one-graph-per-batch (model is naturally per-graph)
+    return x[0]
+
+
+def build_dataloaders(cfg, device="cpu"):
+    id_index = None  # build once for all splits
+    train_ds = DPOPairDataset(cfg.paths.pairs.train, cfg.paths.processed_pt, cfg.featurizer, split_name="train", device=device, id_index=id_index)
+    id_index = train_ds.id_index
     
-    # Create base PyG batch
-    data_batch = Batch.from_data_list(datas)
+    # Create modified featurizer config for val/test
+    import types
+    val_featurizer_cfg = types.SimpleNamespace(**vars(cfg.featurizer))
+    val_featurizer_cfg.split = "test"
+    val_featurizer_cfg.noise_scale = 0.0
     
-    # Attach DPO-specific data as batch attributes
-    data_batch.y_w = torch.cat(ys_w, dim=0)
-    data_batch.y_l = torch.cat(ys_l, dim=0) 
-    data_batch.weight = torch.stack(ws)
+    test_featurizer_cfg = types.SimpleNamespace(**vars(cfg.featurizer))  
+    test_featurizer_cfg.split = "test"
+    test_featurizer_cfg.noise_scale = 0.0
     
-    # CRITICAL FIX: Ensure all tokens are within model vocabulary range [0, 3]
-    model_vocab_size = 4  # gRNAde model vocab: A, C, G, U
-    
-    # Validate and clamp winner targets
-    if data_batch.y_w.max() >= model_vocab_size:
-        n_invalid = (data_batch.y_w >= model_vocab_size).sum().item()
-        max_val = data_batch.y_w.max().item()
-        print(f"[collate] Clamping {n_invalid} invalid winner tokens from max {max_val} to {model_vocab_size-1}")
-        data_batch.y_w = torch.clamp(data_batch.y_w, 0, model_vocab_size - 1)
-    
-    # Validate and clamp loser targets  
-    if data_batch.y_l.max() >= model_vocab_size:
-        n_invalid = (data_batch.y_l >= model_vocab_size).sum().item()
-        max_val = data_batch.y_l.max().item()
-        print(f"[collate] Clamping {n_invalid} invalid loser tokens from max {max_val} to {model_vocab_size-1}")
-        data_batch.y_l = torch.clamp(data_batch.y_l, 0, model_vocab_size - 1)
-    
-    # Handle mixed mask cases: some None (exact match), some tensors (windowed)
-    all_masks = []
-    for i, mask in enumerate(masks):
-        if mask is not None:
-            all_masks.append(mask)
-        else:
-            # For exact match cases, create an all-ones mask of appropriate length
-            seq_len = ys_w[i].shape[0]
-            all_masks.append(torch.ones(seq_len, dtype=torch.float32))
-    
-    data_batch.node_mask = torch.cat(all_masks, dim=0)
-    
-    data_batch.gids = list(gids)
-    
-    return data_batch  # Single object with all attributes
+    val_ds   = DPOPairDataset(cfg.paths.pairs.val,   cfg.paths.processed_pt, val_featurizer_cfg, split_name="val", device=device, id_index=id_index)
+    test_ds  = DPOPairDataset(cfg.paths.pairs.test,  cfg.paths.processed_pt, test_featurizer_cfg, split_name="test", device=device, id_index=id_index)
+
+    train_loader = DataLoader(train_ds, batch_size=cfg.training.batch_size, shuffle=True,  num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity, drop_last=cfg.training.drop_last)
+    val_loader   = DataLoader(val_ds,   batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity)
+    test_loader  = DataLoader(test_ds,  batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity)
+
+    meta = {"n_train": len(train_ds), "n_val": len(val_ds), "n_test": len(test_ds)}
+    return train_loader, val_loader, test_loader, meta
