@@ -19,6 +19,7 @@ dpo/runs/*
 dpo/__pycache__/
 dpo/debug/__pycache__/
 runs/*
+CLAUDE.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -141,7 +142,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-CLAUDE.md
 
 # Spyder project settings
 .spyderproject
