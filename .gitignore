@@ -15,10 +15,10 @@ Miniforge3-Linux-x86_64.sh
 exit/
 
 # DPO-RNA
-dpo/runs/
+dpo/runs/*
 dpo/__pycache__/
 dpo/debug/__pycache__/
-runs/
+runs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
