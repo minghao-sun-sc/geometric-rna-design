@@ -12,12 +12,13 @@ paths:
   # Checkpoints to evaluate
   checkpoints:
     # - name: "BASE_gRNAde_1state_das"
-      # path: checkpoints/gRNAde_ARv1_1state_das.h5
+    #   path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
     # - name: "DPO_v2_best"
     #   path: runs/offline_dpo/dpo_rna_v2/best.pt
-    - name: "DPO_v3_test"  
-      path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
+    - name: "DPO_eval_ckpt"  
+      # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
+      path: runs/offline_dpo/dpo_rna_v4/steps/step_0015300.pt
 
 featurizer:
   split: test

@@ -16,6 +16,8 @@ exit/
 
 # DPO-RNA
 dpo/runs/
+dpo/__pycache__/
+dpo/debug/__pycache__/
 runs/
 
 # Byte-compiled / optimized / DLL files
