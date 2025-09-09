@@ -30,7 +30,7 @@ featurizer:
   num_posenc: 32
   num_rbf: 32
   radius: 0.0
-  split: test
+  split: val
   top_k: 32
 model:
   drop_rate: 0.5
@@ -54,6 +54,6 @@ paths:
   - name: BASE_gRNAde_1state_das
     path: checkpoints/gRNAde_ARv1_1state_das.h5
   processed_pt: data/processed.pt
-  split_name: test
-  split_pt: data/tiny_das_split.pt
+  split_name: val
+  split_pt: data/das_split.pt
 seed: 0

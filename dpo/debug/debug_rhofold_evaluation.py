@@ -5,12 +5,11 @@ Debug script to understand RhoFold self-consistency issues
 
 import os
 import sys
+sys.path.insert(0, "/mnt/rna01/smh/projects/offline-dpo")
+
 import numpy as np
 import torch
 from types import SimpleNamespace as SN
-
-# Add paths
-sys.path.insert(0, "/mnt/rna01/smh/projects/offline-dpo")
 
 from dpo.env_bootstrap import bootstrap_env
 bootstrap_env()
@@ -115,7 +114,7 @@ def debug_rhofold_evaluation():
         rhofold.eval()
         
         # Run evaluation 
-        output_dir = "/tmp/rhofold_debug"
+        output_dir = "dpo/debug/rhofold_debug"
         sc_rmsd, sc_tm, sc_gdt = self_consistency_score_rhofold(
             samples_np,
             raw_data,
