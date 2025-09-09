@@ -84,22 +84,39 @@ class DPOPairDataset(Dataset):
         return graph
 
     def __getitem__(self, idx: int) -> PairBatch:
-        pair = self.pairs[idx]
-        cid = canonical_id_from_path(pair["pdb_file"])
-        gi = self.id_index[cid]
+        max_attempts = 10  # Avoid infinite loops
+        attempts = 0
+        
+        while attempts < max_attempts:
+            try:
+                pair = self.pairs[idx]
+                cid = canonical_id_from_path(pair["pdb_file"])
+                gi = self.id_index[cid]
 
-        graph = self._build_graph_from_entry(gi)
+                graph = self._build_graph_from_entry(gi)
 
-        # winner/loser sequences -> int tensors (ensure same length as graph.seq)
-        def to_int_seq(seq: str):
-            if len(seq) != len(graph.seq):
-                raise ValueError(f"Sequence length mismatch for {cid}: pair={len(seq)} graph={len(graph.seq)}")
-            return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device=self.device)
+                # winner/loser sequences -> int tensors (ensure same length as graph.seq)
+                def to_int_seq(seq: str):
+                    if len(seq) != len(graph.seq):
+                        raise ValueError(f"Sequence length mismatch for {cid}: pair={len(seq)} graph={len(graph.seq)}")
+                    return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device=self.device)
 
-        w = to_int_seq(pair["winner_seq"])
-        l = to_int_seq(pair["loser_seq"])
+                w = to_int_seq(pair["winner_seq"])
+                l = to_int_seq(pair["loser_seq"])
 
-        return PairBatch(graph=graph.to(self.device), winner_seq=w, loser_seq=l, cid=cid, split=self.split_name)
+                return PairBatch(graph=graph.to(self.device), winner_seq=w, loser_seq=l, cid=cid, split=self.split_name)
+                
+            except ValueError as e:
+                if "Sequence length mismatch" in str(e):
+                    print(f"Warning: Skipping {cid} due to length mismatch: {e}")
+                    # Try next index (with wraparound)
+                    idx = (idx + 1) % len(self.pairs)
+                    attempts += 1
+                else:
+                    raise e
+        
+        # If we can't find a valid pair after max_attempts, raise the last error
+        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {idx - attempts}")
 
 
 def _collate_identity(x):

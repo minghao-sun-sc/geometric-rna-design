@@ -1,0 +1,72 @@
+# Full evaluation config with all gRNAde metrics for DPO-RNA
+# Evaluates: sequence recovery, perplexity, 2D/3D self-consistency
+
+seed: 0
+device: cuda
+
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt    # can swap to structsim_v2_split.pt
+  split_name: test               # Options: train | val | test
+  
+  # Checkpoints to evaluate
+  checkpoints:
+    - name: "BASE_gRNAde_1state_das"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
+    # Add DPO checkpoints once training completes:
+    # - name: "DPO_v2_best"
+    #   path: runs/offline_dpo/dpo_rna_v2/best.pt
+    # - name: "DPO_v3_best"  
+    #   path: runs/offline_dpo/dpo_rna_v3_test_final/best.pt
+
+featurizer:
+  split: test
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.0
+  distance_eps: 0.001
+  device: cpu                   # use CPU for featurizer to avoid device mismatch
+
+model:
+  # EXACT shapes used by gRNAde checkpoints
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim:  [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim:  [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+eval:
+  batch_size: 1
+  num_workers: 0                # avoid CUDA multiprocessing issues
+  pin_memory: true
+  
+  # Output directory for results and designs
+  out_dir: runs/benchmark_full
+  
+  # Sampling parameters
+  n_samples: 8                  # number of sequences to sample per structure
+  temperature: 1.0              # sampling temperature
+  
+  # Metrics to compute (all by default)
+  metrics:
+    - recovery                  # sequence recovery (teacher-forced)
+    - perplexity               # model confidence
+    - sc_eternafold            # 2D self-consistency with EternaFold
+    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT)
+  
+  # Save designed sequences and structures
+  save_designs: false          # set to true to save all designs as FASTA files
+  
+  # W&B logging (optional)
+  wandb:
+    enable: true
+    project: DPO-RNA
+    entity: null
+    run_name: null              # defaults to "full_eval_<split>_<timestamp>"
+    tags: ["bench", "gRNAde", "full_eval", "self_consistency"]

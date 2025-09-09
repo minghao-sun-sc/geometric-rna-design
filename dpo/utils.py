@@ -11,20 +11,33 @@ def set_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-
 def load_processed_pt(path):
+    """
+    Always return a list[dict] of processed entries.
+    Supports:
+      - list of dicts
+      - dict[int|str] -> dict
+      - dict with key 'data': list
+    """
     obj = torch.load(path, map_location="cpu")
-    # supports both torch.save(list) and dict {"data": list}
-    if isinstance(obj, dict) and "data" in obj and isinstance(obj["data"], list):
-        return obj["data"]
-    elif isinstance(obj, list):
+
+    # Case A: explicit container
+    if isinstance(obj, dict):
+        # A1: {'data': [...]} style
+        if "data" in obj and isinstance(obj["data"], list):
+            return obj["data"]
+        # A2: mapping of id -> entry
+        vals = list(obj.values())
+        if vals and isinstance(vals[0], dict):
+            return vals
+        # Fallback (filter to dict-like entries)
+        return [v for v in vals if isinstance(v, dict)]
+
+    # Case B: plain list of entries
+    if isinstance(obj, list):
         return obj
-    elif isinstance(obj, dict):
-        # Handle case where obj is a dict with sequence keys -> convert to list of dicts
-        return list(obj.values())
-    else:
-        # structured like gRNAde's processed.pt (list of dicts)
-        return obj
+
+    raise TypeError(f"Unsupported processed.pt format: {type(obj)}")
 
 
 def canonical_id_from_path(pdb_path: str):

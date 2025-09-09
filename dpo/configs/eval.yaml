@@ -17,7 +17,7 @@ featurizer:
   max_num_conformers: 1
   noise_scale: 0.0
   distance_eps: 0.001
-  device: cuda
+  device: cpu                   # use CPU for featurizer to avoid device mismatch
 
 model:
   name: AutoregressiveMultiGNNv1
@@ -34,7 +34,7 @@ dpo:
 
 eval:
   batch_size: 1
-  num_workers: 4
+  num_workers: 0            # avoid CUDA multiprocessing issues
   pin_memory: true
   log_to_wandb: true
   wandb:
