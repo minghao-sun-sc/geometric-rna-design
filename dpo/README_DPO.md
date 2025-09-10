@@ -57,9 +57,8 @@ Location: data/pairs_margin125/by_das/clean/
 python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name dpo_rna_v5
 
 # Resume from checkpoint
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml \
-    --run_name dpo_rna_v5_resume \
-    --resume runs/offline_dpo/dpo_rna_v5/best.pt
+python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name dpo_rna_v5_resume --resume runs/offline_dpo/dpo_rna_v5/best.pt
+
 ```
 
 ### Configuration (`dpo/configs/defaults.yaml`)

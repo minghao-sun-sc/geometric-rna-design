@@ -58,9 +58,9 @@ scheduler:
 
 training:
   epochs: 20
-  batch_size: 1             # model is naturally single-graph; use grad-accum
-  grad_accum_steps: 8
-  num_workers: 0            # avoid CUDA multiprocessing issues
+  batch_size: 4             # Increased from 1 to 4 for better GPU utilization
+  grad_accum_steps: 2       # Reduced from 8 to maintain effective batch size
+  num_workers: 0            # Set to 0 to avoid CUDA multiprocessing issues
   pin_memory: true
   drop_last: false
   compile: false

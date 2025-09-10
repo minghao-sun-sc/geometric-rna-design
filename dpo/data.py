@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torch_geometric.data import Batch as GeometricBatch
 
 import numpy as np
 from src.data.data_utils import get_backbone_coords
@@ -121,12 +122,14 @@ class DPOPairDataset(Dataset):
                 def to_int_seq(seq: str):
                     if len(seq) != len(graph.seq):
                         raise ValueError(f"Sequence length mismatch for {cid}: pair={len(seq)} graph={len(graph.seq)}")
-                    return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device=self.device)
+                    # Always create on CPU first to avoid CUDA multiprocessing issues
+                    return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device="cpu")
 
                 w = to_int_seq(pair["winner_seq"])
                 l = to_int_seq(pair["loser_seq"])
 
-                return PairBatch(graph=graph.to(self.device), winner_seq=w, loser_seq=l, cid=cid, split=self.split_name)
+                # Move to target device after creation
+                return PairBatch(graph=graph.to(self.device), winner_seq=w.to(self.device), loser_seq=l.to(self.device), cid=cid, split=self.split_name)
                 
             except ValueError as e:
                 if "Sequence length mismatch" in str(e):
@@ -144,6 +147,59 @@ class DPOPairDataset(Dataset):
 def _collate_identity(x):
     # we operate one-graph-per-batch (model is naturally per-graph)
     return x[0]
+
+
+def collate_batch_pairs(batch_list):
+    """
+    Collate function that properly batches multiple PairBatch objects.
+    Uses torch_geometric.data.Batch to combine multiple graphs.
+    """
+    if len(batch_list) == 1:
+        return batch_list[0]
+    
+    # Extract graphs and sequences from each PairBatch
+    graphs = [item.graph for item in batch_list]
+    winner_seqs = [item.winner_seq for item in batch_list]
+    loser_seqs = [item.loser_seq for item in batch_list]
+    cids = [item.cid for item in batch_list]
+    splits = [item.split for item in batch_list]
+    
+    # Batch the graphs using PyTorch Geometric's Batch
+    batched_graph = GeometricBatch.from_data_list(graphs)
+    
+    # Stack sequences - they should all be the same length within a batch
+    # If sequences have different lengths, we need to pad them
+    max_len = max(seq.size(0) for seq in winner_seqs)
+    
+    # Pad sequences to max length
+    padded_winner = []
+    padded_loser = []
+    for w, l in zip(winner_seqs, loser_seqs):
+        pad_len = max_len - w.size(0)
+        if pad_len > 0:
+            # Pad with -1 (will be masked in loss calculation)
+            w_padded = torch.cat([w, torch.full((pad_len,), -1, dtype=w.dtype, device=w.device)])
+            l_padded = torch.cat([l, torch.full((pad_len,), -1, dtype=l.dtype, device=l.device)])
+        else:
+            w_padded = w
+            l_padded = l
+        padded_winner.append(w_padded)
+        padded_loser.append(l_padded)
+    
+    # Stack into batch dimension
+    winner_seq_batch = torch.stack(padded_winner)  # [B, L]
+    loser_seq_batch = torch.stack(padded_loser)    # [B, L]
+    
+    # Return a batched PairBatch
+    # Note: We're modifying the PairBatch to hold batched data
+    # The graph is now a Batch object, and sequences are [B, L] tensors
+    return PairBatch(
+        graph=batched_graph,
+        winner_seq=winner_seq_batch,
+        loser_seq=loser_seq_batch,
+        cid=cids,  # List of cids
+        split=splits[0] if splits[0] is not None else None
+    )
 
 
 def build_dataloaders(cfg, device="cpu"):
@@ -164,8 +220,12 @@ def build_dataloaders(cfg, device="cpu"):
     val_ds   = DPOPairDataset(cfg.paths.pairs.val,   cfg.paths.processed_pt, val_featurizer_cfg, split_name="val", device=device, id_index=id_index)
     test_ds  = DPOPairDataset(cfg.paths.pairs.test,  cfg.paths.processed_pt, test_featurizer_cfg, split_name="test", device=device, id_index=id_index)
 
-    train_loader = DataLoader(train_ds, batch_size=cfg.training.batch_size, shuffle=True,  num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity, drop_last=cfg.training.drop_last)
-    val_loader   = DataLoader(val_ds,   batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity)
+    # Use batch collation if batch_size > 1, otherwise use identity collation
+    train_collate_fn = collate_batch_pairs if cfg.training.batch_size > 1 else _collate_identity
+    val_collate_fn = collate_batch_pairs if cfg.training.batch_size > 1 else _collate_identity
+    
+    train_loader = DataLoader(train_ds, batch_size=cfg.training.batch_size, shuffle=True,  num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=train_collate_fn, drop_last=cfg.training.drop_last)
+    val_loader   = DataLoader(val_ds,   batch_size=cfg.training.batch_size if cfg.training.batch_size > 1 else 1, shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=val_collate_fn)
     test_loader  = DataLoader(test_ds,  batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity)
 
     meta = {"n_train": len(train_ds), "n_val": len(val_ds), "n_test": len(test_ds)}

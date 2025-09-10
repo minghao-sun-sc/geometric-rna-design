@@ -131,10 +131,20 @@ class DPOTrainer:
                 label_smoothing=cfg.dpo.label_smoothing,
                 max_len=cfg.dpo.max_len
             )
-            bs = 1  # pairs are per-graph
+            # Handle both single and batched data
+            if hasattr(batch.graph, 'num_graphs'):
+                bs = batch.graph.num_graphs  # Batched graphs
+            else:
+                bs = 1  # Single graph
+            
             agg["loss_dpo"] += out["loss_dpo"].item() * bs
             agg["pref_acc"] += out["pref_acc"].item() * bs
-            agg["margin"]   += out["margin"].item() * bs
+            
+            # Handle margin which might be tensor or scalar
+            if hasattr(out["margin"], "item"):
+                agg["margin"] += out["margin"].item() * bs
+            else:
+                agg["margin"] += out["margin"] * bs
             n += bs
         self.policy.train()
         return {k: (v / max(1, n)) for k, v in agg.items()}
