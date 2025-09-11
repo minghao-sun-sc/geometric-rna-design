@@ -27,26 +27,52 @@ def load_cfg(path: str) -> SN:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--run_name", type=str, default=None)
+    parser.add_argument("--run_name", type=str, default=None, help="Override wandb run name from config")
+    parser.add_argument("--wandb_mode", type=str, default=None, choices=["online", "offline", "disabled"], 
+                       help="Override wandb mode from config")
     args = parser.parse_args()
 
     cfg = load_cfg(args.config)
 
-    # allow CLI to set run name
+    # allow CLI to override wandb settings
     if args.run_name:
-        if hasattr(cfg, "wandb") and hasattr(cfg.wandb, "run_name"):
+        if hasattr(cfg, "wandb"):
             cfg.wandb.run_name = args.run_name
+    
+    if args.wandb_mode:
+        if hasattr(cfg, "wandb"):
+            if args.wandb_mode == "disabled":
+                cfg.wandb.enable = False
+            else:
+                cfg.wandb.mode = args.wandb_mode
 
-    # init wandb
+    # init wandb from config
     if hasattr(cfg, "wandb") and getattr(cfg.wandb, "enable", False):
-        wandb.init(
-            project=getattr(cfg.wandb, "project", "DPO-RNA"),
-            entity=getattr(cfg.wandb, "entity", None),
-            name=getattr(cfg.wandb, "run_name", None),
-            tags=getattr(cfg.wandb, "tags", None),
-            mode=getattr(cfg.wandb, "mode", "online"),
-            config=None,  # we log stepwise metrics elsewhere
-        )
+        wandb_config = {
+            "project": getattr(cfg.wandb, "project", "DPO-RNA"),
+            "entity": getattr(cfg.wandb, "entity", None),
+            "name": getattr(cfg.wandb, "run_name", None),
+            "tags": getattr(cfg.wandb, "tags", None),
+            "mode": getattr(cfg.wandb, "mode", "online"),
+            "notes": getattr(cfg.wandb, "notes", None),
+            "group": getattr(cfg.wandb, "group", None),
+            "config": {
+                # Log key hyperparameters for easy filtering
+                "batch_size": cfg.training.batch_size,
+                "learning_rate": cfg.optimizer.lr,
+                "dpo_beta": cfg.dpo.beta,
+                "sft_lambda": cfg.dpo.sft_lambda,
+                "grad_accum_steps": cfg.training.grad_accum_steps,
+                "num_workers": cfg.training.num_workers,
+                "precision": cfg.training.precision,
+            }
+        }
+        
+        wandb.init(**wandb_config)
+        print(f"🚀 wandb run: {wandb.run.name} ({wandb.run.id})")
+        print(f"📊 View at: {wandb.run.url}")
+    else:
+        print("📝 wandb disabled - metrics will not be logged")
 
     trainer = DPOTrainer(cfg)
     trainer.train()

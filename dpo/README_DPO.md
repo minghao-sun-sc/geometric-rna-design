@@ -53,36 +53,108 @@ Location: data/pairs_margin125/by_das/clean/
 
 ### Quick Start
 ```bash
-# Basic training
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name dpo_rna_v5
+# Basic training (wandb config from YAML)
+python -m dpo.train_dpo --config dpo/configs/defaults.yaml
 
-# Resume from checkpoint
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name dpo_rna_v5_resume --resume runs/offline_dpo/dpo_rna_v5/best.pt
+# Override run name
+python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name custom_experiment_name
 
+# Disable wandb logging
+python -m dpo.train_dpo --config dpo/configs/defaults.yaml --wandb_mode disabled
+
+# Offline mode (for limited internet)
+python -m dpo.train_dpo --config dpo/configs/defaults.yaml --wandb_mode offline
 ```
 
-### Configuration (`dpo/configs/defaults.yaml`)
+### SLURM Job Submission
+```bash
+# Submit single GPU job
+sbatch examples/submit_dpo_job.sh dpo/configs/batch_8.yaml
+
+# Submit distributed job (2 GPUs)
+sbatch examples/submit_distributed_job.sh dpo/configs/batch_8.yaml
+
+# Quick inline submission
+sbatch --gres=gpu:A100:1 --cpus-per-task=8 --mem=32G --time=12:00:00 \
+    --wrap="python -m dpo.train_dpo --config dpo/configs/batch_8.yaml"
+```
+
+**Example job scripts** are provided in `examples/` - just update the paths and module loading for your cluster.
+
+### Available Configurations
+
+#### `dpo/configs/defaults.yaml` - Balanced Configuration
 ```yaml
-# Key hyperparameters
-dpo:
-  beta: 0.163           # DPO temperature (controls preference strength)
-  sft_lambda: 0.152     # SFT regularization on winners
-  
+wandb:
+  enable: true
+  project: DPO-RNA
+  entity: minghao-sun-soc
+  run_name: dpo_batch4_default
+  group: "dpo_optimization"
+
 training:
-  epochs: 20
-  batch_size: 1         # Per-GPU batch size
-  grad_accum_steps: 8   # Effective batch size = 8
+  batch_size: 4         # Optimized GPU utilization
+  grad_accum_steps: 2   # Effective batch size = 8
+  num_workers: 0        # Adjust based on CPU allocation
+  
+dpo:
+  beta: 0.10            # DPO temperature
+  sft_lambda: 0.10      # SFT regularization
   
 optimizer:
-  lr: 2.0e-4
-  warmup_steps: 1000
+  lr: 1.0e-4
+```
+
+#### `dpo/configs/batch_8.yaml` - High Performance
+```yaml
+training:
+  batch_size: 8         # Higher GPU utilization
+  num_workers: 4        # Requires 8+ CPU cores
+  
+dpo:
+  beta: 0.20            # Stronger preference signal
+  sft_lambda: 0.05      # Lower SFT weight
+  
+optimizer:
+  lr: 2.0e-4            # Higher learning rate
+```
+
+#### `dpo/configs/batch_16.yaml` - Maximum Throughput
+```yaml
+training:
+  batch_size: 16        # Maximum batch size
+  num_workers: 6        # Requires 8+ CPU cores
+  
+# Same hyperparameters as batch_8.yaml
+```
+
+### GPU Utilization Optimization
+The training pipeline has been optimized for high GPU utilization:
+- **Graph Batching**: Using PyTorch Geometric's `Batch` for proper RNA graph batching
+- **Parallel Data Loading**: Multi-worker data preprocessing (requires adequate CPU allocation)
+- **Mixed Precision**: BFloat16 for memory efficiency
+
+#### Resource Requirements
+| Batch Size | GPU Memory | CPU Cores | Expected GPU Util | Throughput |
+|------------|------------|-----------|-------------------|------------|
+| 4          | ~15GB      | 4         | 50-70%           | 3-4x       |
+| 8          | ~25GB      | 8         | 60-80%           | 5-6x       |
+| 16         | ~40GB      | 8         | 70-85%           | 7-8x       |
+
+### Multi-GPU Training
+```bash
+# Distributed training on multiple GPUs
+python -m dpo.train_dpo_distributed --config dpo/configs/batch_8.yaml
+
+# Specify number of GPUs
+python -m dpo.train_dpo_distributed --config dpo/configs/batch_8.yaml --world_size 2
 ```
 
 ### Training Algorithm
 - **Objective**: Reference-tethered DPO loss + SFT anchor on winners
 - **Reference reset**: At the start of each training round
 - **Checkpoint selection**: Best validation preference accuracy
-- **Device handling**: Automatic CUDA/CPU fallback with RBF error protection
+- **Error handling**: Robust RBF expansion and sequence length mismatch handling
 
 ### Monitoring
 Training logs to [Weights & Biases](https://wandb.ai):
@@ -90,6 +162,7 @@ Training logs to [Weights & Biases](https://wandb.ai):
 - `train/pref_acc`: Preference accuracy (% correct rankings)
 - `train/margin`: Average logprob margin (winner - loser)
 - `val/pref_acc`: Validation preference accuracy (for best.pt selection)
+- **Config logging**: All hyperparameters automatically logged for easy filtering
 
 ## 📈 Evaluation & Benchmarking
 
@@ -209,16 +282,6 @@ The implementation includes robust error handling for:
 
 ## 📝 Citation
 
-If you use this work, please cite:
-
-```bibtex
-@software{dpo_rna_2024,
-  title = {DPO-RNA: Direct Preference Optimization for RNA Inverse Folding},
-  author = {[Your Name]},
-  year = {2024},
-  url = {https://github.com/[your-repo]/offline-dpo}
-}
-
 @article{grnade2024,
   title = {gRNAde: Geometric RNA Design},
   author = {Joshi, Chaitanya K. and others},
@@ -235,8 +298,6 @@ If you use this work, please cite:
 - **Protein DPO**: Methodology inspiration
 
 ## 📧 Contact
-
-For questions or issues, please open an issue on GitHub or contact [your email].
 
 ---
 

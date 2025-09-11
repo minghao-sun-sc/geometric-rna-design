@@ -1,14 +1,16 @@
 # DPO-RNA default config (uses filtered, length-consistent pairs)
-seed: 0
+seed: 42
 device: cuda
 
 wandb:
   enable: true
   project: DPO-RNA
-  entity: null          # <-- set if you want
-  run_name: null        # can be overridden via CLI: --run_name <name>
-  mode: online          # "offline" if needed
-  tags: ["dpo", "rna", "offline", "das"]
+  entity: minghao-sun-soc     
+  run_name: dpo_batch4_default    
+  mode: online                    # "offline" for no internet, "online" for live sync
+  # tags: ["dpo", "rna", "offline", "das", "batch_4", "optimized"]
+  # notes: "DPO training with batch_size=4, optimized GPU utilization"
+  # group: "dpo_optimization"       # Group related runs together
 
 paths:
   processed_pt: data/processed.pt
@@ -59,8 +61,8 @@ scheduler:
 training:
   epochs: 20
   batch_size: 4             # Increased from 1 to 4 for better GPU utilization
-  grad_accum_steps: 2       # Reduced from 8 to maintain effective batch size
-  num_workers: 0            # Set to 0 to avoid CUDA multiprocessing issues
+  grad_accum_steps: 4       # Reduced from 8 to maintain effective batch size
+  num_workers: 8            
   pin_memory: true
   drop_last: false
   compile: false
