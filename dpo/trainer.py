@@ -56,6 +56,11 @@ class DPOTrainer:
 
             for batch in self.train_loader:
                 self.global_step += 1
+                
+                # Move batch to device (batch comes from DataLoader on CPU)
+                batch.graph = batch.graph.to(self.device)
+                batch.winner_seq = batch.winner_seq.to(self.device)
+                batch.loser_seq = batch.loser_seq.to(self.device)
 
                 with autocast(enabled=cfg.training.precision in ["fp16", "bf16"], dtype=torch.bfloat16 if cfg.training.precision=="bf16" else torch.float16):
                     # DPO forward
@@ -125,6 +130,11 @@ class DPOTrainer:
         agg = {"loss_dpo": 0.0, "pref_acc": 0.0, "margin": 0.0}
         n = 0
         for batch in loader:
+            # Move batch to device (batch comes from DataLoader on CPU)
+            batch.graph = batch.graph.to(self.device)
+            batch.winner_seq = batch.winner_seq.to(self.device)
+            batch.loser_seq = batch.loser_seq.to(self.device)
+            
             out = dpo_step_losses(
                 model=self.policy, ref_model=self.reference,
                 batch=batch, beta=cfg.dpo.beta,
@@ -219,6 +229,11 @@ class SimPOTrainer:
             
             for batch in self.train_loader:
                 self.global_step += 1
+                
+                # Move batch to device (batch comes from DataLoader on CPU)
+                batch.graph = batch.graph.to(self.device)
+                batch.winner_seq = batch.winner_seq.to(self.device)
+                batch.loser_seq = batch.loser_seq.to(self.device)
                 
                 with autocast(enabled=cfg.training.precision in ["fp16", "bf16"], 
                              dtype=torch.bfloat16 if cfg.training.precision=="bf16" else torch.float16):
@@ -347,6 +362,11 @@ class SimPOTrainer:
         n = 0
         
         for batch in loader:
+            # Move batch to device (batch comes from DataLoader on CPU)
+            batch.graph = batch.graph.to(self.device)
+            batch.winner_seq = batch.winner_seq.to(self.device)
+            batch.loser_seq = batch.loser_seq.to(self.device)
+            
             # Similar forward logic as training
             if batch.winner_seq.dim() == 2:  # Batched
                 # Simplified for now - proper implementation would be more efficient

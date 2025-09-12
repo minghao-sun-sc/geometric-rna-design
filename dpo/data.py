@@ -1,7 +1,6 @@
 import os, json, random
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
-from functools import partial
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -145,35 +144,21 @@ class DPOPairDataset(Dataset):
         raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {idx - attempts}")
 
 
-def _collate_identity(x, target_device="cuda"):
+def _collate_identity(x):
     # we operate one-graph-per-batch (model is naturally per-graph)
-    # Move single item to target device to handle CUDA multiprocessing
-    item = x[0]
-    return PairBatch(
-        graph=item.graph.to(target_device),
-        winner_seq=item.winner_seq.to(target_device),
-        loser_seq=item.loser_seq.to(target_device),
-        cid=item.cid,
-        split=item.split
-    )
+    # Keep on CPU - device transfer happens in trainer
+    return x[0]
 
 
-def collate_batch_pairs(batch_list, target_device="cuda"):
+def collate_batch_pairs(batch_list):
     """
     Collate function that properly batches multiple PairBatch objects.
     Uses torch_geometric.data.Batch to combine multiple graphs.
-    Moves final batch to target_device to handle CUDA multiprocessing.
+    Keeps data on CPU - device transfer happens in trainer to avoid CUDA multiprocessing issues.
     """
     if len(batch_list) == 1:
-        # Single item batch - still need to move to target device
-        item = batch_list[0]
-        return PairBatch(
-            graph=item.graph.to(target_device),
-            winner_seq=item.winner_seq.to(target_device),
-            loser_seq=item.loser_seq.to(target_device),
-            cid=item.cid,
-            split=item.split
-        )
+        # Single item batch - keep on CPU
+        return batch_list[0]
     
     # Extract graphs and sequences from each PairBatch
     graphs = [item.graph for item in batch_list]
@@ -208,12 +193,7 @@ def collate_batch_pairs(batch_list, target_device="cuda"):
     winner_seq_batch = torch.stack(padded_winner)  # [B, L]
     loser_seq_batch = torch.stack(padded_loser)    # [B, L]
     
-    # Move tensors to target device (main process, no CUDA multiprocessing issues)
-    batched_graph = batched_graph.to(target_device)
-    winner_seq_batch = winner_seq_batch.to(target_device)
-    loser_seq_batch = loser_seq_batch.to(target_device)
-    
-    # Return a batched PairBatch
+    # Return a batched PairBatch (keep on CPU)
     # Note: We're modifying the PairBatch to hold batched data
     # The graph is now a Batch object, and sequences are [B, L] tensors
     return PairBatch(
@@ -244,13 +224,13 @@ def build_dataloaders(cfg, device="cpu"):
     test_ds  = DPOPairDataset(cfg.paths.pairs.test,  cfg.paths.processed_pt, test_featurizer_cfg, split_name="test", device=device, id_index=id_index)
 
     # Use batch collation if batch_size > 1, otherwise use identity collation
-    # Bind target device to collate function using functools.partial
-    train_collate_fn = partial(collate_batch_pairs, target_device=device) if cfg.training.batch_size > 1 else partial(_collate_identity, target_device=device)
-    val_collate_fn = partial(collate_batch_pairs, target_device=device) if cfg.training.batch_size > 1 else partial(_collate_identity, target_device=device)
+    # Keep data on CPU - device transfer happens in trainer
+    train_collate_fn = collate_batch_pairs if cfg.training.batch_size > 1 else _collate_identity
+    val_collate_fn = collate_batch_pairs if cfg.training.batch_size > 1 else _collate_identity
     
     train_loader = DataLoader(train_ds, batch_size=cfg.training.batch_size, shuffle=True,  num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=train_collate_fn, drop_last=cfg.training.drop_last)
     val_loader   = DataLoader(val_ds,   batch_size=cfg.training.batch_size if cfg.training.batch_size > 1 else 1, shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=val_collate_fn)
-    test_loader  = DataLoader(test_ds,  batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=partial(_collate_identity, target_device=device))
+    test_loader  = DataLoader(test_ds,  batch_size=1,                         shuffle=False, num_workers=cfg.training.num_workers, pin_memory=cfg.training.pin_memory, collate_fn=_collate_identity)
 
     meta = {"n_train": len(train_ds), "n_val": len(val_ds), "n_test": len(test_ds)}
     return train_loader, val_loader, test_loader, meta
