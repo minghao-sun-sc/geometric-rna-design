@@ -15,8 +15,13 @@ echo "Working directory: $(pwd)"
 echo "Config file: $1"
 echo "Additional args: ${@:2}"
 
+# --- Create output directories ---
+mkdir -p dpo/eval_results
+echo "Evaluation results will be saved to: dpo/eval_results/"
+
 # --- Environment and Execution ---
 source /home/m/minghsun/miniconda3/bin/activate rna
 
 # Execute the evaluation script
+echo "Running evaluation..."
 exec python -m dpo.bench.eval_full --config $1 ${@:2}

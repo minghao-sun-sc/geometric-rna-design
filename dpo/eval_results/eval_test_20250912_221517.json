@@ -1,0 +1,125 @@
+{
+  "metadata": {
+    "timestamp": "20250912_221517",
+    "split": "test",
+    "n_structures": 98,
+    "n_samples_per_structure": 8,
+    "temperature": 0.5,
+    "metrics_computed": [
+      "recovery",
+      "perplexity",
+      "sc_eternafold",
+      "sc_rhofold"
+    ],
+    "save_designs": false,
+    "config_file": "dpo/configs/bench_full.yaml",
+    "command_args": {
+      "config": "dpo/configs/bench_full.yaml",
+      "n_samples": 8,
+      "temperature": 0.5,
+      "metrics": [
+        "recovery",
+        "perplexity",
+        "sc_eternafold",
+        "sc_rhofold"
+      ],
+      "save_designs": false
+    }
+  },
+  "checkpoints_evaluated": [
+    "DPO_eval_ckpt_v10_step_241300"
+  ],
+  "summary": {
+    "n_structures": {
+      "mean": 98.0,
+      "std": 0.0,
+      "min": 98.0,
+      "max": 98.0
+    },
+    "n_samples_per_structure": {
+      "mean": 8.0,
+      "std": 0.0,
+      "min": 8.0,
+      "max": 8.0
+    },
+    "temperature": {
+      "mean": 0.5,
+      "std": 0.0,
+      "min": 0.5,
+      "max": 0.5
+    },
+    "recovery": {
+      "mean": 0.4715289771556854,
+      "std": 0.0,
+      "min": 0.4715289771556854,
+      "max": 0.4715289771556854
+    },
+    "perplexity": {
+      "mean": 1.3331042339607162,
+      "std": 0.0,
+      "min": 1.3331042339607162,
+      "max": 1.3331042339607162
+    },
+    "sc_eternafold": {
+      "mean": 0.6644828375684316,
+      "std": 0.0,
+      "min": 0.6644828375684316,
+      "max": 0.6644828375684316
+    },
+    "sc_rmsd": {
+      "mean": 11.712869207304093,
+      "std": 0.0,
+      "min": 11.712869207304093,
+      "max": 11.712869207304093
+    },
+    "sc_tm": {
+      "mean": 0.24673880223537228,
+      "std": 0.0,
+      "min": 0.24673880223537228,
+      "max": 0.24673880223537228
+    },
+    "sc_gdt": {
+      "mean": 0.2504310481537167,
+      "std": 0.0,
+      "min": 0.2504310481537167,
+      "max": 0.2504310481537167
+    },
+    "rmsd_within_2A": {
+      "mean": 0.01403061224489796,
+      "std": 0.0,
+      "min": 0.01403061224489796,
+      "max": 0.01403061224489796
+    },
+    "tm_above_045": {
+      "mean": 0.22704081632653061,
+      "std": 0.0,
+      "min": 0.22704081632653061,
+      "max": 0.22704081632653061
+    },
+    "gdt_above_050": {
+      "mean": 0.22066326530612246,
+      "std": 0.0,
+      "min": 0.22066326530612246,
+      "max": 0.22066326530612246
+    }
+  },
+  "per_checkpoint_results": [
+    {
+      "ckpt_name": "DPO_eval_ckpt_v10_step_241300",
+      "ckpt_path": "runs/offline_dpo/dpo_v10_beta0.10_lambda0.10_1e-4/steps/step_0241300.pt",
+      "split": "test",
+      "n_structures": 98.0,
+      "n_samples_per_structure": 8.0,
+      "temperature": 0.5,
+      "recovery": 0.4715289771556854,
+      "perplexity": 1.3331042339607162,
+      "sc_eternafold": 0.6644828375684316,
+      "sc_rmsd": 11.712869207304093,
+      "sc_tm": 0.24673880223537228,
+      "sc_gdt": 0.2504310481537167,
+      "rmsd_within_2A": 0.01403061224489796,
+      "tm_above_045": 0.22704081632653061,
+      "gdt_above_050": 0.22066326530612246
+    }
+  ]
+}

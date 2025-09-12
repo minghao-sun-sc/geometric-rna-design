@@ -12,14 +12,15 @@ import os
 import sys
 import math
 import csv
+import json
 import time
 import yaml
 import copy
 import shutil
 from types import SimpleNamespace as SN
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -430,7 +431,14 @@ def main():
         if use_wandb:
             wandb.log({f"{name}/{k}": v for k, v in row.items() if k not in ["ckpt_name", "ckpt_path", "split"]})
     
-    # Write CSV with all results
+    # Create output directory in dpo/eval_results/
+    eval_results_dir = "dpo/eval_results"
+    os.makedirs(eval_results_dir, exist_ok=True)
+    
+    # Timestamp for unique filenames
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Write CSV with all results (keep for backward compatibility)
     out_csv = os.path.join(cfg.eval.out_dir, f"full_eval_{cfg.paths.split_name}.csv")
     if rows:
         keys = list(rows[0].keys())
@@ -439,7 +447,58 @@ def main():
             w.writeheader()
             for r in rows:
                 w.writerow(r)
-        print(f"\n[Saved results to] {out_csv}")
+        print(f"\n[Saved CSV results to] {out_csv}")
+    
+    # Prepare comprehensive JSON output
+    json_output = {
+        "metadata": {
+            "timestamp": timestamp,
+            "split": cfg.paths.split_name,
+            "n_structures": len(ds),
+            "n_samples_per_structure": args.n_samples,
+            "temperature": args.temperature,
+            "metrics_computed": args.metrics,
+            "save_designs": args.save_designs,
+            "config_file": args.config,
+            "command_args": vars(args)
+        },
+        "checkpoints_evaluated": [],
+        "summary": {},
+        "per_checkpoint_results": rows
+    }
+    
+    # Calculate summary statistics across all checkpoints
+    if rows:
+        # Get all metric keys (excluding metadata fields)
+        metric_keys = [k for k in rows[0].keys() if k not in ["ckpt_name", "ckpt_path", "split"]]
+        
+        for metric in metric_keys:
+            values = [r[metric] for r in rows if metric in r]
+            if values:
+                json_output["summary"][metric] = {
+                    "mean": float(np.mean(values)),
+                    "std": float(np.std(values)),
+                    "min": float(np.min(values)),
+                    "max": float(np.max(values))
+                }
+        
+        # Add checkpoint names for reference
+        json_output["checkpoints_evaluated"] = [r["ckpt_name"] for r in rows]
+    
+    # Save JSON to dpo/eval_results/
+    json_filename = f"eval_{cfg.paths.split_name}_{timestamp}.json"
+    json_path = os.path.join(eval_results_dir, json_filename)
+    
+    with open(json_path, "w") as f:
+        json.dump(json_output, f, indent=2)
+    print(f"[Saved JSON results to] {json_path}")
+    
+    # Also save a "latest" symlink for easy access
+    latest_json_path = os.path.join(eval_results_dir, f"eval_{cfg.paths.split_name}_latest.json")
+    if os.path.exists(latest_json_path):
+        os.remove(latest_json_path)
+    os.symlink(os.path.abspath(json_path), os.path.abspath(latest_json_path))
+    print(f"[Created latest symlink] {latest_json_path}")
     
     if use_wandb:
         # Create comparison table

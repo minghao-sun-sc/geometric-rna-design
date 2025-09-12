@@ -79,8 +79,36 @@ python -m dpo.train --config dpo/configs/defaults.yaml
 
 python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml --n_samples 8 --temperature 0.5
 
+# SBATCH; training & eval
+
+sbatch dpo/scripts/train.slurm dpo/configs/defaults.yaml
+
+# or
+
+sbatch dpo/scripts/train.slurm dpo/configs/experiments/exp003_simpo_b2.0_g0.8_l0.05_b16.yaml
+
+# From the project root 'ribopo/'
+sbatch dpo/scripts/eval.slurm dpo/configs/bench_full.yaml
+
+# --n_samples 8 --temperature 0.5 optional, can override
 
 
+
+```
+
+The above commands are frequently used. 
+
+
+
+
+
+
+
+
+
+
+
+```bash
 # Basic Evaluation (Teacher-forced)
 
 python -m dpo.bench.eval_benchmark --config dpo/configs/bench.yaml
