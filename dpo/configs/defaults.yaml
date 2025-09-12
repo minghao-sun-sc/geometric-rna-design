@@ -64,7 +64,7 @@ training:
   batch_size: 4             # Increased from 1 to 4 for better GPU utilization
   grad_accum_steps: 4       # Reduced from 8 to maintain effective batch size
   num_workers: 0            
-  pin_memory: true
+  pin_memory: false         # Disabled to avoid multiprocessing issues with complex graph data
   drop_last: false
   compile: false
   precision: bf16           # or "fp16" or "fp32"
