@@ -7,7 +7,7 @@ wandb:
   enable: true
   project: DPO-RNA
   entity: minghao-sun-soc     
-  run_name: simpo_v2_beta2.0_gamma0.6_lambda0.10_batch16     
+  run_name: simpo_exp004_beta2.0_gamma0.6_lambda0.10_batch16     
   mode: online                    # "offline" for no internet, "online" for live sync
   # tags: ["dpo", "rna", "offline", "das", "batch_4", "optimized"]
   # notes: "DPO training with batch_size=4, optimized GPU utilization"
