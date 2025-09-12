@@ -1,7 +1,7 @@
 # Full evaluation config with all gRNAde metrics for DPO-RNA
 # Evaluates: sequence recovery, perplexity, 2D/3D self-consistency
 
-seed: 0
+seed: 42 # 0 
 device: cuda
 
 paths:
@@ -43,8 +43,8 @@ model:
   out_dim: 4
 
 eval:
-  batch_size: 1
-  num_workers: 0                # avoid CUDA multiprocessing issues
+  batch_size: 4
+  num_workers: 2                # avoid CUDA multiprocessing issues
   pin_memory: true
   
   # Output directory for results and designs
@@ -68,6 +68,6 @@ eval:
   wandb:
     enable: true
     project: DPO-RNA
-    entity: null
-    run_name: null              # defaults to "full_eval_<split>_<timestamp>"
-    tags: ["bench", "gRNAde", "full_eval", "self_consistency"]
+    entity: minghao-sun-soc
+    # run_name: null              # defaults to "full_eval_<split>_<timestamp>"
+    # tags: ["bench", "gRNAde", "full_eval", "self_consistency"]
