@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=ribopo-train
+#SBATCH --job-name=ribopotrain
 #SBATCH --partition=gpu-long
 #SBATCH --gpus=a100-80:1                 # Be specific: request one A100 80GB GPU. Change if needed.
 #SBATCH --cpus-per-task=24                # Request 8 CPUs if you set num_workers > 0 in your yaml.
-#SBATCH --time=3-00:00:00                # Request 2 days of runtime
+#SBATCH --time=1-12:00:00                
 #SBATCH --output=/home/m/minghsun/projects/ribopo/dpo/slurm_logs/train_%j.log # IMPORTANT: Path is relative to the project root
 
 # --- Best Practices ---

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ribopo-eval
+#SBATCH --job-name=ribopoeval
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
