@@ -7,7 +7,7 @@ wandb:
   enable: true
   project: DPO-RNA
   entity: minghao-sun-soc     
-  run_name: simpo_test_run    
+  run_name: simpo_v2_beta1.5_gamma0.3_lambda0.10_batch4     
   mode: online                    # "offline" for no internet, "online" for live sync
   # tags: ["dpo", "rna", "offline", "das", "batch_4", "optimized"]
   # notes: "DPO training with batch_size=4, optimized GPU utilization"
@@ -63,14 +63,14 @@ training:
   epochs: 20
   batch_size: 4             # Increased from 1 to 4 for better GPU utilization
   grad_accum_steps: 4       # Reduced from 8 to maintain effective batch size
-  num_workers: 8            
+  num_workers: 0            
   pin_memory: true
   drop_last: false
   compile: false
   precision: bf16           # or "fp16" or "fp32"
   log_every: 1              # log every step
-  val_every: 100            # validate every 100 steps
-  save_every: 100           # save checkpoint every 100 steps
+  val_every: 50            
+  save_every: 50          
   keep_last_n: 5
 
 dpo:
@@ -80,6 +80,6 @@ dpo:
   max_len: null             # optional truncate length
 
 simpo:
-  beta: 2.0                  # SimPO β ∈ [1.5, 2.5] - controls reward scale
-  gamma: 0.5                 # SimPO γ ∈ [0.3, 1.6] - target margin
-  sft_lambda: 0.05            # Optional SFT regularization on winners, [0.01, 0.05]
+  beta: 1.5                  # SimPO β ∈ [1.5, 2.5] - controls reward scale
+  gamma: 0.3                 # SimPO γ ∈ [0.3, 1.6] - target margin
+  sft_lambda: 0.10            # Optional SFT regularization on winners, [0.01, 0.05]
