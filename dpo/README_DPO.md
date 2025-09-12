@@ -71,7 +71,7 @@ Location: data/pairs_margin125/by_das/clean/
 
 ### Quick Start
 ```bash
-# SimPO training (default, recommended)
+# SimPO/DPO training (default, recommended)
 python -m dpo.train --config dpo/configs/defaults.yaml
 
 # Evaluation Pipeline
