@@ -1,7 +1,8 @@
 # Custom
 /notebooks/designs/
 /tools
-/data
+data/*
+!data/pairs_margin125/
 /wandb
 /slurm
 /docs/milestones/
