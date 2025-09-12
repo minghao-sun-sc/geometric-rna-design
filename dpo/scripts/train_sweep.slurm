@@ -51,4 +51,4 @@ echo "Dynamically set Batch Size: $BATCH_SIZE"
 
 # --- Environment and Execution ---
 source /home/m/minghsun/miniconda3/bin/activate rna
-exec python -m dpo.train --config $CURRENT_CONFIG --training.batch_size $BATCH_SIZE
+exec python -m dpo.train --config $CURRENT_CONFIG --batch_size $BATCH_SIZE

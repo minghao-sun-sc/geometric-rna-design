@@ -32,6 +32,8 @@ def main():
                        help="Override wandb mode from config")
     parser.add_argument("--loss_type", type=str, default=None, choices=["dpo", "simpo"],
                        help="Override loss type from config")
+    parser.add_argument("--batch_size", type=int, default=None,
+                       help="Override training batch size from config")
     args = parser.parse_args()
 
     cfg = load_cfg(args.config)
@@ -50,6 +52,9 @@ def main():
     
     if args.loss_type:
         cfg.loss_type = args.loss_type
+    
+    if args.batch_size:
+        cfg.training.batch_size = args.batch_size
 
     # Determine loss type (default to DPO for backward compatibility)
     loss_type = getattr(cfg, "loss_type", "dpo")
