@@ -37,6 +37,14 @@ def build_policy_and_reference(cfg, device):
     return policy, reference
 
 
+def build_policy_only(cfg, device):
+    """Build only policy model (for SimPO training)."""
+    policy = build_model_from_cfg(cfg.model).to(device)
+    ckpt = cfg.paths.base_checkpoint
+    smart_load(policy, ckpt, map_location="cpu")
+    return policy
+
+
 def save_checkpoint(root, name, model, optimizer, scheduler, step, best_metric, cfg):
     path = os.path.join(root, f"{name}.pt")
     # Handle custom schedulers that don't have state_dict

@@ -1,12 +1,13 @@
-# DPO-RNA default config (uses filtered, length-consistent pairs)
+# RNA Preference Optimization config (DPO/SimPO)
 seed: 42
 device: cuda
+loss_type: simpo  # "dpo" or "simpo"
 
 wandb:
   enable: true
   project: DPO-RNA
   entity: minghao-sun-soc     
-  run_name: dpo_batch4_default    
+  run_name: simpo_test_run    
   mode: online                    # "offline" for no internet, "online" for live sync
   # tags: ["dpo", "rna", "offline", "das", "batch_4", "optimized"]
   # notes: "DPO training with batch_size=4, optimized GPU utilization"
@@ -77,3 +78,8 @@ dpo:
   sft_lambda: 0.10           # mix-in SFT loss on winners
   label_smoothing: 0.0
   max_len: null             # optional truncate length
+
+simpo:
+  beta: 2.0                  # SimPO β ∈ [1.5, 2.5] - controls reward scale
+  gamma: 0.5                 # SimPO γ ∈ [0.3, 1.6] - target margin
+  sft_lambda: 0.05            # Optional SFT regularization on winners, [0.01, 0.05]

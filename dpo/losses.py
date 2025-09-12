@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional
 from torch_geometric.data import Batch as GeometricBatch
@@ -143,3 +144,49 @@ def dpo_step_losses(model, ref_model, batch, beta: float = 0.1, label_smoothing:
         "pref_acc": pref_acc,
         "margin":   pi_diff.detach().mean() if pi_diff.dim() > 0 else pi_diff.detach(),
     }
+
+class SimPOLoss(nn.Module):
+    """
+    SimPO loss:
+      L = -log σ( β*(avg_logp_w - avg_logp_l) - γ )
+        = softplus( - (β*(avg_logp_w - avg_logp_l) - γ) )
+    """
+    def __init__(self, beta: float = 2.0, gamma: float = 1.0, ignore_index: int = -1):
+        super().__init__()
+        self.beta = beta
+        self.gamma = gamma
+        self.ignore_index = ignore_index
+
+    @staticmethod
+    def _avg_logp(logits, labels, ignore_index=-1):
+        # logits: [B, T, V]; labels: [B, T]
+        # get per-token negative log-likelihood, then negate to log-prob
+        nll = F.cross_entropy(
+            logits.view(-1, logits.size(-1)),
+            labels.view(-1),
+            reduction="none",
+            ignore_index=ignore_index,
+        ).view(labels.size())
+        logp = -nll
+
+        mask = (labels != ignore_index).float()
+        # avoid division by zero if a sequence is fully masked
+        lengths = mask.sum(dim=1).clamp_min(1.0)
+        avg_logp = (logp * mask).sum(dim=1) / lengths
+        return avg_logp  # [B]
+
+    def forward(self, win_logits, win_labels, lose_logits, lose_labels):
+        avg_w = self._avg_logp(win_logits, win_labels, self.ignore_index)
+        avg_l = self._avg_logp(lose_logits, lose_labels, self.ignore_index)
+        z = self.beta * (avg_w - avg_l) - self.gamma
+        loss = F.softplus(-z)  # == -logsigmoid(z)
+        # metrics for logging
+        with torch.no_grad():
+            reward_margin = (avg_w - avg_l)
+            reward_accuracy = (self.beta * reward_margin > self.gamma).float().mean()
+        return loss.mean(), {
+            "simpo/avg_logp_w": avg_w.mean().item(),
+            "simpo/avg_logp_l": avg_l.mean().item(),
+            "simpo/z_margin": z.mean().item(),
+            "simpo/reward_acc": reward_accuracy.item(),
+        }

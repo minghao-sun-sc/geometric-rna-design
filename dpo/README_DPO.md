@@ -1,22 +1,40 @@
-# DPO-RNA: Direct Preference Optimization for RNA Inverse Folding
+# RNA Preference Optimization: DPO & SimPO for RNA Inverse Folding
 
 ## 📋 Project Overview
 
-DPO-RNA implements **Direct Preference Optimization** (DPO) to fine-tune the gRNAde RNA inverse folding model, improving its ability to design RNA sequences that fold into target 3D structures. This project adapts the protein DPO framework to RNA, using structural quality metrics to create preference pairs for training.
+This project implements **preference optimization methods** (DPO & SimPO) to fine-tune the gRNAde RNA inverse folding model, improving its ability to design RNA sequences that fold into target 3D structures. We support both **Direct Preference Optimization (DPO)** and **Simplified Preference Optimization (SimPO)** for RNA design.
 
 ### Key Features
 - 🚀 **Zero-modification approach**: No changes to original gRNAde codebase (`src/`, `gRNAde.py`)
 - 📊 **Offline preference learning**: Pre-computed structural quality scores (RhoFold RMSD/pLDDT, ViennaRNA MFE)
-- 🎯 **Multi-metric optimization**: Balances fold accuracy, stability, and sequence quality
+- 🎯 **Dual optimization methods**: Both DPO (reference-based) and SimPO (reference-free)
 - 📈 **Comprehensive evaluation**: Recovery, perplexity, 2D/3D self-consistency metrics
+- ⚡ **Optimized training**: Graph batching for improved GPU utilization
 
 ## 🧬 Background
 
 **Challenge**: RNA inverse folding (designing sequences for target 3D structures) is critical for RNA therapeutics and synthetic biology, but current models often generate sequences that don't fold correctly.
 
-**Solution**: We use DPO to learn from preference pairs where "winner" sequences have better structural properties than "loser" sequences, teaching the model to generate higher-quality designs.
+**Solution**: We use preference optimization methods to learn from preference pairs where "winner" sequences have better structural properties than "loser" sequences, teaching the model to generate higher-quality designs.
 
 **Base Model**: [gRNAde](https://github.com/chaitjo/geometric-rna-design) - a geometric deep learning model for RNA design that conditions on 3D backbone structures.
+
+## 🔬 Optimization Methods
+
+### Direct Preference Optimization (DPO)
+- **Reference-based**: Uses a frozen reference model for stability
+- **Loss**: `-log σ(β * (log π_θ(y_w|x) - log π_θ(y_l|x) - log π_ref(y_w|x) + log π_ref(y_l|x)))`
+- **Memory**: Higher (stores both policy and reference models)
+- **Training**: More stable but slower
+
+### Simplified Preference Optimization (SimPO) ⭐
+- **Reference-free**: No reference model needed - more memory efficient
+- **Loss**: `-log σ(β * (avg_logp_w - avg_logp_l) - γ)` with length normalization
+- **Memory**: Lower (only policy model)
+- **Training**: Faster convergence, easier hyperparameter tuning
+- **Hyperparameters**: `β ∈ [1.5, 2.5]`, `γ ∈ [0.3, 1.2]`
+
+**Recommendation**: Start with **SimPO** as it's more efficient and easier to tune.
 
 ## 📊 Dataset
 
@@ -53,50 +71,62 @@ Location: data/pairs_margin125/by_das/clean/
 
 ### Quick Start
 ```bash
-# Basic training (wandb config from YAML)
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml
+# SimPO training (default, recommended)
+python -m dpo.train --config dpo/configs/defaults.yaml
+
+# DPO training
+python -m dpo.train --config dpo/configs/defaults.yaml --loss_type dpo
 
 # Override run name
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml --run_name custom_experiment_name
+python -m dpo.train --config dpo/configs/defaults.yaml --run_name custom_experiment_name
 
 # Disable wandb logging
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml --wandb_mode disabled
+python -m dpo.train --config dpo/configs/defaults.yaml --wandb_mode disabled
 
 # Offline mode (for limited internet)
-python -m dpo.train_dpo --config dpo/configs/defaults.yaml --wandb_mode offline
+python -m dpo.train --config dpo/configs/defaults.yaml --wandb_mode offline
 ```
 
 ### SLURM Job Submission
 ```bash
-# Submit single GPU job
-sbatch examples/submit_dpo_job.sh dpo/configs/batch_8.yaml
-
-# Submit distributed job (2 GPUs)
-sbatch examples/submit_distributed_job.sh dpo/configs/batch_8.yaml
-
-# Quick inline submission
+# Submit SimPO job (recommended)
 sbatch --gres=gpu:A100:1 --cpus-per-task=8 --mem=32G --time=12:00:00 \
-    --wrap="python -m dpo.train_dpo --config dpo/configs/batch_8.yaml"
+    --wrap="python -m dpo.train --config dpo/configs/defaults.yaml"
+
+# Submit DPO job
+sbatch --gres=gpu:A100:1 --cpus-per-task=8 --mem=32G --time=12:00:00 \
+    --wrap="python -m dpo.train --config dpo/configs/defaults.yaml --loss_type dpo"
+
+# Using job script
+sbatch examples/submit_job.sh dpo/configs/defaults.yaml
 ```
 
 **Example job scripts** are provided in `examples/` - just update the paths and module loading for your cluster.
 
 ### Available Configurations
 
-#### `dpo/configs/defaults.yaml` - Balanced Configuration
+#### `dpo/configs/defaults.yaml` - SimPO Configuration (Recommended)
 ```yaml
+loss_type: simpo        # "dpo" or "simpo"
+
 wandb:
   enable: true
   project: DPO-RNA
   entity: minghao-sun-soc
-  run_name: dpo_batch4_default
-  group: "dpo_optimization"
+  run_name: simpo_rna_train
 
 training:
   batch_size: 4         # Optimized GPU utilization
-  grad_accum_steps: 2   # Effective batch size = 8
-  num_workers: 0        # Adjust based on CPU allocation
+  grad_accum_steps: 4   # Effective batch size = 16
+  num_workers: 8        # Adjust based on CPU allocation
   
+# SimPO parameters (used when loss_type=simpo)
+simpo:
+  beta: 2.0             # β ∈ [1.5, 2.5] - reward scale
+  gamma: 0.5            # γ ∈ [0.3, 1.2] - target margin
+  sft_lambda: 0.0       # Optional SFT regularization
+
+# DPO parameters (used when loss_type=dpo)  
 dpo:
   beta: 0.10            # DPO temperature
   sft_lambda: 0.10      # SFT regularization
@@ -105,28 +135,18 @@ optimizer:
   lr: 1.0e-4
 ```
 
-#### `dpo/configs/batch_8.yaml` - High Performance
-```yaml
-training:
-  batch_size: 8         # Higher GPU utilization
-  num_workers: 4        # Requires 8+ CPU cores
-  
-dpo:
-  beta: 0.20            # Stronger preference signal
-  sft_lambda: 0.05      # Lower SFT weight
-  
-optimizer:
-  lr: 2.0e-4            # Higher learning rate
-```
+### Hyperparameter Guidelines
 
-#### `dpo/configs/batch_16.yaml` - Maximum Throughput
-```yaml
-training:
-  batch_size: 16        # Maximum batch size
-  num_workers: 6        # Requires 8+ CPU cores
-  
-# Same hyperparameters as batch_8.yaml
-```
+#### SimPO Hyperparameters
+- **β (beta)**: `1.5-2.5` - Controls reward scaling. Higher β = stronger preference signal
+- **γ (gamma)**: `0.3-1.2` - Target reward margin. Start with `0.5`
+- **Learning Rate**: `1e-4` to `5e-6` - Use lower LR for stable training
+- **SFT λ**: `0.0-0.1` - Optional regularization on winners
+
+#### DPO Hyperparameters  
+- **β (beta)**: `0.1-0.5` - DPO temperature parameter
+- **Learning Rate**: `1e-4` to `2e-4`
+- **SFT λ**: `0.1-0.2` - Regularization weight
 
 ### GPU Utilization Optimization
 The training pipeline has been optimized for high GPU utilization:
@@ -141,27 +161,39 @@ The training pipeline has been optimized for high GPU utilization:
 | 8          | ~25GB      | 8         | 60-80%           | 5-6x       |
 | 16         | ~40GB      | 8         | 70-85%           | 7-8x       |
 
-### Multi-GPU Training
-```bash
-# Distributed training on multiple GPUs
-python -m dpo.train_dpo_distributed --config dpo/configs/batch_8.yaml
-
-# Specify number of GPUs
-python -m dpo.train_dpo_distributed --config dpo/configs/batch_8.yaml --world_size 2
-```
 
 ### Training Algorithm
+
+#### SimPO (Reference-free)
+- **Objective**: Length-normalized preference optimization with target margin
+- **Loss**: `-log σ(β * (avg_logp_w - avg_logp_l) - γ)`
+- **Memory Efficient**: Only policy model needed
+- **Checkpoint selection**: Best validation reward accuracy
+
+#### DPO (Reference-based)
 - **Objective**: Reference-tethered DPO loss + SFT anchor on winners
 - **Reference reset**: At the start of each training round
+- **Memory**: Policy + frozen reference model
 - **Checkpoint selection**: Best validation preference accuracy
-- **Error handling**: Robust RBF expansion and sequence length mismatch handling
 
 ### Monitoring
 Training logs to [Weights & Biases](https://wandb.ai):
+
+#### SimPO Metrics
+- `train/simpo/reward_acc`: % with β*(avg_w-avg_l) > γ (key metric)
+- `train/simpo/avg_logp_w`: Average log-prob for winners
+- `train/simpo/avg_logp_l`: Average log-prob for losers
+- `train/simpo/z_margin`: Decision margin (β*(avg_w-avg_l) - γ)
+- `train/simpo/sft_loss`: SFT regularization loss (if enabled)
+
+#### DPO Metrics
 - `train/loss_dpo`: DPO loss
 - `train/pref_acc`: Preference accuracy (% correct rankings)
 - `train/margin`: Average logprob margin (winner - loser)
-- `val/pref_acc`: Validation preference accuracy (for best.pt selection)
+
+#### Common Metrics
+- `train/loss`: Total training loss
+- `train/lr`: Learning rate
 - **Config logging**: All hyperparameters automatically logged for easy filtering
 
 ## 📈 Evaluation & Benchmarking
