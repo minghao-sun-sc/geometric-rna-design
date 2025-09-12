@@ -61,9 +61,9 @@ scheduler:
 
 training:
   epochs: 20
-  batch_size: 16             # Increased from 1 to 4 for better GPU utilization
-  grad_accum_steps: 4       # Reduced from 8 to maintain effective batch size
-  num_workers: 4            # Reduced for stability
+  batch_size: 32             # Increased from 1 to 4 for better GPU utilization
+  grad_accum_steps: 2       # Reduced from 8 to maintain effective batch size
+  num_workers: 20            # Reduced for stability
   pin_memory: false         # Disabled to avoid multiprocessing issues with complex graph data
   drop_last: false
   compile: false

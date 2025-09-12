@@ -74,7 +74,22 @@ Location: data/pairs_margin125/by_das/clean/
 # SimPO training (default, recommended)
 python -m dpo.train --config dpo/configs/defaults.yaml
 
-# DPO training
+# Evaluation Pipeline
+# Full Evaluation (with Sampling)
+
+python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml --n_samples 8 --temperature 0.5
+
+
+
+# Basic Evaluation (Teacher-forced)
+
+python -m dpo.bench.eval_benchmark --config dpo/configs/bench.yaml
+
+# Metrics: Recovery, Perplexity
+
+
+
+# DPO training (override loss_type)
 python -m dpo.train --config dpo/configs/defaults.yaml --loss_type dpo
 
 # Override run name

@@ -384,8 +384,8 @@ def main():
     wb = cfg.eval.wandb
     use_wandb = getattr(wb, "enable", False)
     if use_wandb:
-        run_name = wb.run_name or f"full_eval_{cfg.paths.split_name}_{time.strftime('%Y%m%d_%H%M%S')}"
-        wandb.init(project=wb.project, entity=wb.entity, name=run_name, tags=wb.tags)
+        run_name = getattr(wb, 'run_name', None) or f"full_eval_{cfg.paths.split_name}_{time.strftime('%Y%m%d_%H%M%S')}"
+        wandb.init(project=wb.project, entity=wb.entity, name=run_name, tags=getattr(wb, 'tags', None))
     
     # Evaluate each checkpoint
     os.makedirs(cfg.eval.out_dir, exist_ok=True)
