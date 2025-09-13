@@ -63,7 +63,7 @@ training:
   epochs: 20
   batch_size: 32             # Increased from 1 to 4 for better GPU utilization
   grad_accum_steps: 2       # Reduced from 8 to maintain effective batch size
-  num_workers: 20            # Reduced for stability
+  num_workers: 6            # Reduced for stability
   pin_memory: false         # Disabled to avoid multiprocessing issues with complex graph data; Increase cpus and num_workers to compensate this.
   drop_last: false
   compile: false
