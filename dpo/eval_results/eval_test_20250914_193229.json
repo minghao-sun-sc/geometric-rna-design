@@ -1,0 +1,125 @@
+{
+  "metadata": {
+    "timestamp": "20250914_193229",
+    "split": "test",
+    "n_structures": 98,
+    "n_samples_per_structure": 8,
+    "temperature": 1.0,
+    "metrics_computed": [
+      "recovery",
+      "perplexity",
+      "sc_eternafold",
+      "sc_rhofold"
+    ],
+    "save_designs": false,
+    "config_file": "dpo/configs/bench_full.yaml",
+    "command_args": {
+      "config": "dpo/configs/bench_full.yaml",
+      "n_samples": 8,
+      "temperature": 1.0,
+      "metrics": [
+        "recovery",
+        "perplexity",
+        "sc_eternafold",
+        "sc_rhofold"
+      ],
+      "save_designs": false
+    }
+  },
+  "checkpoints_evaluated": [
+    "eval_simpo_v1_beta2.0_gamma0.5_lambda0.05"
+  ],
+  "summary": {
+    "n_structures": {
+      "mean": 98.0,
+      "std": 0.0,
+      "min": 98.0,
+      "max": 98.0
+    },
+    "n_samples_per_structure": {
+      "mean": 8.0,
+      "std": 0.0,
+      "min": 8.0,
+      "max": 8.0
+    },
+    "temperature": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "recovery": {
+      "mean": 0.44172754883766174,
+      "std": 0.0,
+      "min": 0.44172754883766174,
+      "max": 0.44172754883766174
+    },
+    "perplexity": {
+      "mean": 1.3859087087366047,
+      "std": 0.0,
+      "min": 1.3859087087366047,
+      "max": 1.3859087087366047
+    },
+    "sc_eternafold": {
+      "mean": 0.6421272629112889,
+      "std": 0.0,
+      "min": 0.6421272629112889,
+      "max": 0.6421272629112889
+    },
+    "sc_rmsd": {
+      "mean": 14.351043269859058,
+      "std": 0.0,
+      "min": 14.351043269859058,
+      "max": 14.351043269859058
+    },
+    "sc_tm": {
+      "mean": 0.22430957815247654,
+      "std": 0.0,
+      "min": 0.22430957815247654,
+      "max": 0.22430957815247654
+    },
+    "sc_gdt": {
+      "mean": 0.23141857260485935,
+      "std": 0.0,
+      "min": 0.23141857260485935,
+      "max": 0.23141857260485935
+    },
+    "rmsd_within_2A": {
+      "mean": 0.008928571428571428,
+      "std": 0.0,
+      "min": 0.008928571428571428,
+      "max": 0.008928571428571428
+    },
+    "tm_above_045": {
+      "mean": 0.18622448979591838,
+      "std": 0.0,
+      "min": 0.18622448979591838,
+      "max": 0.18622448979591838
+    },
+    "gdt_above_050": {
+      "mean": 0.21173469387755103,
+      "std": 0.0,
+      "min": 0.21173469387755103,
+      "max": 0.21173469387755103
+    }
+  },
+  "per_checkpoint_results": [
+    {
+      "ckpt_name": "eval_simpo_v1_beta2.0_gamma0.5_lambda0.05",
+      "ckpt_path": "runs/offline_dpo/simpo_v1_beta2.0_gamma0.5_lambda0.05/best.pt",
+      "split": "test",
+      "n_structures": 98.0,
+      "n_samples_per_structure": 8.0,
+      "temperature": 1.0,
+      "recovery": 0.44172754883766174,
+      "perplexity": 1.3859087087366047,
+      "sc_eternafold": 0.6421272629112889,
+      "sc_rmsd": 14.351043269859058,
+      "sc_tm": 0.22430957815247654,
+      "sc_gdt": 0.23141857260485935,
+      "rmsd_within_2A": 0.008928571428571428,
+      "tm_above_045": 0.18622448979591838,
+      "gdt_above_050": 0.21173469387755103
+    }
+  ]
+}

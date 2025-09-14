@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=ribopoeval
 #SBATCH --partition=gpu
-#SBATCH --gpus=1
+#SBATCH --gpus=1            # Request one generic GPU.
 #SBATCH --cpus-per-task=4
-#SBATCH --time=05:00:00
+#SBATCH --time=03:00:00      # gpu partition, max 3 hours
 #SBATCH --output=/home/m/minghsun/projects/ribopo/dpo/slurm_logs/eval_%j.log # Path is relative to the project root
 
 # --- Best Practices ---

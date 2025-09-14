@@ -16,9 +16,9 @@ paths:
     # Add DPO checkpoints once training completes:
     # - name: "DPO_v2_best"
     #   path: runs/offline_dpo/dpo_rna_v2/best.pt
-    - name: "DPO_eval_ckpt_simpo_exp003"  
+    - name: "eval_dpo_b0.12_l0.10_lr2e-4"  
       # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
-      path: runs/offline_dpo/simpo_exp003_beta2.0_gamma0.8_lambda0.05_batch16/best.pt
+      path: runs/offline_dpo/dpo_b0.12_l0.10_lr2e-4/best.pt
 
 featurizer:
   split: test

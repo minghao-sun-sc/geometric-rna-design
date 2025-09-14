@@ -77,7 +77,7 @@ training:
 
 dpo:
   beta: 0.12                 # DPO beta
-  sft_lambda: 0.12           # mix-in SFT loss on winners
+  sft_lambda: 0.10           # mix-in SFT loss on winners
   label_smoothing: 0.0
   max_len: null             # optional truncate length
 

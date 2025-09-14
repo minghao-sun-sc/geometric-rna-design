@@ -77,7 +77,9 @@ python -m dpo.train --config dpo/configs/defaults.yaml
 # Evaluation Pipeline
 # Full Evaluation (with Sampling)
 
-python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml --n_samples 8 --temperature 0.5
+python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml 
+
+# Alternative parameters: --n_samples 8 --temperature 0.5
 
 # SBATCH; training & eval
 
@@ -87,8 +89,12 @@ sbatch dpo/scripts/train.slurm dpo/configs/defaults.yaml
 
 sbatch dpo/scripts/train.slurm dpo/configs/experiments/exp003_simpo_b2.0_g0.8_l0.05_b16.yaml
 
-# From the project root 'ribopo/'
+# From the project root 'ribopo/, SoC Cluster'
 sbatch dpo/scripts/eval.slurm dpo/configs/bench_full.yaml
+
+# From the DNA Cluster
+sbatch dpo/scripts/eval_dna.slurm dpo/configs/bench_full.yaml
+
 
 # --n_samples 8 --temperature 0.5 optional, can override
 
