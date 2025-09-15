@@ -1,0 +1,18 @@
+{
+  "trial_number": 3,
+  "algorithm": "dpo",
+  "hyperparameters": {
+    "beta": 0.31551186844473583,
+    "sft_lambda": 0.10418416067495401,
+    "lr": 2.2693109682971602e-05,
+    "warmup": true,
+    "warmup_steps": 773
+  },
+  "score": 0.0,
+  "metrics": {
+    "loss_dpo": 0.7069214438447858,
+    "pref_acc": 0.8554455672160234,
+    "margin": 5.887911470809786
+  },
+  "timestamp": "2025-09-15T11:36:27.850890"
+}

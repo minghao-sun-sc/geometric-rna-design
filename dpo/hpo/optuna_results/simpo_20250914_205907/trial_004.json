@@ -1,0 +1,21 @@
+{
+  "trial_number": 4,
+  "algorithm": "simpo",
+  "hyperparameters": {
+    "beta": 2.2044113211869014,
+    "gamma": 0.40419364413095327,
+    "sft_lambda": 0.12133099246861519,
+    "lr": 3.7276061099238683e-06,
+    "warmup": true,
+    "warmup_steps": 282
+  },
+  "score": 0.0,
+  "metrics": {
+    "loss": 0.6715221578531926,
+    "simpo/avg_logp_w": -1.2494745582637221,
+    "simpo/avg_logp_l": -1.5653807602306404,
+    "simpo/z_margin": 0.29219356598240315,
+    "simpo/reward_acc": 0.691089127323415
+  },
+  "timestamp": "2025-09-15T08:06:47.426739"
+}

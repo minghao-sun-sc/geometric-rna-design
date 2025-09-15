@@ -26,70 +26,81 @@ from src.data.sec_struct_utils import (
     dotbracket_to_adjacency
 )
 from src.constants import (
-    NUM_TO_LETTER, 
+    NUM_TO_LETTER,
     PROJECT_PATH,
+    MOLPROBITY_HOME,
     RMSD_THRESHOLD,
     TM_THRESHOLD,
-    GDT_THRESHOLD
+    GDT_THRESHOLD,
+    PLDDT_THRESHOLD,
+    DATA_PATH
 )
+
+from tools.RNA_assessment import RNA_normalizer
+RESIDUES_LIST = "tools/RNA_assessment/data/residues.list"
+ATOMS_LIST = "tools/RNA_assessment/data/atoms.list"
+
+import subprocess
 
 
 def evaluate(
-        model, 
-        dataset, 
-        n_samples, 
-        temperature, 
-        device, 
+        model,
+        dataset,
+        n_samples,
+        temperature,
+        device,
         model_name="eval",
         metrics=[
-            'recovery', 'perplexity', 'sc_score_eternafold', 
-            'sc_score_ribonanzanet', 'sc_score_rhofold'
+            'recovery', 'perplexity', 'sc_score_eternafold',
+            'sc_score_ribonanzanet', 'sc_score_rhofold',
+            'sc_score_assessment'
         ],
         save_designs=False
     ):
     """
-    Run evaluation suite for trained RNA inverse folding model on a dataset.
+        Run evaluation suite for trained RNA inverse folding model on a dataset.
 
-    The following metrics can be computed along with metadata per sample per residue:
-    1. (recovery) Sequence recovery per residue (taking mean gives per sample recovery)
-    2. (perplexity) Perplexity per sample
-    3. (sc_score_eternafold) Secondary structure self-consistency score per sample, 
-        using EternaFold for secondary structure prediction and computing MCC between
-        the predicted and groundtruth 2D structures as adjacency matrices.
-    4. (sc_score_ribonanzanet) Chemical modification self-consistency score per sample,
-        using RibonanzaNet for chemical modification prediction of the groundtruth and
-        designed sequences, and measuring MAE between them.
-    5. (sc_score_rhofold) Tertiary structure self-consistency scores per sample,
-        using RhoFold for tertiary structure prediction and measuring RMSD, TM-score,
-        and GDT_TS between the predicted and groundtruth C4' 3D coordinates.
-    6. (rmsd_within_thresh) Percentage of samples with RMSD within threshold (<=2.0A)
-    7. (tm_within_thresh) Percentage of samples with TM-score within threshold (>=0.45)
-    8. (gddt_within_thresh) Percentage of samples with GDT_TS within threshold (>=0.50)
+        The following metrics can be computed along with metadata per sample per residue:
+        1. (recovery) Sequence recovery per residue (taking mean gives per sample recovery)
+        2. (perplexity) Perplexity per sample
+        3. (sc_score_eternafold) Secondary structure self-consistency score per sample,
+            using EternaFold for secondary structure prediction and computing MCC between
+            the predicted and groundtruth 2D structures as adjacency matrices.
+        4. (sc_score_ribonanzanet) Chemical modification self-consistency score per sample,
+            using RibonanzaNet for chemical modification prediction of the groundtruth and
+            designed sequences, and measuring MAE between them.
+        5. (sc_score_rhofold) Tertiary structure self-consistency scores per sample,
+            using RhoFold for tertiary structure prediction and measuring RMSD, TM-score,
+            and GDT_TS between the predicted and groundtruth C4' 3D coordinates.
+        6. (rmsd_within_thresh) Percentage of samples with RMSD within threshold (<=2.0A)
+        7. (tm_within_thresh) Percentage of samples with TM-score within threshold (>=0.45)
+        8. (gddt_within_thresh) Percentage of samples with GDT_TS within threshold (>=0.50)
 
-    Args:
-        model: trained RNA inverse folding model
-        dataset: dataset to evaluate on
-        n_samples: number of predicted samples/sequences per data point 
-        temperature: sampling temperature
-        device: device to run evaluation on
-        model_name: name of model/dataset for plotting (default: 'eval')
-        metrics: list of metrics to compute
-        save_designs: whether to save designs as fasta with metrics
-    
-    Returns: Dictionary with the following keys:
-        df: DataFrame with metrics and metadata per residue per sample for analysis and plotting
-        samples_list: list of tensors of shape (n_samples, seq_len) per data point 
-        recovery_list: list of mean recovery per data point
-        perplexity_list: list of mean perplexity per data point
-        sc_score_eternafold_list: list of 2D self-consistency scores per data point
-        sc_score_ribonanzanet_list: list of 1D self-consistency scores per data point
-        sc_score_rmsd_list: list of 3D self-consistency RMSDs per data point
-        sc_score_tm_list: list of 3D self-consistency TM-scores per data point
-        sc_score_gddt_list: list of 3D self-consistency GDTs per data point
-        rmsd_within_thresh_list: list of % scRMSDs within threshold per data point
-        tm_within_thresh_list: list of % scTMs within threshold per data point
-        gddt_within_thresh_list: list of % scGDDTs within threshold per data point
-    """
+        Args:
+            model: trained RNA inverse folding model
+            dataset: dataset to evaluate on
+            n_samples: number of predicted samples/sequences per data point
+            temperature: sampling temperature
+            device: device to run evaluation on
+            model_name: name of model/dataset for plotting (default: 'eval')
+            metrics: list of metrics to compute
+            save_designs: whether to save designs as fasta with metrics
+
+        Returns: Dictionary with the following keys:
+            df: DataFrame with metrics and metadata per residue per sample for analysis and plotting
+            samples_list: list of tensors of shape (n_samples, seq_len) per data point
+            recovery_list: list of mean recovery per data point
+            perplexity_list: list of mean perplexity per data point
+            sc_score_eternafold_list: list of 2D self-consistency scores per data point
+            sc_score_ribonanzanet_list: list of 1D self-consistency scores per data point
+            sc_score_rmsd_list: list of 3D self-consistency RMSDs per data point
+            sc_score_tm_list: list of 3D self-consistency TM-scores per data point
+            sc_score_gddt_list: list of 3D self-consistency GDTs per data point
+            rmsd_within_thresh_list: list of % scRMSDs within threshold per data point
+            tm_within_thresh_list: list of % scTMs within threshold per data point
+            gddt_within_thresh_list: list of % scGDDTs within threshold per data point
+            plddt_within_thresh_list: list of % scPLDDTs within threshold per data point
+        """
     assert 'recovery' in metrics, 'Sequence recovery must be computed for evaluation'
 
     #######################################################################
@@ -98,7 +109,7 @@ def evaluate(
 
     if 'sc_score_ribonanzanet' in metrics:
         from tools.ribonanzanet.network import RibonanzaNet
-        
+
         # Initialise RibonanzaNet for self-consistency score
         ribonanza_net = RibonanzaNet(
             os.path.join(PROJECT_PATH, 'tools/ribonanzanet/config.yaml'),
@@ -108,11 +119,11 @@ def evaluate(
         # Transfer model to device in eval mode
         ribonanza_net = ribonanza_net.to(device)
         ribonanza_net.eval()
-    
+
     if 'sc_score_rhofold' in metrics:
         from tools.rhofold.rf import RhoFold
         from tools.rhofold.config import rhofold_config
-        
+
         # Initialise RhoFold for 3D self-consistency score
         rhofold = RhoFold(rhofold_config, device)
         rhofold_path = os.path.join(PROJECT_PATH, "tools/rhofold/model_20221010_params.pt")
@@ -123,22 +134,27 @@ def evaluate(
         rhofold.eval()
         current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    if 'sc_score_assessment' in metrics:
+        pass
+
     ####################################################
     # Evaluation loop over each data point sequentially
     ####################################################
 
     # per sample metric lists for storing evaluation results
-    samples_list = []               # list of tensors of shape (n_samples, seq_len) per data point 
-    recovery_list = []              # list of mean recovery per data point
-    perplexity_list = []            # list of mean perplexity per data point
-    sc_score_ribonanzanet_list = [] # list of 1D self-consistency scores per data point
-    sc_score_eternafold_list = []   # list of 2D self-consistency scores per data point
-    sc_score_rmsd_list = []         # list of 3D self-consistency RMSDs per data point
-    rmsd_within_thresh_list = []    # list of % scRMSDs within threshold per data point
-    sc_score_tm_list = []           # list of 3D self-consistency TM-scores per data point
-    tm_within_thresh_list = []      # list of % scTMs within threshold per data point
-    sc_score_gddt_list = []         # list of 3D self-consistency GDTs per data point
-    gddt_within_thresh_list = []    # list of % scGDDTs within threshold per data point
+    samples_list = []  # list of tensors of shape (n_samples, seq_len) per data point
+    recovery_list = []  # list of mean recovery per data point
+    perplexity_list = []  # list of mean perplexity per data point
+    sc_score_ribonanzanet_list = []  # list of 1D self-consistency scores per data point
+    sc_score_eternafold_list = []  # list of 2D self-consistency scores per data point
+    sc_score_rmsd_list = []  # list of 3D self-consistency RMSDs per data point
+    rmsd_within_thresh_list = []  # list of % scRMSDs within threshold per data point
+    sc_score_tm_list = []  # list of 3D self-consistency TM-scores per data point
+    tm_within_thresh_list = []  # list of % scTMs within threshold per data point
+    sc_score_gddt_list = []  # list of 3D self-consistency GDTs per data point
+    gddt_within_thresh_list = []  # list of % scGDDTs within threshold per data point
+    sc_score_plddt_list = []  # list of 3D self-consistency PLDDTs per data point
+    plddt_within_thresh_list = []  # list of % scPLDDTs within threshold per data point
 
     # DataFrame to store metrics and metadata per residue per sample for analysis and plotting
     df = pd.DataFrame(columns=['idx', 'recovery', 'sasa', 'paired', 'rmsds', 'model_name'])
@@ -151,11 +167,11 @@ def evaluate(
             ribonanza_net = ipex.optimize(ribonanza_net)
         if 'sc_score_rhofold' in metrics:
             rhofold = ipex.optimize(rhofold)
-    
+
     with torch.no_grad():
         for idx, raw_data in tqdm(
-            enumerate(dataset.data_list),
-            total=len(dataset.data_list)
+                enumerate(dataset.data_list),
+                total=len(dataset.data_list)
         ):
             # featurise raw data
             data = dataset.featurizer(raw_data).to(device)
@@ -163,12 +179,12 @@ def evaluate(
             # sample n_samples from model for single data point: n_samples x seq_len
             samples, logits = model.sample(data, n_samples, temperature, return_logits=True)
             samples_list.append(samples.cpu().numpy())
-            
+
             # perplexity per sample: n_samples x 1
             n_nodes = logits.shape[1]
             perplexity = torch.exp(F.cross_entropy(
-                logits.view(n_samples * n_nodes, model.out_dim), 
-                samples.view(n_samples * n_nodes).long(), 
+                logits.view(n_samples * n_nodes, model.out_dim),
+                samples.view(n_samples * n_nodes).long(),
                 reduction="none"
             ).view(n_samples, n_nodes).mean(dim=1)).cpu().numpy()
             perplexity_list.append(perplexity.mean())
@@ -192,23 +208,23 @@ def evaluate(
             else:
                 rmsds = []
                 for i in range(len(raw_data["coords_list"])):
-                    for j in range(i+1, len(raw_data["coords_list"])):
+                    for j in range(i + 1, len(raw_data["coords_list"])):
                         coords_i = get_c4p_coords(raw_data["coords_list"][i])
                         coords_j = get_c4p_coords(raw_data["coords_list"][j])
-                        rmsds.append(torch.sqrt(torch.sum((coords_i - coords_j)**2, dim=1)).cpu().numpy())
+                        rmsds.append(torch.sqrt(torch.sum((coords_i - coords_j) ** 2, dim=1)).cpu().numpy())
                 rmsds = np.stack(rmsds).mean(axis=0)[mask_coords]
 
             ##########
             # Metrics
             ##########
 
-            # sequence recovery per residue across all samples: n_samples x seq_len 
+            # sequence recovery per residue across all samples: n_samples x seq_len
             recovery = samples.eq(data.seq).float().cpu().numpy()
             recovery_list.append(recovery.mean())
 
             # update per residue per sample dataframe
             df = pd.concat([
-                df, 
+                df,
                 pd.DataFrame({
                     'idx': [idx] * len(recovery.mean(axis=0)),
                     'recovery': recovery.mean(axis=0),
@@ -222,24 +238,24 @@ def evaluate(
             # global 2D self consistency score per sample: n_samples x 1
             if 'sc_score_eternafold' in metrics:
                 sc_score_eternafold, pred_sec_structs = self_consistency_score_eternafold(
-                    samples.cpu().numpy(), 
-                    raw_data['sec_struct_list'], 
+                    samples.cpu().numpy(),
+                    raw_data['sec_struct_list'],
                     mask_coords,
-                    return_sec_structs = True
+                    return_sec_structs=True
                 )
                 sc_score_eternafold_list.append(sc_score_eternafold.mean())
 
             # global 1D self consistency score per sample: n_samples x 1
             if 'sc_score_ribonanzanet' in metrics:
                 sc_score_ribonanzanet, pred_chem_mods = self_consistency_score_ribonanzanet(
-                    samples.cpu().numpy(), 
+                    samples.cpu().numpy(),
                     raw_data['sequence'],
-                    mask_coords, 
+                    mask_coords,
                     ribonanza_net,
-                    return_chem_mods = True
+                    return_chem_mods=True
                 )
                 sc_score_ribonanzanet_list.append(sc_score_ribonanzanet.mean())
-            
+
             # global 3D self consistency scores per sample: n_samples x 1, each
             if 'sc_score_rhofold' in metrics:
                 try:
@@ -249,39 +265,43 @@ def evaluate(
                     output_dir = os.path.join(
                         PROJECT_PATH, f"designs_{model_name}/{current_datetime}/sample{idx}/")
 
-                sc_score_rmsd, sc_score_tm, sc_score_gdt = self_consistency_score_rhofold(
-                    samples.cpu().numpy(), 
+                sc_score_rmsd, sc_score_tm, sc_score_gdt, sc_score_plddt = self_consistency_score_rhofold(
+                    samples.cpu().numpy(),
                     raw_data,
                     mask_coords,
                     rhofold,
                     output_dir,
-                    save_designs = save_designs
+                    save_designs=save_designs
                 )
+
                 sc_score_rmsd_list.append(sc_score_rmsd.mean())
                 sc_score_tm_list.append(sc_score_tm.mean())
                 sc_score_gddt_list.append(sc_score_gdt.mean())
+                sc_score_plddt_list.append(sc_score_plddt.mean())
 
                 rmsd_within_thresh_list.append((sc_score_rmsd <= RMSD_THRESHOLD).sum() / n_samples)
                 tm_within_thresh_list.append((sc_score_tm >= TM_THRESHOLD).sum() / n_samples)
                 gddt_within_thresh_list.append((sc_score_gdt >= GDT_THRESHOLD).sum() / n_samples)
+                plddt_within_thresh_list.append((sc_score_plddt >= PLDDT_THRESHOLD).sum() / n_samples)
 
                 if save_designs:
                     # collate designed sequences in fasta format
                     sequences = [SeqRecord(
-                        Seq(raw_data["sequence"]), id=f"input_sequence,", 
+                        Seq(raw_data["sequence"]), id=f"input_sequence,",
                         description=f"pdb_id={raw_data['id_list'][0]} rfam={raw_data['rfam_list'][0]} eq_class={raw_data['eq_class_list'][0]} cluster={raw_data['cluster_structsim0.45']}"
                     )]
                     for idx, zipped in enumerate(zip(
-                        samples.cpu().numpy(),
-                        perplexity,
-                        recovery.mean(axis=1),
-                        sc_score_eternafold,
-                        pred_sec_structs,
-                        sc_score_ribonanzanet,
-                        pred_chem_mods,
-                        sc_score_rmsd,
-                        sc_score_tm,
-                        sc_score_gdt
+                            samples.cpu().numpy(),
+                            perplexity,
+                            recovery.mean(axis=1),
+                            sc_score_eternafold,
+                            pred_sec_structs,
+                            sc_score_ribonanzanet,
+                            pred_chem_mods,
+                            sc_score_rmsd,
+                            sc_score_tm,
+                            sc_score_gdt,
+                            sc_score_plddt
                     )):
                         seq, perp, rec, sc, pred_ss, sc_ribo, pred_cm, sc_rmsd, sc_tm, sc_gdt = zipped
                         seq = "".join([NUM_TO_LETTER[num] for num in seq])
@@ -310,22 +330,23 @@ def evaluate(
         out['rmsd_within_thresh'] = rmsd_within_thresh_list
         out['tm_within_thresh'] = tm_within_thresh_list
         out['gddt_within_thresh'] = gddt_within_thresh_list
+        out['plddt_within_thresh'] = plddt_within_thresh_list
     return out
 
 
 def self_consistency_score_eternafold(
-        samples, 
-        true_sec_struct_list, 
+        samples,
+        true_sec_struct_list,
         mask_coords,
-        n_samples_ss = 1,
-        num_to_letter = NUM_TO_LETTER,
-        return_sec_structs = False
-    ):
+        n_samples_ss=1,
+        num_to_letter=NUM_TO_LETTER,
+        return_sec_structs=False
+):
     """
     Compute self consistency score for an RNA, given its true secondary structure(s)
-    and a list of designed sequences. 
+    and a list of designed sequences.
     EternaFold is used to 'forward fold' the designs.
-    
+
     Args:
         samples: designed sequences of shape (n_samples, seq_len)
         true_sec_struct_list: list of true secondary structures (n_true_ss, seq_len)
@@ -333,29 +354,28 @@ def self_consistency_score_eternafold(
         n_samples_ss: number of predicted secondary structures per designed sample
         num_to_letter: lookup table mapping integers to nucleotides
         return_sec_structs: whether to return the predicted secondary structures
-    
+
     Workflow:
-        
+
         Input: For a given RNA molecule, we are given:
         - Designed sequences of shape (n_samples, seq_len)
         - True secondary structure(s) of shape (n_true_ss, seq_len)
-        
+
         For each designed sequence:
         - Predict n_sample_ss secondary structures using EternaFold
         - For each pair of true and predicted secondary structures:
             - Compute MCC score between their adjacency matrix representations
         - Take the average MCC score across all n_sample_ss predicted structures
-        
+
         Take the average MCC score across all n_samples designed sequences
     """
-    
     n_true_ss = len(true_sec_struct_list)
     sequence_length = mask_coords.sum()
     # map all entries from dotbracket to numerical representation
     true_sec_struct_list = np.array([dotbracket_to_adjacency(ss) for ss in true_sec_struct_list])
     # mask out missing sequence coordinates
     true_sec_struct_list = true_sec_struct_list[:, mask_coords][:, :, mask_coords]
-    # reshape to (n_true_ss * n_samples_ss, seq_len, seq_len)
+    # reshape to(n_true_ss * n_samples_ss, seq_len, seq_len)
     true_sec_struct_list = torch.tensor(
         true_sec_struct_list
     ).unsqueeze(1).repeat(1, n_samples_ss, 1, 1).reshape(-1, sequence_length, sequence_length)
@@ -388,7 +408,6 @@ def self_consistency_score_eternafold(
         return np.array(mcc_scores), pred_sec_structs
     else:
         return np.array(mcc_scores)
-
 
 def self_consistency_score_ribonanzanet(
     samples,
@@ -428,20 +447,19 @@ def self_consistency_score_ribonanzanet(
     # Compute original sequence's chemical modifications using RibonanzaNet
     true_sequence = np.array([char for char in true_sequence])
     true_sequence = "".join(true_sequence[mask_seq])
-    true_chem_mod = ribonanza_net.predict(true_sequence).unsqueeze(0).cpu().numpy()[:,:,0]
+    true_chem_mod = ribonanza_net.predict(true_sequence).unsqueeze(0).cpu().numpy()[:, :, 0]
 
     _samples = np.array([[num_to_letter[num] for num in seq] for seq in samples])
-    pred_chem_mod = ribonanza_net.predict(_samples[:, mask_seq]).cpu().numpy()[:,:,0]
+    pred_chem_mod = ribonanza_net.predict(_samples[:, mask_seq]).cpu().numpy()[:, :, 0]
     if return_chem_mods:
         return (np.abs(pred_chem_mod - true_chem_mod).mean(1)), pred_chem_mod
     else:
         return np.abs(pred_chem_mod - true_chem_mod).mean(1)
 
-
 def self_consistency_score_ribonanzanet_sec_struct(
-        samples, 
-        true_sec_struct, 
-        mask_coords, 
+        samples,
+        true_sec_struct,
+        mask_coords,
         ribonanza_net_ss,
         num_to_letter = NUM_TO_LETTER,
         return_sec_structs = False
@@ -455,7 +473,7 @@ def self_consistency_score_ribonanzanet_sec_struct(
 
     _samples = np.array([[num_to_letter[num] for num in seq] for seq in samples])
     _, pred_sec_structs = ribonanza_net_ss.predict(_samples)  # (n_samples, seq_len, seq_len)
-    
+
     mcc_scores = []
     for pred_sec_struct in pred_sec_structs:
         # map from dotbracket to numerical representation
@@ -480,11 +498,13 @@ def self_consistency_score_rhofold(
         mask_coords,
         rhofold,
         output_dir,
-        num_to_letter = NUM_TO_LETTER,
-        save_designs = False,
-        save_pdbs = False,
-        use_relax = False,
-    ):
+        num_to_letter=NUM_TO_LETTER,
+        save_designs=False,
+        save_pdbs=False,
+        use_relax=False,
+        use_inf=True,
+        use_clash=False
+):
     """
     Compute self consistency score for an RNA, given its true 3D structure(s)
     for the original RNA and a list of designed sequences.
@@ -502,24 +522,26 @@ def self_consistency_score_rhofold(
         save_designs: whether to save designs as fasta to output directory
         save_pdbs: whether to save PDBs of forward-folded designs to output directory
         use_relax: whether to perform Amber relaxation on designed structures
+        use_inf: whether to compute INF metrics
 
     Workflow:
-            
+
         Input: For a given RNA molecule, we are given:
         - Designed sequences of shape (n_samples, seq_len)
         - True 3D structure(s) of shape (n_true_structs, seq_len, 3)
-        
+
         For each designed sequence:
         - Predict the tertiary structure using RhoFold
         - For each pair of true and predicted 3D structures:
             - Compute RMSD, TM-score & GDT between their C4' coordinates
-        
+
         Take the average self-consistency scores across all n_samples designed sequences
 
     Returns:
         sc_rmsds: array of RMSD scores per sample
         sc_tms: array of TM-score scores per sample
         sc_gddts: array of GDT scores per sample
+        sc_plddt: array of pLDDT scores per sample
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -532,26 +554,28 @@ def self_consistency_score_rhofold(
     )
     # SeqIO.write(input_seq, os.path.join(output_dir, "input_seq.fasta"), "fasta")
     sequences = [input_seq]
-    
+
     # remaining records: designed sequences and metrics
-    sc_rmsds = []
-    sc_tms = []
-    sc_gddts = []
+    sc_rmsds, sc_tms, sc_gddts, sc_plddt = [], [], [], []
+    sc_inf_all, sc_inf_wc, sc_inf_nwc, sc_inf_stack = [], [], [], []
+    sc_clash = []
     for idx, seq in enumerate(samples):
         # Save designed sequence to fasta file (temporary)
         seq = SeqRecord(
-            Seq("".join([num_to_letter[num] for num in seq])), 
+            Seq("".join([num_to_letter[num] for num in seq])),
             id=f"sample={idx},",
             description=f"sample={idx}"
         )
         sequences.append(seq)
         design_fasta_path = os.path.join(output_dir, f"design{idx}.fasta")
         SeqIO.write(seq, design_fasta_path, "fasta")
-        
+
         # Forward fold designed sequence using RhoFold
         design_pdb_path = os.path.join(output_dir, f"design{idx}.pdb")
-        rhofold.predict(design_fasta_path, design_pdb_path, use_relax)
-        
+        _, plddt = rhofold.predict(design_fasta_path, design_pdb_path, use_relax)
+
+        sc_plddt.append(np.mean(plddt))
+
         # Load C4' coordinates of designed structure
         _, coords, _, _ = pdb_to_tensor(
             design_pdb_path,
@@ -574,7 +598,7 @@ def self_consistency_score_rhofold(
             # globally align coordinates
             R_hat = rotation_matrix(
                 _other,  # mobile set
-                coords # reference set
+                coords  # reference set
             )[0]
             _other = _other @ R_hat.T
             # compute metrics
@@ -587,24 +611,87 @@ def self_consistency_score_rhofold(
         sc_tms.append(np.mean(_sc_tms))
         sc_gddts.append(np.mean(_sc_gddts))
 
+        # Compute INF if requested
+        if use_inf:
+            inf_score = get_inf(design_pdb_path, true_raw_data, DATA_PATH)
+            sc_inf_all.append(inf_score["all"])
+            sc_inf_wc.append(inf_score["wc"])
+            sc_inf_nwc.append(inf_score["nwc"])
+            sc_inf_stack.append(inf_score["stack"])
+
+        # Compute clash if requested
+        if use_clash:
+            _clash = get_clashscore(design_pdb_path, output_dir)
+            sc_clash.append(_clash)
+
         # remove temporary files
         os.unlink(design_fasta_path)
         if save_pdbs is False:
             os.unlink(design_pdb_path)
-    
+
     if save_designs is False:
-        # remove output directory        
+        # remove output directory
         shutil.rmtree(output_dir)
     else:
         # write all designed sequences to output filepath
         SeqIO.write(sequences, os.path.join(output_dir, "all_designs.fasta"), "fasta")
 
-    return np.array(sc_rmsds), np.array(sc_tms), np.array(sc_gddts)
+    return (np.array(sc_rmsds), np.array(sc_tms), np.array(sc_gddts), np.array(sc_plddt),
+            {
+                "all": np.array(sc_inf_all),
+                "wc": np.array(sc_inf_wc),
+                "nwc": np.array(sc_inf_nwc),
+                "stack": np.array(sc_inf_stack),
+            },
+            np.array(sc_clash)
+            )
 
+def get_three_mer_corr(samples,true_seq, mask_coords):
+    """
+        Compute 3-mer correlation between designed sequences and true sequences.
+
+        Args:
+            samples: designed sequences of shape (n_samples, seq_len)
+            true_seqs: true sequences (seq_len)
+            mask_coords: mask for missing sequence coordinates to be ignored during evaluation
+
+        Returns:
+            Array of correlation scores (n_samples,)
+    """
+    assert len(mask_coords) == len(true_seq)
+
+    bases = ['A', 'C', 'G', 'U']
+    import itertools
+    all_3mers = [''.join(k) for k in itertools.product(bases, repeat=3)]
+    kmer_index = {kmer: i for i, kmer in enumerate(all_3mers)}
+    n_kmers = len(all_3mers)
+
+    def compute_kmer_vector(seq, mask=None):
+        vec = np.zeros(n_kmers, dtype=float)
+        seq_len = len(seq)
+        for i in range(seq_len - 2):
+            if mask is None or (mask[i] and mask[i+1] and mask[i+2]):
+                kmer = seq[i:i+3]
+                if kmer in kmer_index:
+                    vec[kmer_index[kmer]] += 1
+        if vec.sum() > 0:
+            vec /= vec.sum()  # normalize to frequency
+        return vec
+
+    true_vec = compute_kmer_vector(true_seq, mask_coords)
+    scores = []
+    for s in samples:
+        sample_vec = compute_kmer_vector(s)
+        if np.std(sample_vec) == 0 or np.std(true_vec) == 0:
+            corr = 0.0
+        else:
+            corr = np.corrcoef(sample_vec, true_vec)[0, 1]
+        scores.append(corr)
+    return np.array(scores)
 
 def get_tmscore(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Template Modelling score (TM-score). 
-    
+    """Template Modelling score (TM-score).
+
     Credit: Arian Jamasb, graphein (https://github.com/a-r-j/graphein)
 
     https://en.wikipedia.org/wiki/Template_modeling_score
@@ -622,7 +709,7 @@ def get_tmscore(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     13% in the same SCOP fold family. The probabilities increase rapidly
     when TM-score > 0.5. The TM-score is designed to be independent of
     protein lengths.
-    
+
     We have adapted the implementation to RNA (TM-score threshold = 0.45).
     Requires aligned C4' coordinates as input.
     """
@@ -633,7 +720,6 @@ def get_tmscore(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     if torch.isnan(out):
         return torch.tensor(0.0)
     return out
-
 
 def get_gddt(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Global Distance Deviation Test metric (GDDT).
@@ -655,8 +741,8 @@ def get_gddt(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     The conventional GDT_TS total score in CASP is the average result of cutoffs at
     ``1``, ``2``, ``4``, and ``8`` Å.
 
-    Random predictions give around 20; getting the gross topology right gets one to ~50; 
-    accurate topology is usually around 70; and when all the little bits and pieces, 
+    Random predictions give around 20; getting the gross topology right gets one to ~50;
+    accurate topology is usually around 70; and when all the little bits and pieces,
     including side-chain conformations, are correct, GDT_TS begins to climb above 90.
 
     We have adapted the implementation to RNA.
@@ -675,10 +761,9 @@ def get_gddt(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         return torch.tensor(0.0)
     return out
 
-
 def edit_distance(s: str, t: str) -> int:
     """
-    A Space efficient Dynamic Programming based Python3 program 
+    A Space efficient Dynamic Programming based Python3 program
     to find minimum number operations to convert str1 to str2
 
     Source: https://www.geeksforgeeks.org/edit-distance-dp-5/
@@ -700,3 +785,77 @@ def edit_distance(s: str, t: str) -> int:
         prev = curr.copy()
 
     return prev[m]
+
+def get_clashscore(pdb_file, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+    pdb_h = os.path.join(output_dir, "model_H.pdb")
+    probe_out = os.path.join(output_dir, "probe.log")
+
+    # Set environment variable REDUCE_WWPDB_HET_DICT
+    reduce_dict = os.path.join(MOLPROBITY_HOME, "modules/reduce/reduce_wwPDB_het_dict.txt")
+    os.environ["REDUCE_WWPDB_HET_DICT"] = reduce_dict
+
+    # Add hydrogens
+    reduce_exe = os.path.join(MOLPROBITY_HOME, "modules/reduce/reduce_src/reduce")
+    with open(pdb_h, "w") as f:
+        subprocess.run([reduce_exe, "-BUILD", pdb_file], stdout=f, check=True)
+
+    # Run probe to calculate clashes
+    probe_exe = os.path.join(MOLPROBITY_HOME, "modules/probe/probe")
+    with open(probe_out, "w") as f:
+        subprocess.run([probe_exe, "-u", pdb_h], stdout=f, check=True)
+
+    # Parse clash score
+    clashscore = None
+    with open(probe_out) as f:
+        for line in f:
+            if "clashscore" in line.lower():
+                clashscore = float(line.strip().split()[-1])
+                break
+
+    if clashscore is None:
+        raise RuntimeError(f"clashscore not found in probe output (file: {probe_out})")
+
+    return clashscore
+
+def get_inf(predicted_pdb_path, true_raw_data, data_path=DATA_PATH):
+    """
+        Compute Interaction Network Fidelity (INF) metrics for a predicted RNA structure.
+
+        Args:
+            predicted_pdb_path: path to the predicted RNA PDB
+            rue_raw_data: Original RNA raw data containing at least 'id_list' of native structures
+            data_path: root path where native PDBs are stored
+
+        Returns:
+            dict: INF metrics with keys 'all', 'wc', 'nwc', 'stack'
+                  values are floats (or -1 if no valid comparison)
+        """
+    predicted_struct = RNA_normalizer.PDBStruct()
+    predicted_struct.load(predicted_pdb_path)
+
+    inf_all, inf_wc, inf_nwc, inf_stack = [], [], [], []
+
+    for id in true_raw_data["id_list"]:
+        native_pdb_path = os.path.join(data_path, "raw", f"{id}.pdb")
+        native_struct = RNA_normalizer.PDBStruct()
+        native_struct.load(native_pdb_path)
+
+        comparer = RNA_normalizer.PDBComparer()
+        val_all = comparer.INF(predicted_struct, native_struct, type="ALL")
+        val_wc = comparer.INF(predicted_struct, native_struct, type="PAIR_2D")
+        val_nwc = comparer.INF(predicted_struct, native_struct, type="PAIR_3D")
+        val_stack = comparer.INF(predicted_struct, native_struct, type="STACK")
+
+        if val_all != -1: inf_all.append(val_all)
+        if val_wc != -1: inf_wc.append(val_wc)
+        if val_nwc != -1: inf_nwc.append(val_nwc)
+        if val_stack != -1: inf_stack.append(val_stack)
+
+    return {
+        "all": np.mean(inf_all) if inf_all else -1,
+        "wc": np.mean(inf_wc) if inf_wc else -1,
+        "nwc": np.mean(inf_nwc) if inf_nwc else -1,
+        "stack": np.mean(inf_stack) if inf_stack else -1,
+    }

@@ -50,12 +50,23 @@ class DPOTrainer:
     def train(self):
         cfg = self.cfg
         self.policy.train()
+        
+        # Track best metrics for HPO
+        self.best_metrics = {}
+        
+        # Support max_steps for HPO
+        max_steps = getattr(cfg.training, 'max_steps', float('inf'))
 
         for epoch in range(cfg.training.epochs):
             meters = defaultdict(AverageMeter)
 
             for batch in self.train_loader:
                 self.global_step += 1
+                
+                # Early stopping for HPO
+                if self.global_step > max_steps:
+                    print(f"Reached max_steps ({max_steps}), stopping training")
+                    return self.best_metrics
                 
                 # Move batch to device (batch comes from DataLoader on CPU)
                 batch.graph = batch.graph.to(self.device)
@@ -114,6 +125,7 @@ class DPOTrainer:
                     # save best by val/pref_acc
                     if val_stats.get("pref_acc", -1.0) > self.best_metric:
                         self.best_metric = val_stats["pref_acc"]
+                        self.best_metrics = val_stats  # Store for HPO
                         save_checkpoint(self.save_root, "best", self.policy, self.optimizer, self.scheduler, self.global_step, self.best_metric, self.cfg)
 
                 if (self.global_step % cfg.training.save_every) == 0:
@@ -122,6 +134,8 @@ class DPOTrainer:
             # end epoch
         # save "latest" symlink-ish
         save_checkpoint(self.save_root, "latest", self.policy, self.optimizer, self.scheduler, self.global_step, self.best_metric, self.cfg)
+        
+        return self.best_metrics
 
     @torch.no_grad()
     def evaluate(self, loader, split="val"):
@@ -224,11 +238,22 @@ class SimPOTrainer:
         cfg = self.cfg
         self.policy.train()
         
+        # Track best metrics for HPO
+        self.best_metrics = {}
+        
+        # Support max_steps for HPO
+        max_steps = getattr(cfg.training, 'max_steps', float('inf'))
+        
         for epoch in range(cfg.training.epochs):
             meters = defaultdict(AverageMeter)
             
             for batch in self.train_loader:
                 self.global_step += 1
+                
+                # Early stopping for HPO
+                if self.global_step > max_steps:
+                    print(f"Reached max_steps ({max_steps}), stopping training")
+                    return self.best_metrics
                 
                 # Move batch to device (batch comes from DataLoader on CPU)
                 batch.graph = batch.graph.to(self.device)
@@ -342,6 +367,7 @@ class SimPOTrainer:
                     # Save best by validation reward accuracy
                     if val_stats.get("simpo/reward_acc", -1.0) > self.best_metric:
                         self.best_metric = val_stats["simpo/reward_acc"]
+                        self.best_metrics = val_stats  # Store for HPO
                         save_checkpoint(self.save_root, "best", self.policy, self.optimizer, 
                                       self.scheduler, self.global_step, self.best_metric, self.cfg)
                 
@@ -353,6 +379,8 @@ class SimPOTrainer:
         # Save final checkpoint
         save_checkpoint(self.save_root, "latest", self.policy, self.optimizer, 
                        self.scheduler, self.global_step, self.best_metric, self.cfg)
+        
+        return self.best_metrics
     
     @torch.no_grad()
     def evaluate(self, loader, split="val"):
