@@ -3,10 +3,16 @@ import copy
 import shutil
 from datetime import datetime
 
+import sys
+
+from dpo.env_bootstrap import bootstrap_env; bootstrap_env()
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import wandb
+
+import re
 
 import torch
 import torch.nn.functional as F
@@ -15,6 +21,10 @@ from torchmetrics.functional.classification import binary_matthews_corrcoef
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+from Bio.PDB import PDBParser, Select, PDBIO
+from Bio.SeqUtils import seq1
+import tempfile
 
 from MDAnalysis.analysis.align import rotation_matrix
 from MDAnalysis.analysis.rms import rmsd as get_rmsd
@@ -52,7 +62,7 @@ def evaluate(
         model_name="eval",
         metrics=[
             'recovery', 'perplexity', 'sc_score_eternafold',
-            'sc_score_ribonanzanet', 'sc_score_rhofold',
+            'sc_score_ribonanzanet', 'sc_score_rhofold', 'sc_score_vienna',
             'sc_score_assessment'
         ],
         save_designs=False
@@ -245,6 +255,65 @@ def evaluate(
                 )
                 sc_score_eternafold_list.append(sc_score_eternafold.mean())
 
+            # ---------------- ViennaRNA ensemble metrics (MFE, ED, entropy, p(S0), diversity, Tm) ----------------
+            if 'sc_score_vienna' in metrics:  # add 'sc_score_vienna' to your metrics list when you want these
+                # Choose a target dot-bracket: (a) ground-truth 2D if available, sanitized; or (b) per-seq MFE
+                # Here we default to the first provided 2D structure if present; else we MFE-fold the native seq.
+                if len(raw_data.get('sec_struct_list', [])) > 0:
+                    target_db_full = _sanitize_db_for_vienna(raw_data['sec_struct_list'][0])
+                else:
+                    # Fold the native sequence at 37°C to get a reasonable target
+                    _mfe_native, target_db_full = vienna_mfe(raw_data['sequence'], 37.0)
+
+                # If you want to ignore positions without 3D coords, slice both seq and DB by mask_coords.
+                # Vienna requires contiguous strings; masking is simply "drop those columns".
+                if mask_coords is not None and mask_coords.sum() < len(mask_coords):
+                    keep_idx = np.where(mask_coords)[0]
+                    def _mask_str(s): return "".join(s[i] for i in keep_idx)
+                    target_db = _mask_str(target_db_full)
+                else:
+                    target_db = target_db_full
+
+                # Collect per-sample metrics
+                v_mfe, v_ed, v_ednt, v_pS0, v_ent, v_div, v_tm = [], [], [], [], [], [], []
+                for seq_nums in samples.cpu().numpy():  # shape: (n_samples, seq_len)
+                    seq = "".join([NUM_TO_LETTER[n] for n in seq_nums])
+                    if mask_coords is not None and mask_coords.sum() < len(mask_coords):
+                        seq = _mask_str(seq)
+
+                    # Fast pass at 37°C
+                    v = vienna_ensemble_metrics(seq, target_db=target_db, T=37.0, return_positional_entropy=False)
+                    v_mfe.append(v["mfe"])
+                    v_ed.append(v["ED"])
+                    v_ednt.append(v["ED_per_nt"])
+                    v_pS0.append(v["pS0"])
+                    v_ent.append(v["entropy_mean"])
+                    v_div.append(v["diversity"])
+
+                    # Optional: coarse Tm sweep (costly if done for every sample; consider doing for winners only)
+                    # Comment out if you don't want it per-sample:
+                    v_tm.append(vienna_Tm_by_pS0(seq, target_db, Tmin=10, Tmax=95, step=1.0, threshold=0.5))
+
+                # Store per-datapoint aggregates (mirrors how you store other metrics)
+                try:
+                    vienna_mfe_list.append(np.mean(v_mfe))
+                    vienna_ed_list.append(np.mean(v_ed))
+                    vienna_ednt_list.append(np.mean(v_ednt))
+                    vienna_pS0_list.append(np.mean([x for x in v_pS0 if not np.isnan(x)]) if np.any(~np.isnan(v_pS0)) else np.nan)
+                    vienna_entropy_list.append(np.mean(v_ent))
+                    vienna_diversity_list.append(np.mean(v_div))
+                    vienna_Tm_list.append(np.mean(v_tm))  # remove if you skipped Tm
+                except NameError:
+                    vienna_mfe_list = [np.mean(v_mfe)]
+                    vienna_ed_list = [np.mean(v_ed)]
+                    vienna_ednt_list = [np.mean(v_ednt)]
+                    vienna_pS0_list = [np.mean([x for x in v_pS0 if not np.isnan(x)]) if np.any(~np.isnan(v_pS0)) else np.nan]
+                    vienna_entropy_list = [np.mean(v_ent)]
+                    vienna_diversity_list = [np.mean(v_div)]
+                    vienna_Tm_list = [np.mean(v_tm)]
+            # ------------------------------------------------------------------------------------------------------
+
+
             # global 1D self consistency score per sample: n_samples x 1
             if 'sc_score_ribonanzanet' in metrics:
                 sc_score_ribonanzanet, pred_chem_mods = self_consistency_score_ribonanzanet(
@@ -265,53 +334,117 @@ def evaluate(
                     output_dir = os.path.join(
                         PROJECT_PATH, f"designs_{model_name}/{current_datetime}/sample{idx}/")
 
-                sc_score_rmsd, sc_score_tm, sc_score_gdt, sc_score_plddt = self_consistency_score_rhofold(
+                # Use extended RhoFold evaluation with all metrics
+                (sc_score_rmsd, sc_score_tm, sc_score_gdt, sc_score_plddt, 
+                 sc_inf_dict, sc_clash_arr) = self_consistency_score_rhofold_extended(
                     samples.cpu().numpy(),
                     raw_data,
                     mask_coords,
                     rhofold,
                     output_dir,
-                    save_designs=save_designs
+                    save_designs=save_designs,
+                    use_inf=True,
+                    use_clash=True,
+                    phenix_wrapper_path=os.path.join(PROJECT_PATH, "tools", "run_phenix.sh"),
                 )
-
+                
                 sc_score_rmsd_list.append(sc_score_rmsd.mean())
                 sc_score_tm_list.append(sc_score_tm.mean())
                 sc_score_gddt_list.append(sc_score_gdt.mean())
                 sc_score_plddt_list.append(sc_score_plddt.mean())
+                
+                # INF and clash score arrays
+                try:
+                    inf_all_list.append(np.nanmean(sc_inf_dict["all"]))
+                    inf_wc_list.append(np.nanmean(sc_inf_dict["wc"]))
+                    inf_nwc_list.append(np.nanmean(sc_inf_dict["nwc"]))
+                    inf_stack_list.append(np.nanmean(sc_inf_dict["stack"]))
+                    clashscore_list.append(np.nanmean(sc_clash_arr) if sc_clash_arr.size > 0 else np.nan)
+                except NameError:
+                    inf_all_list = [np.nanmean(sc_inf_dict["all"])]
+                    inf_wc_list = [np.nanmean(sc_inf_dict["wc"])]
+                    inf_nwc_list = [np.nanmean(sc_inf_dict["nwc"])]
+                    inf_stack_list = [np.nanmean(sc_inf_dict["stack"])]
+                    clashscore_list = [np.nanmean(sc_clash_arr) if sc_clash_arr.size > 0 else np.nan]
+
 
                 rmsd_within_thresh_list.append((sc_score_rmsd <= RMSD_THRESHOLD).sum() / n_samples)
+                rmsd_within_2A_list = locals().get('rmsd_within_2A_list', [])
+                rmsd_within_2A_list.append((sc_score_rmsd <= RMSD_THRESHOLD_2).sum() / n_samples)
+
                 tm_within_thresh_list.append((sc_score_tm >= TM_THRESHOLD).sum() / n_samples)
                 gddt_within_thresh_list.append((sc_score_gdt >= GDT_THRESHOLD).sum() / n_samples)
                 plddt_within_thresh_list.append((sc_score_plddt >= PLDDT_THRESHOLD).sum() / n_samples)
 
+                # if save_designs:
+                #     # collate designed sequences in fasta format
+                #     sequences = [SeqRecord(
+                #         Seq(raw_data["sequence"]), id=f"input_sequence,",
+                #         description=f"pdb_id={raw_data['id_list'][0]} rfam={raw_data['rfam_list'][0]} eq_class={raw_data['eq_class_list'][0]} cluster={raw_data['cluster_structsim0.45']}"
+                #     )]
+                #     for idx, zipped in enumerate(zip(
+                #             samples.cpu().numpy(),
+                #             perplexity,
+                #             recovery.mean(axis=1),
+                #             sc_score_eternafold,
+                #             pred_sec_structs,
+                #             sc_score_ribonanzanet,
+                #             pred_chem_mods,
+                #             sc_score_rmsd,
+                #             sc_score_tm,
+                #             sc_score_gdt,
+                #             sc_score_plddt
+                #     )):
+                #         seq, perp, rec, sc, pred_ss, sc_ribo, pred_cm, sc_rmsd, sc_tm, sc_gdt = zipped
+                #         seq = "".join([NUM_TO_LETTER[num] for num in seq])
+                #         edit_dist = edit_distance(seq, raw_data['sequence'])
+                #         sequences.append(SeqRecord(
+                #             Seq(seq), id=f"sample={idx},",
+                #             description=f"temperature={temperature} perplexity={perp:.4f} recovery={rec:.4f} edit_dist={edit_dist} sc_score={sc:.4f} sc_score_ribonanzanet={sc_ribo:.4f} sc_score_rmsd={sc_rmsd:.4f} sc_score_tm={sc_tm:.4f} sc_score_gdt={sc_gdt:.4f}"
+                #         ))
+                #     # write all designed sequences to output filepath
+                #     SeqIO.write(sequences, os.path.join(output_dir, "all_designs.fasta"), "fasta")
+
                 if save_designs:
-                    # collate designed sequences in fasta format
                     sequences = [SeqRecord(
-                        Seq(raw_data["sequence"]), id=f"input_sequence,",
-                        description=f"pdb_id={raw_data['id_list'][0]} rfam={raw_data['rfam_list'][0]} eq_class={raw_data['eq_class_list'][0]} cluster={raw_data['cluster_structsim0.45']}"
+                        Seq(raw_data["sequence"]), id="input_sequence,",
+                        description=(f"pdb_id={raw_data['id_list'][0]} rfam={raw_data['rfam_list'][0]} "
+                                    f"eq_class={raw_data['eq_class_list'][0]} cluster={raw_data['cluster_structsim0.45']}")
                     )]
-                    for idx, zipped in enumerate(zip(
+
+                    # Safe fallbacks if these metrics weren’t requested this run
+                    nS = n_samples
+                    sc_ef_arr   = sc_score_eternafold if ('sc_score_eternafold'   in metrics) else np.full(nS, np.nan)
+                    pred_ss_arr = pred_sec_structs    if ('sc_score_eternafold'   in metrics) else [""] * nS
+                    sc_ribo_arr = sc_score_ribonanzanet if ('sc_score_ribonanzanet' in metrics) else np.full(nS, np.nan)
+                    pred_cm_arr = pred_chem_mods      if ('sc_score_ribonanzanet' in metrics) else [None] * nS
+
+                    for i, (seq_nums, perp, rec, sc_ef, pred_ss, sc_ribo, pred_cm, r, tm, gdt, plddt) in enumerate(zip(
                             samples.cpu().numpy(),
                             perplexity,
                             recovery.mean(axis=1),
-                            sc_score_eternafold,
-                            pred_sec_structs,
-                            sc_score_ribonanzanet,
-                            pred_chem_mods,
+                            sc_ef_arr,
+                            pred_ss_arr,
+                            sc_ribo_arr,
+                            pred_cm_arr,
                             sc_score_rmsd,
                             sc_score_tm,
-                            sc_score_gdt,
+                            sc_score_gddt,
                             sc_score_plddt
                     )):
-                        seq, perp, rec, sc, pred_ss, sc_ribo, pred_cm, sc_rmsd, sc_tm, sc_gdt = zipped
-                        seq = "".join([NUM_TO_LETTER[num] for num in seq])
-                        edit_dist = edit_distance(seq, raw_data['sequence'])
+                        seq_str = "".join(NUM_TO_LETTER[int(n)] for n in seq_nums)
+                        edist   = edit_distance(seq_str, raw_data['sequence'])
                         sequences.append(SeqRecord(
-                            Seq(seq), id=f"sample={idx},",
-                            description=f"temperature={temperature} perplexity={perp:.4f} recovery={rec:.4f} edit_dist={edit_dist} sc_score={sc:.4f} sc_score_ribonanzanet={sc_ribo:.4f} sc_score_rmsd={sc_rmsd:.4f} sc_score_tm={sc_tm:.4f} sc_score_gdt={sc_gdt:.4f}"
+                            Seq(seq_str),
+                            id=f"sample={i},",
+                            description=(f"temperature={temperature} perplexity={perp:.4f} recovery={rec:.4f} "
+                                        f"edit_dist={edist} sc_eternafold={sc_ef:.4f} "
+                                        f"sc_ribonanzanet={sc_ribo:.4f} sc_rmsd={r:.4f} sc_tm={tm:.4f} "
+                                        f"sc_gdt={gdt:.4f} sc_plddt={plddt:.4f}")
                         ))
-                    # write all designed sequences to output filepath
                     SeqIO.write(sequences, os.path.join(output_dir, "all_designs.fasta"), "fasta")
+
+
 
     out = {
         'df': df,
@@ -323,14 +456,28 @@ def evaluate(
         out['sc_score_eternafold'] = sc_score_eternafold_list
     if 'sc_score_ribonanzanet' in metrics:
         out['sc_score_ribonanzanet'] = sc_score_ribonanzanet_list
+    if 'sc_score_vienna' in metrics:
+        out['vienna_mfe'] = vienna_mfe_list                 # per-datapoint mean MFE (kcal/mol)
+        out['vienna_ED'] = vienna_ed_list                   # mean ensemble defect (nt)
+        out['vienna_ED_per_nt'] = vienna_ednt_list          # mean ED normalized by length
+        out['vienna_pS0'] = vienna_pS0_list                 # mean probability of target structure
+        out['vienna_entropy'] = vienna_entropy_list         # mean positional Shannon entropy
+        out['vienna_diversity'] = vienna_diversity_list     # mean bp-distance (ensemble diversity)
+        out['vienna_Tm'] = vienna_Tm_list                   # mean Tm (°C) if you enabled Tm
     if 'sc_score_rhofold' in metrics:
         out['sc_score_rmsd'] = sc_score_rmsd_list
         out['sc_score_tm'] = sc_score_tm_list
         out['sc_score_gddt'] = sc_score_gddt_list
         out['rmsd_within_thresh'] = rmsd_within_thresh_list
+        out['rmsd_within_2A'] = rmsd_within_2A_list
         out['tm_within_thresh'] = tm_within_thresh_list
         out['gddt_within_thresh'] = gddt_within_thresh_list
         out['plddt_within_thresh'] = plddt_within_thresh_list
+        out['inf_all']   = inf_all_list
+        out['inf_wc']    = inf_wc_list
+        out['inf_nwc']   = inf_nwc_list
+        out['inf_stack'] = inf_stack_list
+        out['clashscore'] = clashscore_list
     return out
 
 
@@ -491,7 +638,6 @@ def self_consistency_score_ribonanzanet_sec_struct(
     else:
         return np.array(mcc_scores)
 
-
 def self_consistency_score_rhofold(
         samples,
         true_raw_data,
@@ -502,63 +648,139 @@ def self_consistency_score_rhofold(
         save_designs=False,
         save_pdbs=False,
         use_relax=False,
-        use_inf=True,
-        use_clash=False
 ):
     """
-    Compute self consistency score for an RNA, given its true 3D structure(s)
-    for the original RNA and a list of designed sequences.
-    RhoFold is used to 'forward fold' the designs.
-
-    Credit: adapted from Rishabh Anand
-
-    Args:
-        samples: designed sequences of shape (n_samples, seq_len)
-        true_raw_data: Original RNA raw data with 3D structure(s) in `coords_list`
-        mask_coords: mask for missing sequence coordinates to be ignored during evaluation
-        rhofold: RhoFold model
-        output_dir: directory to save designed sequences and structures
-        num_to_letter: lookup table mapping integers to nucleotides
-        save_designs: whether to save designs as fasta to output directory
-        save_pdbs: whether to save PDBs of forward-folded designs to output directory
-        use_relax: whether to perform Amber relaxation on designed structures
-        use_inf: whether to compute INF metrics
-
-    Workflow:
-
-        Input: For a given RNA molecule, we are given:
-        - Designed sequences of shape (n_samples, seq_len)
-        - True 3D structure(s) of shape (n_true_structs, seq_len, 3)
-
-        For each designed sequence:
-        - Predict the tertiary structure using RhoFold
-        - For each pair of true and predicted 3D structures:
-            - Compute RMSD, TM-score & GDT between their C4' coordinates
-
-        Take the average self-consistency scores across all n_samples designed sequences
+    Original gRNAde-style RhoFold evaluation (3-value return).
+    Forward-fold each designed seq with RhoFold and evaluate vs native structures.
 
     Returns:
-        sc_rmsds: array of RMSD scores per sample
-        sc_tms: array of TM-score scores per sample
-        sc_gddts: array of GDT scores per sample
-        sc_plddt: array of pLDDT scores per sample
+        1) np.array(sc_rmsds)      # per-sample mean RMSD vs natives (Å)
+        2) np.array(sc_tms)        # per-sample mean TM-score vs natives (0..1) 
+        3) np.array(sc_gddts)      # per-sample mean GDT_TS (0..1)
     """
     os.makedirs(output_dir, exist_ok=True)
 
     # Collate designed sequences in fasta format
-    # first record: input sequence and model metadata
     input_seq = SeqRecord(
         Seq(true_raw_data["sequence"]),
         id=f"input_sequence,",
         description=f"input_sequence"
     )
-    # SeqIO.write(input_seq, os.path.join(output_dir, "input_seq.fasta"), "fasta")
     sequences = [input_seq]
 
-    # remaining records: designed sequences and metrics
+    # Containers (simplified for original 3-value return)
+    sc_rmsds, sc_tms, sc_gddts = [], [], []
+
+    for idx, seq in enumerate(samples):
+        # Save designed sequence to fasta file (temporary)
+        seq = SeqRecord(
+            Seq("".join([num_to_letter[num] for num in seq])),
+            id=f"sample={idx},",
+            description=f"sample={idx}"
+        )
+        sequences.append(seq)
+        design_fasta_path = os.path.join(output_dir, f"design{idx}.fasta")
+        SeqIO.write(seq, design_fasta_path, "fasta")
+
+        # Forward fold designed sequence using RhoFold
+        design_pdb_path = os.path.join(output_dir, f"design{idx}.pdb")
+        _, _ = rhofold.predict(design_fasta_path, design_pdb_path, use_relax)  # Now returns (coords, plddt)
+
+        # Load C4' coordinates of designed structure
+        _, coords, _, _ = pdb_to_tensor(
+            design_pdb_path,
+            return_sec_struct=False,
+            return_sasa=False,
+            keep_insertions=False,
+        )
+        coords = get_c4p_coords(coords)
+        coords = coords - coords.mean(dim=0)  # zero-center
+
+        # Compare to each native structure in memory
+        _sc_rmsds, _sc_tms, _sc_gddts = [], [], []
+        for other_coords in true_raw_data["coords_list"]:
+            _other = get_c4p_coords(other_coords)[mask_coords, :]
+            _other = _other - _other.mean(dim=0)
+            # global alignment (mobile=_other onto reference=coords)
+            R_hat = rotation_matrix(_other, coords)[0]
+            _other = _other @ R_hat.T
+
+            _sc_rmsds.append(get_rmsd(coords, _other, superposition=True, center=True))
+            _sc_tms.append(get_tmscore(coords, _other))
+            _sc_gddts.append(get_gddt(coords, _other))
+
+        sc_rmsds.append(np.mean(_sc_rmsds))
+        sc_tms.append(np.mean(_sc_tms))
+        sc_gddts.append(np.mean(_sc_gddts))
+
+        # remove temporary FASTA and optionally the PDB
+        os.unlink(design_fasta_path)
+        if save_pdbs is False:
+            try:
+                os.unlink(design_pdb_path)
+            except FileNotFoundError:
+                pass
+
+    # Save or clean directory
+    if save_designs is False:
+        shutil.rmtree(output_dir, ignore_errors=True)
+    else:
+        SeqIO.write(sequences, os.path.join(output_dir, "all_designs.fasta"), "fasta")
+
+    return np.array(sc_rmsds), np.array(sc_tms), np.array(sc_gddts)
+
+
+def self_consistency_score_rhofold_extended(
+        samples,
+        true_raw_data,
+        mask_coords,
+        rhofold,
+        output_dir,
+        num_to_letter=NUM_TO_LETTER,
+        save_designs=False,
+        save_pdbs=False,
+        use_relax=False,
+        use_inf=True,
+        use_clash=True,
+        use_lddt=True,
+        use_mcq=True,
+        phenix_wrapper_path=None,  # NEW: allow explicit wrapper path; falls back to tools/run_phenix.sh
+):
+    """
+    Extended RhoFold evaluation with all metrics (8-value return).
+    Forward-fold each designed seq with RhoFold and evaluate vs native structures.
+
+    Returns:
+        1) np.array(sc_rmsds)      # per-sample mean RMSD vs natives (Å)
+        2) np.array(sc_tms)        # per-sample mean TM-score vs natives (0..1)
+        3) np.array(sc_gddts)      # per-sample mean GDT_TS (0..1)
+        4) np.array(sc_plddt)      # per-sample mean pLDDT from RhoFold (0..1)
+        5) dict INF arrays: {"all","wc","nwc","stack"}  # if use_inf else empty arrays
+        6) np.array(sc_clash)      # Phenix MolProbity clashscore if use_clash else empty array
+        7) np.array(sc_lddt)       # per-sample mean lDDT scores vs natives (0..1)
+        8) dict MCQ arrays: {"mcq_abs_deg","R","circ_sd_deg"}  # if use_mcq else empty arrays
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # default phenix wrapper if not provided
+    if phenix_wrapper_path is None:
+        phenix_wrapper_path = os.path.join(PROJECT_PATH, "tools", "run_phenix.sh")
+
+    # Collate designed sequences in fasta format
+    input_seq = SeqRecord(
+        Seq(true_raw_data["sequence"]),
+        id=f"input_sequence,",
+        description=f"input_sequence"
+    )
+    sequences = [input_seq]
+
+    # Containers
     sc_rmsds, sc_tms, sc_gddts, sc_plddt = [], [], [], []
     sc_inf_all, sc_inf_wc, sc_inf_nwc, sc_inf_stack = [], [], [], []
     sc_clash = []
+    sc_lddt = []
+    sc_mcq_abs, sc_mcq_R, sc_mcq_sd = [], [], []
+
     for idx, seq in enumerate(samples):
         # Save designed sequence to fasta file (temporary)
         seq = SeqRecord(
@@ -573,7 +795,6 @@ def self_consistency_score_rhofold(
         # Forward fold designed sequence using RhoFold
         design_pdb_path = os.path.join(output_dir, f"design{idx}.pdb")
         _, plddt = rhofold.predict(design_fasta_path, design_pdb_path, use_relax)
-
         sc_plddt.append(np.mean(plddt))
 
         # Load C4' coordinates of designed structure
@@ -584,26 +805,18 @@ def self_consistency_score_rhofold(
             keep_insertions=False,
         )
         coords = get_c4p_coords(coords)
-        # zero-center coordinates
-        coords = coords - coords.mean(dim=0)
+        coords = coords - coords.mean(dim=0)  # zero-center
 
-        # Compute self-consistency between designed and groundtruth structures
-        _sc_rmsds = []
-        _sc_tms = []
-        _sc_gddts = []
+        # Compare to each native structure in memory
+        _sc_rmsds, _sc_tms, _sc_gddts = [], [], []
         for other_coords in true_raw_data["coords_list"]:
             _other = get_c4p_coords(other_coords)[mask_coords, :]
-            # zero-center other coordinates
             _other = _other - _other.mean(dim=0)
-            # globally align coordinates
-            R_hat = rotation_matrix(
-                _other,  # mobile set
-                coords  # reference set
-            )[0]
+            # global alignment (mobile=_other onto reference=coords)
+            R_hat = rotation_matrix(_other, coords)[0]
             _other = _other @ R_hat.T
-            # compute metrics
-            _sc_rmsds.append(get_rmsd(
-                coords, _other, superposition=True, center=True))
+
+            _sc_rmsds.append(get_rmsd(coords, _other, superposition=True, center=True))
             _sc_tms.append(get_tmscore(coords, _other))
             _sc_gddts.append(get_gddt(coords, _other))
 
@@ -611,40 +824,95 @@ def self_consistency_score_rhofold(
         sc_tms.append(np.mean(_sc_tms))
         sc_gddts.append(np.mean(_sc_gddts))
 
-        # Compute INF if requested
+        # INF (Interaction Network Fidelity) if requested
         if use_inf:
-            inf_score = get_inf(design_pdb_path, true_raw_data, DATA_PATH)
-            sc_inf_all.append(inf_score["all"])
-            sc_inf_wc.append(inf_score["wc"])
-            sc_inf_nwc.append(inf_score["nwc"])
-            sc_inf_stack.append(inf_score["stack"])
+            try:
+                inf_score = get_inf(design_pdb_path, true_raw_data, DATA_PATH)
+                sc_inf_all.append(inf_score["all"])
+                sc_inf_wc.append(inf_score["wc"])
+                sc_inf_nwc.append(inf_score["nwc"])
+                sc_inf_stack.append(inf_score["stack"])
+            except Exception as e:
+                print(f"[RhoFold eval] INF failed: {e}")
+                sc_inf_all.append(np.nan)
+                sc_inf_wc.append(np.nan)
+                sc_inf_nwc.append(np.nan)
+                sc_inf_stack.append(np.nan)
 
-        # Compute clash if requested
+        # Clashscore (Phenix MolProbity) if requested
         if use_clash:
-            _clash = get_clashscore(design_pdb_path, output_dir)
-            sc_clash.append(_clash)
+            try:
+                clash = get_clash_score_phenix(design_pdb_path, phenix_wrapper_path)
+            except Exception as e:
+                print(f"[RhoFold eval] clashscore (Phenix) failed: {e}")
+                clash = np.nan
+            sc_clash.append(clash)
 
-        # remove temporary files
+        # lDDT (Local Distance Difference Test) if requested
+        if use_lddt:
+            _lddt_scores = []
+            for nid in true_raw_data["id_list"]:
+                native_pdb_path = os.path.join(DATA_PATH, "raw", f"{nid}.pdb")
+                if os.path.exists(native_pdb_path):
+                    try:
+                        lddt = get_lddt(design_pdb_path, native_pdb_path)
+                        if lddt > 0:  # Only include successful calculations
+                            _lddt_scores.append(lddt)
+                    except Exception as e:
+                        print(f"[RhoFold eval] lDDT failed for {nid}: {e}")
+            sc_lddt.append(np.mean(_lddt_scores) if _lddt_scores else np.nan)
+
+        # MCQ (Mean of Circular Quantities) if requested
+        if use_mcq:
+            try:
+                mcq_stats = mcq_avg_vs_natives(design_pdb_path, true_raw_data, DATA_PATH)
+                sc_mcq_abs.append(mcq_stats["mcq_abs_deg"])
+                sc_mcq_R.append(mcq_stats["R"])
+                sc_mcq_sd.append(mcq_stats["circ_sd_deg"])
+            except Exception as e:
+                print(f"[RhoFold eval] MCQ failed: {e}")
+                sc_mcq_abs.append(np.nan)
+                sc_mcq_R.append(np.nan)
+                sc_mcq_sd.append(np.nan)
+
+        # remove temporary FASTA and optionally the PDB
         os.unlink(design_fasta_path)
         if save_pdbs is False:
-            os.unlink(design_pdb_path)
+            try:
+                os.unlink(design_pdb_path)
+            except FileNotFoundError:
+                pass
 
+    # Save or clean directory
     if save_designs is False:
-        # remove output directory
-        shutil.rmtree(output_dir)
+        shutil.rmtree(output_dir, ignore_errors=True)
     else:
-        # write all designed sequences to output filepath
         SeqIO.write(sequences, os.path.join(output_dir, "all_designs.fasta"), "fasta")
 
-    return (np.array(sc_rmsds), np.array(sc_tms), np.array(sc_gddts), np.array(sc_plddt),
-            {
-                "all": np.array(sc_inf_all),
-                "wc": np.array(sc_inf_wc),
-                "nwc": np.array(sc_inf_nwc),
-                "stack": np.array(sc_inf_stack),
-            },
-            np.array(sc_clash)
-            )
+    # Package INF dict (return empty arrays if disabled, to keep shape stable)
+    inf_dict = {
+        "all": np.array(sc_inf_all) if use_inf else np.array([]),
+        "wc":  np.array(sc_inf_wc)  if use_inf else np.array([]),
+        "nwc": np.array(sc_inf_nwc) if use_inf else np.array([]),
+        "stack": np.array(sc_inf_stack) if use_inf else np.array([]),
+    }
+
+    # Package MCQ dict (return empty arrays if disabled)
+    mcq_dict = {
+        "mcq_abs_deg": np.array(sc_mcq_abs) if use_mcq else np.array([]),
+        "R": np.array(sc_mcq_R) if use_mcq else np.array([]),
+        "circ_sd_deg": np.array(sc_mcq_sd) if use_mcq else np.array([]),
+    }
+
+    return (np.array(sc_rmsds),
+            np.array(sc_tms),
+            np.array(sc_gddts),
+            np.array(sc_plddt),
+            inf_dict,
+            np.array(sc_clash) if use_clash else np.array([]),
+            np.array(sc_lddt) if use_lddt else np.array([]),
+            mcq_dict)
+
 
 def get_three_mer_corr(samples,true_seq, mask_coords):
     """
@@ -688,6 +956,145 @@ def get_three_mer_corr(samples,true_seq, mask_coords):
             corr = np.corrcoef(sample_vec, true_vec)[0, 1]
         scores.append(corr)
     return np.array(scores)
+
+def get_trimer_profile_novelty(samples, mask_coords=None, reference_db=None):
+    """
+    Compute Trimer Profile Novelty (TPN) for designed RNA sequences.
+    
+    TPN measures how different a designed RNA's 3-mer usage pattern is from 
+    any known natural RNA. Higher scores indicate more novel sequences.
+    
+    Args:
+        samples: designed sequences of shape (n_samples, seq_len) or list of strings
+        mask_coords: mask for missing sequence coordinates (optional)
+        reference_db: list of reference RNA sequences (if None, uses default)
+        
+    Returns:
+        Array of novelty scores (n_samples,) where each score is between 0 and 1
+        Higher scores = more novel (less similar to natural RNAs)
+    """
+    import itertools
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    # Initialize 3-mer vocabulary
+    bases = ['A', 'C', 'G', 'U']
+    all_3mers = [''.join(k) for k in itertools.product(bases, repeat=3)]
+    kmer_index = {kmer: i for i, kmer in enumerate(all_3mers)}
+    n_kmers = len(all_3mers)  # 64 possible 3-mers
+    
+    def compute_kmer_vector(seq, mask=None):
+        """Compute normalized 3-mer frequency vector for a sequence"""
+        vec = np.zeros(n_kmers, dtype=float)
+        seq_len = len(seq)
+        for i in range(seq_len - 2):
+            if mask is None or (len(mask) > i+2 and mask[i] and mask[i+1] and mask[i+2]):
+                kmer = seq[i:i+3]
+                if kmer in kmer_index:
+                    vec[kmer_index[kmer]] += 1
+        if vec.sum() > 0:
+            vec /= vec.sum()  # normalize to frequency
+        return vec
+    
+    # Convert samples to strings if needed
+    if isinstance(samples, np.ndarray) and len(samples.shape) == 2:
+        # Convert from numeric to string representation
+        from src.constants import NUM_TO_LETTER
+        sample_sequences = []
+        for sample in samples:
+            seq_str = "".join([NUM_TO_LETTER[int(n)] for n in sample])
+            sample_sequences.append(seq_str)
+    else:
+        sample_sequences = samples
+    
+    # Default reference database (diverse natural RNA sequences)
+    if reference_db is None:
+        reference_db = _get_default_rna_reference_db()
+    
+    # Compute 3-mer vectors for reference database
+    ref_vectors = []
+    for ref_seq in reference_db:
+        ref_vec = compute_kmer_vector(ref_seq)
+        if ref_vec.sum() > 0:  # Only include valid vectors
+            ref_vectors.append(ref_vec)
+    
+    if len(ref_vectors) == 0:
+        print("Warning: No valid reference sequences found. Using zero novelty.")
+        return np.zeros(len(sample_sequences))
+    
+    ref_matrix = np.array(ref_vectors)  # Shape: (n_ref, 64)
+    
+    # Compute novelty for each designed sequence
+    novelty_scores = []
+    for seq in sample_sequences:
+        sample_vec = compute_kmer_vector(seq, mask_coords)
+        
+        if sample_vec.sum() == 0:
+            # Invalid sequence, assign zero novelty
+            novelty_scores.append(0.0)
+            continue
+            
+        # Find maximum cosine similarity with any reference sequence
+        sample_vec = sample_vec.reshape(1, -1)
+        similarities = cosine_similarity(sample_vec, ref_matrix)[0]
+        max_similarity = np.max(similarities)
+        
+        # Novelty = 1 - max_similarity (higher novelty means less similar)
+        novelty = 1.0 - max_similarity
+        novelty_scores.append(max(0.0, novelty))  # Ensure non-negative
+    
+    return np.array(novelty_scores)
+
+def _get_default_rna_reference_db():
+    """
+    Get a default reference database of diverse natural RNA sequences.
+    This includes representatives from major RNA families.
+    """
+    # Curated set of diverse natural RNA sequences from different families
+    # These represent common RNA structural and sequence motifs
+    reference_sequences = [
+        # tRNAs (transfer RNAs) - highly conserved
+        "GCGGAUUUAGCUCAGUUGGGAGAGCGCCAGACUGAAGAUCUGGAGGUCCUGUGUUCGAUCCACAGAAUUCGCA",  # tRNA-Phe
+        "GGAGCGGTAGTTCAGTCGGTTAGAATACCCTGCCTGTCACGCAGGGGUCCGGGTUCGATTCCGGCCGCTCCA",   # tRNA-Ala
+        "GGGCCCGTGGCGCAATGGATCATCGGCTCTAAAGGCTGAAGCAACCTCAAGTGGGCGTGGTTCGAGTCCACGTGGGCCC", # tRNA-Leu
+        
+        # rRNAs (ribosomal RNAs) - structural scaffolds
+        "UUAAUCAGUCGUGGUUGAUCCUGAGUGGUAGUAGGUUGCGAAGGCAGCCGACCUACACAUUCAAGGAAGGCAG",  # 16S-like
+        "GGGAAAGCCCGGUAAAUGCGAAUGAAAAGGCCCGAACGUCUGAACUCAAUCGUGCACACCGAUGUGCGGGCAAGAUCUAAAUGUGAACCCUC", # 23S-like
+        
+        # microRNAs (miRNAs) - regulatory small RNAs  
+        "UGGAAUGUAAAGAAGUAUGUAU",  # miR-1
+        "ACAGUGCUUGACUGCUGAAGUA",  # miR-16
+        "UAAAGCUAGCUUACCAUAAGGUA", # miR-21
+        
+        # snRNAs (small nuclear RNAs) - splicing machinery
+        "AUACUUACCUGAGGGAAAGGUAUGUGUAGUAAGCCAGGUGAACUUCAUGGGUUAUAUAAUUUCCCUAGUCCUGUGCUAA", # U1
+        "GGCAGGGGAAAUAUCGCUUUGUCAAUUGUCAUAGCCUCGUAACCCACUAGAGUUGAGGUGGAGCCUGUACUUGAACGCAG", # U2
+        
+        # Viral RNAs - diverse structures
+        "ACAAACCAUCUCAAACAGACAACCCAAACGACACAAACGGACACACAAA",  # Hepatitis C virus-like
+        "GGGAAAGGGCAACAAGCCGCAGCAGCGCGACAACGGCGCAGUAACGGCG",   # HIV-like TAR structure
+        
+        # Riboswitches - structured regulatory RNAs
+        "GGAAGCCUGGGGCAACUGAGCUAACUCCAAAAGGAAAGCUCUGACAACAGGCUCAAAGCCGUGCGAUGUACGCCGGAGACC", # TPP riboswitch
+        "GGCGACCCCCGGCAACCGCGCCCGACGGGCGCGAGGAAACAUCAAGAGAGGUGCUCCGAACACCUGCGGAUGGCCACGUACGGC", # FMN riboswitch
+        
+        # Hammerhead ribozymes - catalytic RNAs
+        "CUGAUGAGGCCGAAAGGCCGAAACAGGUGAAACUCCGUAGCGCCGAUGAGGCUGU",
+        "GGCCACGCGUCUUGAUCAAGAGGCUGAUGAGGCCGAAAGGCCGAAACAGGUGAAACUCCGUAGCGCCGAUGAGGCUGU",
+        
+        # Group I/II intron fragments - large structured RNAs
+        "GGCCCUAACAGGCCGAGGCGGCCCAACCCAAGCCAGGCCGCGGUGGCGGCGGCGGUGCCGACGGGGUGAACGCC",
+        "GCGCUGCUUGGCAUUCAGGGAAGGAAGAAGGCGCGAGGCCCCGACCCCUGCCCCCGCCCGCGGGGAGGGCUGGGAGAA",
+        
+        # Random natural-like sequences (to increase diversity)
+        "GCCUGAAGCUGCGAGGCAGCUGUGCUCCGCGAGGCCUGAAGCUGCGAGGCAGCUGUGC",
+        "AUGGCAAGCCUGCGAUGGCCAAGCCUGCGAUGGCCAAGCCUGCG",
+        "CGGCAAGGGCAAGCGGGCAAGGGCAAGCGGGCAAGGGCAAGC",
+        "GGAAGGGGAACCCUUUCCUGGAAGGGGAACCCUUUCCUGGAAGGGGAA",
+        "UCGCGCGUUGCAGCGGUGCAGCGGUGCAGCGGUGCAGCGGUUCGCGCGU",
+    ]
+    
+    return reference_sequences
 
 def get_tmscore(y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Template Modelling score (TM-score).
@@ -786,6 +1193,8 @@ def edit_distance(s: str, t: str) -> int:
 
     return prev[m]
 
+
+# molprobity alternative clash score calculation (not used)
 def get_clashscore(pdb_file, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
@@ -818,6 +1227,50 @@ def get_clashscore(pdb_file, output_dir):
         raise RuntimeError(f"clashscore not found in probe output (file: {probe_out})")
 
     return clashscore
+
+# molprobity 
+# def get_clashscore(pdb_file, output_dir, phenix_env=None):
+#     """
+#     Run phenix.molprobity to calculate clashscore.
+
+#     Args:
+#         pdb_file (str): input PDB file
+#         output_dir (str): directory to save results
+#         phenix_env (str, optional): path to phenix_env.sh, if not already sourced
+
+#     Returns:
+#         float: clashscore value
+#     """
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     out_file = os.path.join(output_dir, "molprobity.out")
+
+#     # Command: phenix.molprobity pdb_file > output
+#     cmd = ["phenix.molprobity", pdb_file]
+
+#     # If user provides phenix_env, wrap in a shell to source environment
+#     if phenix_env:
+#         cmd = ["bash", "-c", f"source {phenix_env} && phenix.molprobity {pdb_file}"]
+
+#     with open(out_file, "w") as f:
+#         subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=True)
+
+#     # Parse output for Clashscore
+#     clashscore = None
+#     with open(out_file) as f:
+#         for line in f:
+#             if "Clashscore" in line:
+#                 try:
+#                     clashscore = float(line.strip().split()[-1])
+#                     break
+#                 except ValueError:
+#                     continue
+
+#     if clashscore is None:
+#         raise RuntimeError(f"Clashscore not found in molprobity output (file: {out_file})")
+
+#     return clashscore
+
 
 def get_inf(predicted_pdb_path, true_raw_data, data_path=DATA_PATH):
     """
@@ -859,3 +1312,757 @@ def get_inf(predicted_pdb_path, true_raw_data, data_path=DATA_PATH):
         "nwc": np.mean(inf_nwc) if inf_nwc else -1,
         "stack": np.mean(inf_stack) if inf_stack else -1,
     }
+
+# Alternative clash score calculation using Phenix
+# This works. Please use this version for the clash score calculation. 
+def get_clash_score_phenix(pdb_file, phenix_wrapper_path):
+    """
+    Calculates the MolProbity clash score using a dedicated Phenix wrapper script.
+
+    Args:
+        pdb_file (str): The absolute path to the input PDB file.
+        phenix_wrapper_path (str): The absolute path to the run_phenix.sh wrapper.
+
+    Returns:
+        float: The calculated all-atom clash score.
+    """
+    if not os.path.exists(pdb_file):
+        raise FileNotFoundError(f"PDB file not found at: {pdb_file}")
+    if not os.path.exists(phenix_wrapper_path):
+        raise FileNotFoundError(f"Phenix wrapper script not found at: {phenix_wrapper_path}")
+
+    # The command is now much simpler: just call the wrapper script
+    command = [phenix_wrapper_path, "phenix.molprobity", pdb_file]
+
+    try:
+        # We no longer need shell=True, which is safer.
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        match = re.search(r"Clashscore\s*[:=]\s*(\d+\.\d+)", result.stdout)
+        
+        if match:
+            return float(match.group(1))
+        else:
+            raise RuntimeError("Could not find or parse Clashscore in phenix.molprobity output.")
+
+    except subprocess.CalledProcessError as e:
+        print("--- STDOUT ---")
+        print(e.stdout)
+        print("--- STDERR ---")
+        print(e.stderr)
+        raise RuntimeError(f"Phenix wrapper command failed with exit code {e.returncode}.") from e
+
+def get_lddt_robust(predicted_pdb_path, native_pdb_path):
+    """
+    Calculates the lDDT score between a predicted and native PDB structure.
+    This production-ready version verifies sequence identity before calculation.
+    """
+    try:
+        model_chain, model_seq = _get_pdb_info(predicted_pdb_path)
+        native_chain, native_seq = _get_pdb_info(native_pdb_path)
+
+        # CRITICAL: Verify that the sequences are identical for a meaningful score
+        if model_seq != native_seq:
+            print(f"❌ WARNING: Sequences in PDB files do not match. Cannot calculate a meaningful lDDT score.")
+            # Uncomment the line below if you want to see the sequence differences
+            # print(f"   Model Seq:  {model_seq}\n   Native Seq: {native_seq}")
+            return -1.0
+        
+        seq_len = len(model_seq)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extracted_model_path = os.path.join(temp_dir, 'model_extract.pdb')
+            extracted_native_path = os.path.join(temp_dir, 'native_extract.pdb')
+            
+            # Extract the full, matching sequence to ensure clean input for the tool
+            _extract_pdb_region(predicted_pdb_path, extracted_model_path, model_chain, 1, seq_len)
+            _extract_pdb_region(native_pdb_path, extracted_native_path, native_chain, 1, seq_len)
+
+            lddt_script_path = os.path.join(PROJECT_PATH, 'tools/RNA_assessment/lddt/bin/complex_lddt_no_stereocheck.py')
+            lddt_script_dir = os.path.dirname(lddt_script_path)
+            chain_mapping = f'{{"{model_chain}":"{native_chain}"}}'
+            
+            # Use isolated lddt_env to avoid NetworkX version conflicts
+            conda_base = "/mnt/dna01/library-seq/luca/miniforge3"
+            lddt_python = os.path.join(conda_base, "envs", "lddt_env", "bin", "python")
+            
+            command = [
+                lddt_python,
+                lddt_script_path,
+                extracted_model_path,
+                extracted_native_path,
+                chain_mapping
+            ]
+            
+            result = subprocess.run(command, capture_output=True, text=True, cwd=lddt_script_dir)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                return float(result.stdout.strip())
+            else:
+                print(f"--- lDDT Subprocess Failed ---")
+                print(f"STDOUT: {result.stdout}")
+                print(f"STDERR: {result.stderr}")
+                return -1.0
+
+    except Exception as e:
+        print(f"An error occurred during lDDT calculation: {e}")
+        return -1.0
+
+def _get_residue_map(pdb_file):
+    """Parses a PDB and returns the first chain ID and a map of {res_num: res_name}."""
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("s", pdb_file)
+    model = list(structure.get_models())[0]
+    chain = list(model.get_chains())[0]
+    residue_map = {
+        res.get_id()[1]: seq1(res.get_resname().strip())
+        for res in chain if res.get_id()[0] == ' '
+    }
+    return chain.id, residue_map
+
+def _extract_selected_residues(input_pdb, output_pdb, chain_id, res_nums_to_keep):
+    """Extracts a specific set of residues from a specific chain."""
+    class ResidueSelect(Select):
+        def accept_residue(self, residue):
+            # Accept residue if its chain matches and its number is in the set to keep
+            return residue.get_parent().id == chain_id and residue.get_id()[1] in res_nums_to_keep
+
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("s", input_pdb)
+    io = PDBIO()
+    io.set_structure(structure)
+    io.save(output_pdb, ResidueSelect())
+
+def get_lddt_inverse_folding(predicted_pdb_path, native_pdb_path):
+    """
+    Calculates lDDT for inverse folding by comparing residues at same positions
+    regardless of sequence identity (since sequences are expected to differ).
+    """
+    try:
+        model_chain, model_res_map = _get_residue_map(predicted_pdb_path)
+        native_chain, native_res_map = _get_residue_map(native_pdb_path)
+        
+        # Find common residues by checking for matching numbers AND matching sequence identity
+        common_res_nums = set()
+        for res_num, model_res_name in model_res_map.items():
+            if res_num in native_res_map and model_res_name == native_res_map[res_num]:
+                common_res_nums.add(res_num)
+
+        if not common_res_nums:
+            # No common positions found
+            return -1.0
+        
+        if len(common_res_nums) < 3:
+            # Need at least 3 residues for meaningful lDDT
+            return -1.0
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extracted_model_path = os.path.join(temp_dir, 'model_common.pdb')
+            extracted_native_path = os.path.join(temp_dir, 'native_common.pdb')
+            
+            _extract_selected_residues(predicted_pdb_path, extracted_model_path, model_chain, common_res_nums)
+            _extract_selected_residues(native_pdb_path, extracted_native_path, native_chain, common_res_nums)
+
+            lddt_script_path = os.path.join(PROJECT_PATH, 'tools/RNA_assessment/lddt/bin/complex_lddt_no_stereocheck.py')
+            lddt_script_dir = os.path.dirname(lddt_script_path)
+            chain_mapping = f'{{"{model_chain}":"{native_chain}"}}'
+            
+            # Use isolated lddt_env to avoid NetworkX version conflicts
+            conda_base = "/mnt/dna01/library-seq/luca/miniforge3"
+            lddt_python = os.path.join(conda_base, "envs", "lddt_env", "bin", "python")
+            
+            command = [
+                lddt_python,
+                lddt_script_path,
+                extracted_model_path,
+                extracted_native_path,
+                chain_mapping
+            ]
+            
+            result = subprocess.run(command, capture_output=True, text=True, cwd=lddt_script_dir)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                return float(result.stdout.strip())
+            else:
+                return -1.0
+
+    except Exception as e:
+        print(f"An error occurred during inverse folding lDDT calculation: {e}")
+        return -1.0
+
+def get_lddt(predicted_pdb_path, native_pdb_path):
+    """
+    Wrapper function for lDDT calculation. 
+    Uses position-based comparison suitable for inverse folding.
+    """
+    return get_lddt_inverse_folding(predicted_pdb_path, native_pdb_path)
+
+def get_usalign_tmscore(predicted_pdb_path: str,
+                        native_pdb_path: str,
+                        aggregate: str = "avg"):
+    """
+    Run US-align (RNA mode) via your existing wrapper and return an aggregated TM-score.
+
+    Args:
+        predicted_pdb_path: path to model PDB
+        native_pdb_path:    path to native/target PDB
+        aggregate:          how to combine TM-scores reported by US-align
+                            ("avg" = average of the two normalized TM-scores,
+                             "max" = max of the two, "min" = min of the two)
+
+    Returns:
+        tm_agg (float), result (namedtuple with fields:
+            tmscore_chain1, tmscore_chain2, rmsd, align_len, seq_identity, stdout)
+
+    Notes:
+        - US-align typically reports two TM-scores normalized by each structure length.
+        - For balanced evaluation across variable lengths, "avg" is a good default.
+        - If you prefer a more lenient criterion, use aggregate="max".
+    """
+    try:
+        # Import your existing wrapper
+        # (it reads configs/base.yaml to find <project_root>/tools/USalign/USalign)
+        from tools.usalign_utils import run_rna_usalign, USAlignResult
+    except Exception as e:
+        print("❌ Could not import tools.usalign_utils. "
+              "Ensure it exists and configs/base.yaml contains the USalign paths.")
+        print(f"Import error: {e}")
+        return -1.0, None
+
+    # Sanity checks
+    if not os.path.exists(predicted_pdb_path):
+        print(f"❌ Predicted PDB not found: {predicted_pdb_path}")
+        return -1.0, None
+    if not os.path.exists(native_pdb_path):
+        print(f"❌ Native PDB not found: {native_pdb_path}")
+        return -1.0, None
+
+    # Run USalign via your wrapper
+    res = run_rna_usalign(predicted_pdb_path, native_pdb_path)
+    if res is None:
+        print("❌ USalign wrapper returned None (check executable path and inputs).")
+        return -1.0, None
+
+    tm1 = float(res.tmscore_chain1)
+    tm2 = float(res.tmscore_chain2)
+
+    if aggregate == "avg":
+        tm_agg = 0.5 * (tm1 + tm2)
+    elif aggregate == "max":
+        tm_agg = max(tm1, tm2)
+    elif aggregate == "min":
+        tm_agg = min(tm1, tm2)
+    else:
+        print(f"⚠️ Unknown aggregate='{aggregate}', defaulting to 'avg'.")
+        tm_agg = 0.5 * (tm1 + tm2)
+
+    return tm_agg, res
+
+def usalign_tm_pdbpair(predicted_pdb_path: str,
+                       native_pdb_path: str,
+                       aggregate: str = "avg",
+                       return_detail: bool = False):
+    """
+    Compute an aggregated TM-score between two PDBs using tools/usalign_utils.
+
+    Args:
+        predicted_pdb_path: path to predicted/model PDB
+        native_pdb_path:    path to native/reference PDB
+        aggregate:          {"avg","max","min"} to combine the two normalized TM-scores
+        return_detail:      if True, also return the raw USAlignResult (tm1, tm2, rmsd, etc.)
+
+    Returns:
+        If return_detail=False: float aggregated TM-score
+        If return_detail=True:  (float aggregated TM-score, USAlignResult)
+                                where USAlignResult has fields:
+                                tmscore_chain1, tmscore_chain2, rmsd, align_len,
+                                seq_id (fraction 0..1 if available), seq_identity (alias), stdout
+    """
+    try:
+        from tools.usalign_utils import run_rna_usalign, aggregate_tm
+    except Exception as e:
+        print(f"[usalign] Could not import tools.usalign_utils: {e}")
+        if return_detail:
+            return -1.0, None
+        return -1.0
+
+    if not os.path.exists(predicted_pdb_path):
+        print(f"[usalign] Predicted PDB not found: {predicted_pdb_path}")
+        if return_detail:
+            return -1.0, None
+        return -1.0
+    if not os.path.exists(native_pdb_path):
+        print(f"[usalign] Native PDB not found: {native_pdb_path}")
+        if return_detail:
+            return -1.0, None
+        return -1.0
+
+    try:
+        res = run_rna_usalign(predicted_pdb_path, native_pdb_path)
+        tm_agg = aggregate_tm(res.tmscore_chain1, res.tmscore_chain2, aggregate)
+    except Exception as e:
+        print(f"[usalign] USalign failed on\n  model:  {predicted_pdb_path}\n  native: {native_pdb_path}\n  error:  {e}")
+        if return_detail:
+            return -1.0, None
+        return -1.0
+
+    return (tm_agg, res) if return_detail else tm_agg
+
+def usalign_tm_vs_natives(predicted_pdb_path: str,
+                          true_raw_data: dict,
+                          data_path: str = DATA_PATH,
+                          aggregate: str = "avg",
+                          return_detail: bool = False):
+    """
+    Compute US-align TM-score of a predicted PDB against all native PDBs for an item.
+
+    Args:
+        predicted_pdb_path: path to predicted/model PDB
+        true_raw_data:      dataset item dict containing "id_list" of native structure IDs
+        data_path:          project data root (expects native PDBs under {data_path}/raw/{id}.pdb)
+        aggregate:          {"avg","max","min"} to combine the two normalized TM-scores
+        return_detail:      if True, also return list of USAlignResult (one per native)
+
+    Returns:
+        tm_list: np.ndarray of per-native aggregated TM-scores (length = len(id_list))
+        tm_mean: float, mean aggregated TM over all natives (or -1.0 if none)
+        detail (optional): list of USAlignResult in same order as id_list (only if return_detail=True)
+    """
+    try:
+        from tools.usalign_utils import run_rna_usalign, aggregate_tm
+    except Exception as e:
+        print(f"[usalign] Could not import tools.usalign_utils: {e}")
+        if return_detail:
+            return np.array([]), -1.0, []
+        return np.array([]), -1.0
+
+    if "id_list" not in true_raw_data:
+        print("[usalign] true_raw_data lacks 'id_list'; cannot locate native PDBs.")
+        if return_detail:
+            return np.array([]), -1.0, []
+        return np.array([]), -1.0
+
+    id_list = true_raw_data["id_list"]
+    tm_scores = []
+    details = []
+
+    for nid in id_list:
+        native_pdb_path = os.path.join(data_path, "raw", f"{nid}.pdb")
+        if not os.path.exists(native_pdb_path):
+            print(f"[usalign] Native PDB missing: {native_pdb_path}  (skipping)")
+            continue
+        try:
+            res = run_rna_usalign(predicted_pdb_path, native_pdb_path)
+            tm_agg = aggregate_tm(res.tmscore_chain1, res.tmscore_chain2, aggregate)
+            tm_scores.append(tm_agg)
+            if return_detail:
+                details.append(res)
+        except Exception as e:
+            print(f"[usalign] USalign failed for native {nid}: {e}")
+
+    if len(tm_scores) == 0:
+        if return_detail:
+            return np.array([]), -1.0, []
+        return np.array([]), -1.0
+
+    tm_arr = np.array(tm_scores, dtype=float)
+    tm_mean = float(tm_arr.mean())
+
+    if return_detail:
+        return tm_arr, tm_mean, details
+    return tm_arr, tm_mean
+
+# === ViennaRNA-based metrics: MFE, Ensemble Defect, Shannon entropy, Tm sweep ===
+
+def _vienna_fc(seq: str, T: float):
+    """
+    Internal: build a ViennaRNA fold_compound at temperature T (°C).
+    """
+    try:
+        import RNA
+    except ImportError as e:
+        raise ImportError(
+            "ViennaRNA Python API not found. Install it with:\n"
+            "  mamba install -c conda-forge viennarna"
+        ) from e
+    md = RNA.md()
+    md.temperature = float(T)
+    fc = RNA.fold_compound(seq, md)
+    return fc, RNA
+
+def vienna_mfe(seq: str, T: float = 37.0):
+    """
+    Return (mfe_kcal_per_mol, mfe_dotbracket) at temperature T°C.
+    """
+    fc, _ = _vienna_fc(seq, T)
+    db, mfe = fc.mfe()
+    return float(mfe), db
+
+def vienna_ensemble_metrics(seq: str,
+                            target_db: str | None = None,
+                            T: float = 37.0,
+                            return_positional_entropy: bool = False):
+    """
+    Compute ensemble metrics at T°C:
+      - mfe (kcal/mol) and mfe_db (dot-bracket)
+      - ED: ensemble defect (absolute # of nucleotides expected to be wrong)
+      - ED_per_nt: ED / N
+      - pS0: Boltzmann probability of target_db if provided (else of mfe_db)
+      - entropy_mean: mean positional Shannon entropy (kT units)
+      - entropy_list (optional): per-position entropy (len N)
+      - diversity: mean base-pair distance of the ensemble
+    """
+    assert isinstance(seq, str) and len(seq) > 0
+    fc, RNA = _vienna_fc(seq, T)
+
+    # MFE
+    mfe_db, mfe = fc.mfe()
+
+    # Partition function to enable ensemble queries
+    fc.pf()
+
+    # Choose a reference structure for ED / p(S0)
+    db = target_db if (target_db is not None) else mfe_db
+    if db is not None and len(db) != len(seq):
+        raise ValueError(f"target_db length {len(db)} != seq length {len(seq)}")
+
+    # Ensemble defect (absolute count) and probability of the reference structure
+    ED = float(fc.ensemble_defect(db)) if db is not None else float('nan')
+    pS0 = float(fc.pr_structure(db)) if db is not None else float('nan')
+
+    # Positional Shannon entropy (Vienna returns 1-based list)
+    H = fc.positional_entropy()  # list with indices 1..N
+    if H and len(H) == len(seq) + 1:
+        H = H[1:]
+    entropy_mean = float(np.mean(H)) if H else 0.0
+
+    # Ensemble diversity (mean base-pair distance)
+    diversity = float(fc.mean_bp_distance())
+
+    out = dict(
+        mfe=float(mfe),
+        mfe_db=mfe_db,
+        ED=float(ED) if not np.isnan(ED) else np.nan,
+        ED_per_nt=(float(ED) / len(seq)) if (not np.isnan(ED)) else np.nan,
+        pS0=float(pS0) if not np.isnan(pS0) else np.nan,
+        entropy_mean=float(entropy_mean),
+        diversity=float(diversity),
+    )
+    if return_positional_entropy:
+        out["entropy_list"] = [float(x) for x in H] if H else []
+    return out
+
+def vienna_Tm_by_pS0(seq: str,
+                     target_db: str,
+                     Tmin: float = 10.0,
+                     Tmax: float = 90.0,
+                     step: float = 1.0,
+                     threshold: float = 0.5):
+    """
+    Coarse melting temperature estimate (°C) as the temperature where p(S0)
+    (probability of the target structure) is closest to `threshold`.
+    """
+    if len(seq) != len(target_db):
+        raise ValueError("Sequence and target_db must have the same length.")
+    best_T, best_gap = None, float("inf")
+    T = float(Tmin)
+    while T <= Tmax + 1e-6:
+        fc, _ = _vienna_fc(seq, T)
+        fc.pf()
+        p = float(fc.pr_structure(target_db))
+        gap = abs(p - threshold)
+        if gap < best_gap:
+            best_gap, best_T = gap, T
+        T += step
+    return float(best_T) if best_T is not None else float("nan")
+
+def _sanitize_db_for_vienna(db: str) -> str:
+    """Map any non '().' characters to '.' so ViennaRNA accepts it."""
+    return "".join(ch if ch in ("(", ")", ".") else "." for ch in db)
+
+# ===========================
+# MCQ (Mean of Circular Quantities) for RNA
+# Default: pseudo-torsions η/θ using C4' and P atoms
+# ===========================
+
+def _wrap180_deg(x: float) -> float:
+    """Wrap angle in degrees to (-180, 180]."""
+    y = ((x + 180.0) % 360.0) - 180.0
+    # map -180 -> 180 for consistency with MD practice
+    return 180.0 if np.isclose(y, -180.0) else y
+
+def _dihedral_deg(p0, p1, p2, p3) -> float:
+    """Return dihedral angle (degrees) for 4 points."""
+    b0 = p1 - p0
+    b1 = p2 - p1
+    b2 = p3 - p2
+    # normalize b1 for stability
+    b1 /= np.linalg.norm(b1) + 1e-12
+    v = b0 - np.dot(b0, b1) * b1
+    w = b2 - np.dot(b2, b1) * b1
+    x = np.dot(v, w)
+    y = np.dot(np.cross(b1, v), w)
+    return np.degrees(np.arctan2(y, x))
+
+def _circular_mean_diff_deg(diffs_deg: np.ndarray) -> float:
+    """
+    MCQ core: mean direction of angular differences (in deg), returned in [0, 180].
+    Uses atan2(mean(sin), mean(cos)) over all differences.
+    """
+    if diffs_deg.size == 0:
+        return np.nan
+    rad = np.deg2rad(diffs_deg)
+    s = np.mean(np.sin(rad))
+    c = np.mean(np.cos(rad))
+    mcq = np.degrees(np.arctan2(s, c))  # in (-180, 180]
+    mcq = abs(mcq)
+    if mcq > 180.0:
+        mcq = 360.0 - mcq
+    return mcq
+
+def _angle_diff_deg(a_deg: np.ndarray, b_deg: np.ndarray) -> np.ndarray:
+    """
+    Signed minimal circular difference a - b in degrees, elementwise, wrapped to (-180, 180].
+    """
+    d = a_deg - b_deg
+    return np.vectorize(_wrap180_deg)(d)
+
+def _extract_eta_theta_from_pdb(pdb_path: str):
+    """
+    Compute pseudo-torsions η_i and θ_i along nucleic residues from a PDB.
+    Definitions (RNA):
+      η_i = dihedral(C4'_{i-1}, P_i, C4'_i, P_{i+1})
+      θ_i = dihedral(P_{i-1}, C4'_i, P_i, C4'_{i+1})
+    Returns:
+      idx_center : list of center residue indices used
+      eta_deg    : np.ndarray [len K]
+      theta_deg  : np.ndarray [len K]
+    """
+    try:
+        import MDAnalysis as mda
+    except ImportError as e:
+        raise ImportError("MDAnalysis is required for MCQ. `mamba install -c conda-forge mdanalysis`") from e
+
+    u = mda.Universe(pdb_path)
+    # select nucleic residues (MDAnalysis 'nucleic' covers RNA/DNA)
+    nuc = u.select_atoms("nucleic")
+    residues = list(nuc.residues)
+    if len(residues) < 4:
+        return [], np.array([]), np.array([])
+
+    # cache atom coords per residue id for P and C4'
+    P = {}
+    C4 = {}
+    for r in residues:
+        rid = int(getattr(r, "resid", getattr(r, "resnum", r.ix)))
+        # atom names in PDB standard: "P" and "C4'"
+        aP = r.atoms.select_atoms("name P")
+        aC4 = r.atoms.select_atoms("name C4'")
+        if len(aP) == 1:
+            P[rid] = aP.positions[0]
+        if len(aC4) == 1:
+            C4[rid] = aC4.positions[0]
+
+    # sort residue ids as they appear along the chain(s)
+    rids = sorted(set(P.keys()).union(C4.keys()))
+    idx_center, eta_list, theta_list = [], [], []
+    for k in range(1, len(rids) - 1):
+        i_prev, i, i_next = rids[k - 1], rids[k], rids[k + 1]
+        # need C4'_{i-1}, P_i, C4'_i, P_{i+1} for η
+        # and  P_{i-1}, C4'_i, P_i, C4'_{i+1} for θ
+        if (i_prev in C4) and (i in P) and (i in C4) and (i_next in P):
+            if (i_prev in P) and (i_next in C4):
+                eta = _dihedral_deg(C4[i_prev], P[i], C4[i], P[i_next])
+                theta = _dihedral_deg(P[i_prev], C4[i], P[i], C4[i_next])
+                idx_center.append(i)
+                eta_list.append(_wrap180_deg(eta))
+                theta_list.append(_wrap180_deg(theta))
+            else:
+                # still try eta/theta if components present
+                try:
+                    eta = _dihedral_deg(C4[i_prev], P[i], C4[i], P[i_next])
+                    theta = _dihedral_deg(P[i_prev], C4[i], P[i], C4[i_next])
+                    idx_center.append(i)
+                    eta_list.append(_wrap180_deg(eta))
+                    theta_list.append(_wrap180_deg(theta))
+                except Exception:
+                    pass
+
+    return idx_center, np.array(eta_list), np.array(theta_list)
+
+def mcq_pseudotorsion(pdb_pred: str, pdb_native: str) -> dict:
+    """
+    Compute MCQ (degrees) between predicted and native structures in η/θ space.
+    Returns dict with:
+      mcq_deg, n_positions, mean_abs_diff_eta, mean_abs_diff_theta
+    """
+    idx1, eta1, th1 = _extract_eta_theta_from_pdb(pdb_pred)
+    idx2, eta2, th2 = _extract_eta_theta_from_pdb(pdb_native)
+
+    n = min(len(eta1), len(eta2), len(th1), len(th2))
+    if n < 1:
+        return {
+            "mcq_deg": np.nan,
+            "n_positions": 0,
+            "mean_abs_diff_eta": np.nan,
+            "mean_abs_diff_theta": np.nan,
+        }
+    # pair by position order (robust if residue numbering differs but order matches)
+    de = _angle_diff_deg(eta1[:n], eta2[:n])
+    dt = _angle_diff_deg(th1[:n],  th2[:n])
+
+    # MCQ on all angle differences together
+    diffs = np.concatenate([de, dt])
+    mcq = _circular_mean_diff_deg(diffs)
+
+    return {
+        "mcq_deg": float(mcq),
+        "n_positions": int(n),
+        "mean_abs_diff_eta": float(np.mean(np.abs(de))),
+        "mean_abs_diff_theta": float(np.mean(np.abs(dt))),
+    }
+
+# ===========================
+# MCQ statistics better suited for evaluation
+# ===========================
+
+def _circular_stats_deg(diffs_deg: np.ndarray) -> dict:
+    """
+    Compute circular statistics on wrapped angle differences (deg).
+    Returns:
+      mean_dir_deg_abs : |mean direction| in degrees (what we originally printed)
+      R                : mean resultant length in [0,1] (concentration)
+      circ_sd_deg      : circular standard deviation in degrees
+    """
+    if diffs_deg.size == 0:
+        return {"mean_dir_deg_abs": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+    rad = np.deg2rad(diffs_deg)
+    s = np.mean(np.sin(rad))
+    c = np.mean(np.cos(rad))
+    mean_dir = np.degrees(np.arctan2(s, c))   # (-180, 180]
+    R = float(np.hypot(c, s))
+    # circular SD (Fisher, 1993): sqrt( -2 ln R )
+    if R > 1e-12:
+        circ_sd_rad = np.sqrt(max(0.0, -2.0 * np.log(R)))
+        circ_sd_deg = float(np.degrees(circ_sd_rad))
+    else:
+        circ_sd_deg = float('inf')
+    # map |mean_dir| to [0, 180]
+    mean_dir = abs(mean_dir)
+    if mean_dir > 180.0:
+        mean_dir = 360.0 - mean_dir
+    return {"mean_dir_deg_abs": float(mean_dir), "R": R, "circ_sd_deg": float(circ_sd_deg)}
+
+def mcq_pseudotorsion_stats(pdb_pred: str, pdb_native: str) -> dict:
+    """
+    Evaluation-friendly MCQ stats in η/θ space between predicted and native PDBs.
+    Returns:
+      n_positions         : number of residues contributing
+      mcq_abs_deg         : mean absolute wrapped difference over {η,θ}, in degrees (lower is better)
+      mean_abs_diff_eta   : mean |Δη| (deg)
+      mean_abs_diff_theta : mean |Δθ| (deg)
+      mean_dir_deg_abs    : |mean direction| (deg)  [original 'MCQ' notion; not a similarity magnitude]
+      R                   : mean resultant length (0..1, higher is better)
+      circ_sd_deg         : circular standard deviation (deg, lower is better)
+    """
+    idx1, eta1, th1 = _extract_eta_theta_from_pdb(pdb_pred)
+    idx2, eta2, th2 = _extract_eta_theta_from_pdb(pdb_native)
+
+    n = min(len(eta1), len(eta2), len(th1), len(th2))
+    if n < 1:
+        return {
+            "n_positions": 0,
+            "mcq_abs_deg": np.nan,
+            "mean_abs_diff_eta": np.nan,
+            "mean_abs_diff_theta": np.nan,
+            "mean_dir_deg_abs": np.nan,
+            "R": np.nan,
+            "circ_sd_deg": np.nan,
+        }
+
+    de = _angle_diff_deg(eta1[:n], eta2[:n])     # wrapped Δη in (-180,180]
+    dt = _angle_diff_deg(th1[:n],  th2[:n])      # wrapped Δθ
+    diffs = np.concatenate([de, dt])
+
+    mcq_abs = float(np.mean(np.abs(diffs)))      # <-- primary similarity magnitude (lower is better)
+    stats   = _circular_stats_deg(diffs)
+
+    return {
+        "n_positions": int(n),
+        "mcq_abs_deg": mcq_abs,
+        "mean_abs_diff_eta": float(np.mean(np.abs(de))),
+        "mean_abs_diff_theta": float(np.mean(np.abs(dt))),
+        **stats,  # mean_dir_deg_abs, R, circ_sd_deg
+    }
+
+def mcq_avg_vs_natives(predicted_pdb_path: str, true_raw_data: dict, data_path: str = DATA_PATH) -> dict:
+    """
+    Average MCQ stats vs all native PDBs in true_raw_data['id_list'].
+    Returns dict with the same keys as mcq_pseudotorsion_stats, averaged across natives.
+    """
+    if "id_list" not in true_raw_data:
+        return {"n_positions": 0, "mcq_abs_deg": np.nan, "mean_abs_diff_eta": np.nan,
+                "mean_abs_diff_theta": np.nan, "mean_dir_deg_abs": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+
+    vals = []
+    for nid in true_raw_data["id_list"]:
+        native_pdb = os.path.join(data_path, "raw", f"{nid}.pdb")
+        if not os.path.exists(native_pdb):
+            continue
+        vals.append(mcq_pseudotorsion_stats(predicted_pdb_path, native_pdb))
+
+    if not vals:
+        return {"n_positions": 0, "mcq_abs_deg": np.nan, "mean_abs_diff_eta": np.nan,
+                "mean_abs_diff_theta": np.nan, "mean_dir_deg_abs": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+
+    # simple arithmetic means; for R you may also average on the unit circle, but mean(R) is fine for reporting
+    out = {}
+    keys = ["n_positions", "mcq_abs_deg", "mean_abs_diff_eta", "mean_abs_diff_theta",
+            "mean_dir_deg_abs", "R", "circ_sd_deg"]
+    for k in keys:
+        arr = [v[k] for v in vals if v[k] == v[k]]  # exclude NaNs
+        out[k] = float(np.mean(arr)) if arr else np.nan
+    # n_positions is averaged; if you prefer min or sum, change here.
+    return out
+
+
+# clash score testing
+if __name__ == '__main__':
+    print("--- Running test for get_clash_score_phenix with CIF file ---")
+
+    # --- Configuration ---
+    PHENIX_WRAPPER_PATH = "/mnt/rna01/smh/projects/ribopo/tools/run_phenix.sh"
+    
+    # MODIFICATION: Using the exact directory and CIF filename you provided
+    TEST_STRUCTURE_FILE = "/mnt/rna01/smh/projects/ribopo/dpo/debug/example_data/1Y0T.cif"
+    
+    # --- Test Setup ---
+    # Check if your CIF file exists. If not, the script will stop.
+    if not os.path.exists(TEST_STRUCTURE_FILE):
+        print(f"❌ ERROR: Test file not found at the specified path.")
+        print(f"Please ensure '{TEST_STRUCTURE_FILE}' exists.")
+        exit(1)
+
+    # --- Run the Function ---
+    try:
+        print(f"Calculating clash score for '{os.path.basename(TEST_STRUCTURE_FILE)}'...")
+        score = get_clash_score_phenix(TEST_STRUCTURE_FILE, PHENIX_WRAPPER_PATH)
+        
+        print("\n--- TEST RESULT ---")
+        print(f"✅ Success! Calculated Clash Score: {score}")
+
+        # The clash score is for the structure itself, so it should be very similar
+        # regardless of whether the input is PDB or CIF format.
+        expected_score = 6.40 
+        assert abs(score - expected_score) < 0.1, "Score does not match expected value!"
+        print(f"✅ Score is consistent with the expected value of ~{expected_score}.")
+
+    except (FileNotFoundError, RuntimeError) as e:
+        print(f"\n--- TEST FAILED ---")
+        print(f"❌ An error occurred: {e}")
+

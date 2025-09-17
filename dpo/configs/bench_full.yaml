@@ -11,14 +11,14 @@ paths:
   
   # Checkpoints to evaluate
   checkpoints:
-    # - name: "BASE_gRNAde_1state_das"
-    #   path: checkpoints/gRNAde_ARv1_1state_das.h5
+    - name: "BASE_gRNAde_1state_das"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
     # - name: "DPO_v2_best"
     #   path: runs/offline_dpo/dpo_rna_v2/best.pt
-    - name: "eval_dpo_b0.12_l0.10_lr2e-4"  
+    # - name: "eval_dpo_v5_best_temp0.1"  
       # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
-      path: runs/offline_dpo/dpo_b0.12_l0.10_lr2e-4/best.pt
+      # path: runs/offline_dpo/dpo_rna_v5/best.pt
 
 featurizer:
   split: test
@@ -43,23 +43,33 @@ model:
   out_dim: 4
 
 eval:
-  batch_size: 4
-  num_workers: 2                # avoid CUDA multiprocessing issues
+  batch_size: 16
+  num_workers: 6                # avoid CUDA multiprocessing issues
   pin_memory: true
   
   # Output directory for results and designs
   out_dir: runs/benchmark_full
   
   # Sampling parameters
-  n_samples: 8                  # number of sequences to sample per structure
-  temperature: 0.5              # sampling temperature
+  n_samples: 1                  # number of sequences to sample per structure
+  temperature: 0.5              # sampling temperature (low for consistent sampling)
   
+  # Structure optimization options
+  # use_relax: true               # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
+  use_relax: false                # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
+  use_lddt: true                 # Enable lDDT calculation (expensive and may return nan for mismatched sequences)
+
+
   # Metrics to compute (all by default)
   metrics:
     - recovery                  # sequence recovery (teacher-forced)
     - perplexity               # model confidence
     - sc_eternafold            # 2D self-consistency with EternaFold
-    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT)
+    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT, pLDDT, INF, clash, lDDT, MCQ)
+    - vienna_mfe               # Vienna thermodynamics - Minimum Free Energy
+    - vienna_ED                # Vienna thermodynamics - Ensemble Defect (+ Shannon entropy)
+    - diversity_3mer           # 3-mer correlation diversity
+    # - novelty_tpn              # Trimer Profile Novelty (sequence novelty vs natural RNAs); disabled due to high computational cost
   
   # Save designed sequences and structures
   save_designs: false          # set to true to save all designs as FASTA files

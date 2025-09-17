@@ -19,12 +19,42 @@ paths:
   processed_pt: data/processed.pt
   split_pt: data/das_split.pt
   # cleaned pairs created by: dpo.scripts.split_and_filter_pairs
+  # pair_margin: "125" or "25" - controls which preference pairs to use
+  pair_margin: "125"  # default to 0.125*std margin pairs
   pairs:
+    # Current active pairs (controlled by pair_margin setting)
     train: data/pairs_margin125/by_das/clean/train.clean.jsonl
     val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
     test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
+    # Alternative datasets for different margin thresholds
+    margin125:
+      train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+      val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
+      test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
+    margin25:
+      train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+      val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+      test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
   save_dir: runs/offline_dpo
+  external_tools_dir: tools
+  project_root: /mnt/rna01/smh/projects/ribopo
+  data_root: /mnt/rna01/smh/projects/ribopo/data
+  wandb_dir: /mnt/rna01/smh/projects/ribopo
+
+tools:
+  usalign:
+    dir_name: USalign
+    executable_name: USalign
+  eternafold:
+    root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold
+  x3dna:
+    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
+    bin:  /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
+  molprobity:
+    root: /mnt/rna01/smh/projects/ribopo/tools/molprobity
+
+
 
 featurizer:
   split: train
@@ -85,3 +115,4 @@ simpo:
   beta: 1.5                  # SimPO β ∈ [1.5, 2.5] - controls reward scale
   gamma: 0.3                 # SimPO γ ∈ [0.3, 1.6] - target margin
   sft_lambda: 0.10            # Optional SFT regularization on winners, [0.01, 0.05]
+

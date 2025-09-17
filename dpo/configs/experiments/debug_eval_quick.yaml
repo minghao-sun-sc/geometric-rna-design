@@ -1,0 +1,13 @@
+# Quick debug eval config - inherits from bench_full.yaml but limits to first 3 structures
+defaults:
+  - bench_full
+
+eval:
+  max_structures: 3     # Only evaluate first 3 structures for quick debug
+  n_samples: 4          # Reduce samples for faster testing  
+  temperature: 0.5      # Keep original temp for now
+  use_relax: false      # Disable relax for faster testing
+  
+wandb:
+  run_name: debug_eval_quick_3structures
+  notes: "Debug evaluation with 3 structures to test fixes"

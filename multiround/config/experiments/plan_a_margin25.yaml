@@ -1,0 +1,43 @@
+# multiround/config/experiments/plan_a_margin25.yaml
+# Plan A multiround DPO with 0.25*std margin preference pairs
+
+# Inherit from multiround defaults
+inherit_from: multiround/config/multiround_defaults.yaml
+
+# Experiment-specific settings
+experiment:
+  name: "plan_a_margin25"
+  description: "5-round DPO training with 0.25*std margin preference pairs"
+  margin_type: "25"
+
+# Use margin25 preference pairs
+paths:
+  pair_margin: "25"
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+# DPO parameters potentially adjusted for 0.25*std margin
+dpo:
+  beta: 0.14                         # Slightly higher beta for wider margin pairs
+  sft_lambda: 0.10                   # SFT regularization weight
+
+# Training configuration  
+training:
+  batch_size: 16                     # Adjust based on available GPU memory
+  grad_accum_steps: 4                # Effective batch size = 64
+
+# WandB configuration
+wandb:
+  run_name: multiround_plan_a_margin25
+  tags: ["multiround", "plan_a", "margin25", "dpo"]
+  notes: "Multi-round DPO with 0.25*std preference pairs - wider margin, more diverse pairs"
+
+# Expected performance characteristics (for documentation)
+expected:
+  pair_counts:
+    train: ~14628                    # From cleaning process (similar to margin125)
+    val: ~283
+    test: ~338
+  characteristics: "More diverse pairs with wider margins, may provide broader exploration but potentially noisier signal"

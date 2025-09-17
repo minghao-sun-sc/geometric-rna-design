@@ -46,7 +46,7 @@ training:
   precision: bf16  # A100 supports bf16
   compile: false
   keep_last_n: 1
-  num_workers: 6  # As requested
+  num_workers: 2  # As requested
   pin_memory: false  # For stability
   drop_last: false
 

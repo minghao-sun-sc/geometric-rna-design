@@ -101,6 +101,8 @@ class DPOPairDataset(Dataset):
     def __getitem__(self, idx: int) -> PairBatch:
         max_attempts = 10  # Avoid infinite loops
         attempts = 0
+        original_idx = idx
+        failed_indices = []
         
         while attempts < max_attempts:
             try:
@@ -112,7 +114,8 @@ class DPOPairDataset(Dataset):
                 
                 # Check if featurization failed
                 if graph is None:
-                    print(f"Warning: Skipping {cid} due to featurization failure")
+                    print(f"Warning: Skipping index {idx} ({cid}) due to featurization failure (attempt {attempts+1}/{max_attempts})")
+                    failed_indices.append((idx, cid, "featurization_failure"))
                     # Try next index (with wraparound)
                     idx = (idx + 1) % len(self.pairs)
                     attempts += 1
@@ -133,15 +136,28 @@ class DPOPairDataset(Dataset):
                 
             except ValueError as e:
                 if "Sequence length mismatch" in str(e):
-                    print(f"Warning: Skipping {cid} due to length mismatch: {e}")
+                    print(f"Warning: Skipping index {idx} ({cid}) due to length mismatch: {e} (attempt {attempts+1}/{max_attempts})")
+                    failed_indices.append((idx, cid, f"length_mismatch: {e}"))
                     # Try next index (with wraparound)
                     idx = (idx + 1) % len(self.pairs)
                     attempts += 1
                 else:
+                    print(f"Error: Unexpected ValueError at index {idx} ({cid}): {e}")
                     raise e
+            except Exception as e:
+                print(f"Error: Unexpected exception at index {idx}: {e}")
+                failed_indices.append((idx, "unknown", f"unexpected: {e}"))
+                # Try next index (with wraparound)
+                idx = (idx + 1) % len(self.pairs)
+                attempts += 1
         
-        # If we can't find a valid pair after max_attempts, raise the last error
-        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {idx - attempts}")
+        # If we can't find a valid pair after max_attempts, provide detailed error
+        print(f"\nERROR: Could not find a valid pair after {max_attempts} attempts")
+        print(f"Original index: {original_idx}")
+        print(f"Failed indices and reasons:")
+        for fidx, fcid, reason in failed_indices:
+            print(f"  - Index {fidx} ({fcid}): {reason}")
+        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {original_idx}. Check logs above for details.")
 
 
 def _collate_identity(x):

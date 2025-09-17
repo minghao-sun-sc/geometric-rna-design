@@ -21,6 +21,8 @@ dpo/__pycache__/
 dpo/debug/__pycache__/
 runs/*
 CLAUDE.md
+dpo/eval_results/*
+dpo/hpo/optuna_results/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,0 +1,235 @@
+HYDRA_LAUNCHER_EXTRA_ARGS=--external-launcher
+CONDA_SHLVL=2
+NVM_DIR=/mnt/rna01/smh/.nvm
+LS_COLORS=rs=0:di=38;5;33:ln=38;5;51:mh=00:pi=40;38;5;11:so=38;5;13:do=38;5;5:bd=48;5;232;38;5;11:cd=48;5;232;38;5;3:or=48;5;232;38;5;9:mi=01;05;37;41:su=48;5;196;38;5;15:sg=48;5;11;38;5;16:ca=48;5;196;38;5;226:tw=48;5;10;38;5;16:ow=48;5;10;38;5;21:st=48;5;21;38;5;15:ex=38;5;40:*.tar=38;5;9:*.tgz=38;5;9:*.arc=38;5;9:*.arj=38;5;9:*.taz=38;5;9:*.lha=38;5;9:*.lz4=38;5;9:*.lzh=38;5;9:*.lzma=38;5;9:*.tlz=38;5;9:*.txz=38;5;9:*.tzo=38;5;9:*.t7z=38;5;9:*.zip=38;5;9:*.z=38;5;9:*.dz=38;5;9:*.gz=38;5;9:*.lrz=38;5;9:*.lz=38;5;9:*.lzo=38;5;9:*.xz=38;5;9:*.zst=38;5;9:*.tzst=38;5;9:*.bz2=38;5;9:*.bz=38;5;9:*.tbz=38;5;9:*.tbz2=38;5;9:*.tz=38;5;9:*.deb=38;5;9:*.rpm=38;5;9:*.jar=38;5;9:*.war=38;5;9:*.ear=38;5;9:*.sar=38;5;9:*.rar=38;5;9:*.alz=38;5;9:*.ace=38;5;9:*.zoo=38;5;9:*.cpio=38;5;9:*.7z=38;5;9:*.rz=38;5;9:*.cab=38;5;9:*.wim=38;5;9:*.swm=38;5;9:*.dwm=38;5;9:*.esd=38;5;9:*.jpg=38;5;13:*.jpeg=38;5;13:*.mjpg=38;5;13:*.mjpeg=38;5;13:*.gif=38;5;13:*.bmp=38;5;13:*.pbm=38;5;13:*.pgm=38;5;13:*.ppm=38;5;13:*.tga=38;5;13:*.xbm=38;5;13:*.xpm=38;5;13:*.tif=38;5;13:*.tiff=38;5;13:*.png=38;5;13:*.svg=38;5;13:*.svgz=38;5;13:*.mng=38;5;13:*.pcx=38;5;13:*.mov=38;5;13:*.mpg=38;5;13:*.mpeg=38;5;13:*.m2v=38;5;13:*.mkv=38;5;13:*.webm=38;5;13:*.ogm=38;5;13:*.mp4=38;5;13:*.m4v=38;5;13:*.mp4v=38;5;13:*.vob=38;5;13:*.qt=38;5;13:*.nuv=38;5;13:*.wmv=38;5;13:*.asf=38;5;13:*.rm=38;5;13:*.rmvb=38;5;13:*.flc=38;5;13:*.avi=38;5;13:*.fli=38;5;13:*.flv=38;5;13:*.gl=38;5;13:*.dl=38;5;13:*.xcf=38;5;13:*.xwd=38;5;13:*.yuv=38;5;13:*.cgm=38;5;13:*.emf=38;5;13:*.ogv=38;5;13:*.ogx=38;5;13:*.aac=38;5;45:*.au=38;5;45:*.flac=38;5;45:*.m4a=38;5;45:*.mid=38;5;45:*.midi=38;5;45:*.mka=38;5;45:*.mp3=38;5;45:*.mpc=38;5;45:*.ogg=38;5;45:*.ra=38;5;45:*.wav=38;5;45:*.oga=38;5;45:*.opus=38;5;45:*.spx=38;5;45:*.xspf=38;5;45:
+CONDA_EXE=/mnt/dna01/library-seq/luca/miniforge3/bin/conda
+SRUN_DEBUG=3
+SLURM_STEP_ID=1
+SLURM_STEP_GPUS=1
+SLURM_NODEID=0
+SLURM_TASK_PID=2375219
+SSH_CONNECTION=172.25.97.204 1997 172.28.180.249 22
+host_alias=x86_64-conda-linux-gnu
+GPROF=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gprof
+SLURM_PRIO_PROCESS=0
+I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher
+LANG=en_US.UTF-8
+HISTCONTROL=ignoredups
+OMPI_MCA_plm_slurm_args=--external-launcher
+GXX=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-g++
+HOSTNAME=zlogin2
+PROJECT_PATH=/mnt/rna01/smh/projects/ribopo
+OLDPWD=/mnt/rna01/smh/projects/ribopo/tools/phenix-installer-1.21.2-5419-intel-linux-2.6-x86_64-centos6
+KMP_INIT_AT_FORK=FALSE
+SLURM_STEPID=1
+SLURM_SRUN_COMM_HOST=10.128.10.2
+CMAKE_ARGS=-DCMAKE_AR=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ar -DCMAKE_CXX_COMPILER_AR=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ar -DCMAKE_C_COMPILER_AR=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ar -DCMAKE_RANLIB=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ranlib -DCMAKE_CXX_COMPILER_RANLIB=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ranlib -DCMAKE_C_COMPILER_RANLIB=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ranlib -DCMAKE_LINKER=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ld -DCMAKE_STRIP=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-strip -DCMAKE_BUILD_TYPE=Release
+SLURM_DISTRIBUTION=cyclic
+DEBUG_CPPFLAGS=-D_DEBUG -D_FORTIFY_SOURCE=2 -Og -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+DEBUG_CFLAGS=-march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-all -fno-plt -Og -g -Wall -Wextra -fvar-tracking-assignments -ffunction-sections -pipe -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+RDBASE=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/lib/python3.10/site-packages/rdkit
+COLORTERM=truecolor
+GCC_NM=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-nm
+NVM_CD_FLAGS=
+GEM_HOME=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/share/rubygems/
+ROCR_VISIBLE_DEVICES=0
+CONDA_PREFIX=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade
+GCC_RANLIB=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ranlib
+VSCODE_GIT_ASKPASS_EXTRA_ARGS=
+SLURM_PROCID=0
+VSCODE_DEBUGPY_ADAPTER_ENDPOINTS=/mnt/rna01/smh/.vscode-server/extensions/ms-python.debugpy-2025.10.0-linux-x64/.noConfigDebugAdapterEndpoints/endpoint-5f2662dbeabd63a7.txt
+SLURM_JOB_GID=1049
+CFLAGS=-march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+I_MPI_HYDRA_BOOTSTRAP=slurm
+GCC_AR=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc-ar
+SLURMD_NODENAME=zgpuA401
+LIBTBX_TMPVAL=
+WANDB_PROJECT=ribopo
+SLURM_JOB_END_TIME=1758268471
+MAMBA_EXE=/mnt/dna01/library-seq/luca/miniforge3/bin/mamba
+CONDA_TOOLCHAIN_HOST=x86_64-conda-linux-gnu
+SLURM_TASKS_PER_NODE=1
+S_COLORS=auto
+PRTE_MCA_plm_slurm_args=--external-launcher
+which_declare=declare -f
+WANDB_DIR=/mnt/rna01/smh/projects/ribopo/
+CC=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-cc
+READELF=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-readelf
+XDG_SESSION_ID=2119423
+USER=smh
+SLURM_NNODES=1
+CONDA_TOOLCHAIN_BUILD=x86_64-conda-linux-gnu
+CXXFLAGS=-fvisibility-inlines-hidden -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+SLURM_LAUNCH_NODE_IPADDR=10.128.10.2
+PYDEVD_DISABLE_FILE_VALIDATION=1
+CONDA_PREFIX_1=/mnt/dna01/library-seq/luca/miniforge3
+STRIP=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-strip
+BUNDLED_DEBUGPY_PATH=/mnt/rna01/smh/.vscode-server/extensions/ms-python.debugpy-2025.10.0-linux-x64/bundled/libs/debugpy
+OBJCOPY=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-objcopy
+_CONDA_PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata_x86_64_conda_linux_gnu
+SLURM_STEP_TASKS_PER_NODE=1
+SLURM_JOB_START_TIME=1757922871
+__LMOD_REF_COUNT_MODULEPATH=/opt/ohpc/pub/modulefiles:1
+ENABLE_IDE_INTEGRATION=true
+PWD=/mnt/rna01/smh/projects/ribopo
+SSH_ASKPASS=/usr/libexec/openssh/gnome-ssh-askpass
+SLURM_JOB_NODELIST=zgpuA401
+HOME=/mnt/rna01/smh
+CONDA_PYTHON_EXE=/mnt/dna01/library-seq/luca/miniforge3/bin/python
+ADDR2LINE=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-addr2line
+BROWSER=/mnt/rna01/smh/.vscode-server/cli/servers/Stable-6f17636121051a53c88d3e605c491d22af2ba755/server/bin/helpers/browser.sh
+VSCODE_GIT_ASKPASS_NODE=/mnt/rna01/smh/.vscode-server/cli/servers/Stable-6f17636121051a53c88d3e605c491d22af2ba755/server/node
+CMAKE_PREFIX_PATH=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade:/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/x86_64-conda-linux-gnu/sysroot/usr
+LMOD_COLORIZE=no
+SLURM_NODELIST=zgpuA401
+TERM_PROGRAM=vscode
+SLURM_GPUS_ON_NODE=1
+HOST=x86_64-conda-linux-gnu
+SSH_CLIENT=172.25.97.204 1997 22
+TERM_PROGRAM_VERSION=1.103.2
+LMOD_VERSION=8.7.32
+PROTENIX_DATA_ROOT_DIR=/mnt/rna01/smh/dataset/protenix/af3-dev/release_data
+SLURM_NTASKS=1
+LMOD_SETTARG_CMD=:
+SLURM_UMASK=0002
+MOLPROBITY_HOME=/mnt/rna01/smh/projects/ribopo/tools/molprobity
+SLURM_JOB_CPUS_PER_NODE=8
+BASH_ENV=/opt/ohpc/admin/lmod/lmod/init/bash
+XDG_DATA_DIRS=/mnt/rna01/smh/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share
+RANLIB=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ranlib
+OBJDUMP=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-objdump
+AS=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-as
+AR=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ar
+SLURM_TOPOLOGY_ADDR=zgpuA401
+SSL_CERT_FILE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+KMP_DUPLICATE_LIB_OK=True
+MKL_INTERFACE_LAYER=LP64,GNU
+SLURMD_DEBUG=2
+CONDA_MKL_INTERFACE_LAYER_BACKUP=
+MAMBA_SSL_NO_REVOKE=yes
+CC_FOR_BUILD=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-cc
+build_alias=x86_64-conda-linux-gnu
+VSCODE_IPC_HOOK_CLI=/run/user/1048/vscode-ipc-18aefcbd-53dc-4a6c-b43a-effed8e4aff6.sock
+SLURM_STEP_NODELIST=zgpuA401
+SLURM_JOB_NAME=bash
+SLURM_SRUN_COMM_PORT=43489
+TMPDIR=/tmp
+PHENIX=/mnt/rna01/smh/projects/ribopo/tools/phenix-1.21.2-5419
+SLURM_JOBID=4758514
+_ModuleTable001_=X01vZHVsZVRhYmxlXyA9IHsKTVR2ZXJzaW9uID0gMywKY19yZWJ1aWxkVGltZSA9IGZhbHNlLApjX3Nob3J0VGltZSA9IGZhbHNlLApkZXB0aFQgPSB7fSwKZmFtaWx5ID0ge30sCm1UID0ge30sCm1wYXRoQSA9IHsKIi9vcHQvb2hwYy9wdWIvbW9kdWxlZmlsZXMiLAp9LApzeXN0ZW1CYXNlTVBBVEggPSAiL29wdC9vaHBjL3B1Yi9tb2R1bGVmaWxlcyIsCn0K
+SLURM_CONF=/var/spool/slurmd/conf-cache/slurm.conf
+BUILD=x86_64-conda-linux-gnu
+LMOD_ROOT=/opt/ohpc/admin/lmod
+NM=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-nm
+SLURM_TOPOLOGY_ADDR_PATTERN=node
+CONDA_PROMPT_MODIFIER=(grnade) 
+CLAUDE_CODE_SSE_PORT=23426
+CONDA_BUILD_SYSROOT=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/x86_64-conda-linux-gnu/sysroot
+MAIL=/var/spool/mail/smh
+DEBUG_CXXFLAGS=-fvisibility-inlines-hidden -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-all -fno-plt -Og -g -Wall -Wextra -fvar-tracking-assignments -ffunction-sections -pipe -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+ZE_AFFINITY_MASK=0
+SLURM_CPUS_ON_NODE=8
+CXX=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-c++
+VSCODE_GIT_ASKPASS_MAIN=/mnt/rna01/smh/.vscode-server/cli/servers/Stable-6f17636121051a53c88d3e605c491d22af2ba755/server/extensions/git/dist/askpass-main.js
+LIBTBX_OPATH=
+ETERNAFOLD=/mnt/rna01/smh/projects/ribopo/tools/EternaFold
+SLURM_MEM_PER_NODE=65536
+TERM=xterm-256color
+SHELL=/bin/bash
+WANDB_ENTITY=minghao-sun-soc
+CXXFILT=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-c++filt
+MAMBA_ROOT_PREFIX=/mnt/dna01/library-seq/luca/miniforge3
+_ModuleTable_Sz_=1
+SLURM_JOB_UID=1048
+SLURM_JOB_PARTITION=GPUA40
+NVM_BIN=/mnt/rna01/smh/.nvm/versions/node/v22.18.0/bin
+SLURM_PTY_WIN_ROW=18
+SLURM_JOB_USER=smh
+CUDA_VISIBLE_DEVICES=0
+ELFEDIT=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-elfedit
+SLURM_PTY_WIN_COL=145
+SLURM_NPROCS=1
+SHLVL=7
+VSCODE_GIT_IPC_HANDLE=/run/user/1048/vscode-git-b898bee2db.sock
+CPPFLAGS=-DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -isystem /mnt/dna01/library-seq/luca/miniforge3/envs/grnade/include
+ETERNAFOLD_PATH=/mnt/rna01/smh/projects/ribopo/tools/EternaFold
+HYDRA_BOOTSTRAP=slurm
+STRINGS=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-strings
+LMOD_PREPEND_BLOCK=normal
+LIBTBX_BUILD=
+SLURM_STEP_LAUNCHER_PORT=43489
+X3DNA_PATH=/mnt/rna01/smh/projects/RiboPO/DPO-RNA/external/geometric-rna-design/tools/x3dna-v2.4
+MODULEPATH=/etc/scl/modulefiles:/opt/ohpc/pub/modulefiles
+SSL_CERT_DIR=/etc/pki/tls/certs
+SLURM_PTY_PORT=35433
+SLURM_GTIDS=0
+LOGNAME=smh
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1048/bus
+GIT_ASKPASS=/mnt/rna01/smh/.vscode-server/cli/servers/Stable-6f17636121051a53c88d3e605c491d22af2ba755/server/extensions/git/dist/askpass.sh
+XDG_RUNTIME_DIR=/run/user/1048
+LDFLAGS=-Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,--allow-shlib-undefined -Wl,-rpath,/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/lib -Wl,-rpath-link,/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/lib -L/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/lib
+DATA_PATH=/mnt/rna01/smh/projects/ribopo/data/
+CXX_FOR_BUILD=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-c++
+PATH=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/share/rubygems/bin:/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin:/mnt/rna01/smh/projects/ribopo/tools/phenix-1.21.2-5419/build/bin:/mnt/dna01/library-seq/luca/bin:/mnt/rna01/smh/.npm-global/bin:/mnt/rna01/smh/.nvm/versions/node/v22.18.0/bin:/mnt/rna01/smh/projects/RiboPO/DPO-RNA/external/geometric-rna-design/tools/x3dna-v2.4/bin:/mnt/rna01/smh/bin:/mnt/rna01/smh/.local/bin:/mnt/rna01/smh/.vscode-server/cli/servers/Stable-6f17636121051a53c88d3e605c491d22af2ba755/server/bin/remote-cli:/mnt/dna01/library-seq/luca/miniforge3/condabin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/mnt/rna01/smh/.vscode-server/extensions/ms-python.debugpy-2025.10.0-linux-x64/bundled/scripts/noConfigScripts:/mnt/rna01/smh/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand
+MESON_ARGS=-Dbuildtype=release
+SLURM_JOB_ID=4758514
+X3DNA=/mnt/rna01/smh/projects/RiboPO/DPO-RNA/external/geometric-rna-design/tools/x3dna-v2.4
+PHENIX_VERSION=1.21.2-5419
+DEBUGINFOD_URLS=https://debuginfod.centos.org/ 
+GCC=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-gcc
+SLURM_STEP_NUM_TASKS=1
+MODULESHOME=/opt/ohpc/admin/lmod/lmod
+LMOD_SETTARG_FULL_SUPPORT=no
+CONDA_DEFAULT_ENV=grnade
+NVM_INC=/mnt/rna01/smh/.nvm/versions/node/v22.18.0/include/node
+HISTSIZE=1000
+LMOD_PKG=/opt/ohpc/admin/lmod/lmod
+SIZE=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-size
+SLURM_STEP_NUM_NODES=1
+CPP=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-cpp
+XML_CATALOG_FILES=file:///mnt/dna01/library-seq/luca/miniforge3/envs/grnade/etc/xml/catalog file:///etc/xml/catalog
+LD=/mnt/dna01/library-seq/luca/miniforge3/envs/grnade/bin/x86_64-conda-linux-gnu-ld
+LMOD_CMD=/opt/ohpc/admin/lmod/lmod/libexec/lmod
+SLURM_LOCALID=0
+GPU_DEVICE_ORDINAL=0
+LESSOPEN=||/usr/bin/lesspipe.sh %s
+LMOD_FULL_SETTARG_SUPPORT=no
+LMOD_DIR=/opt/ohpc/admin/lmod/lmod/libexec
+BASH_FUNC_which%%=() {  ( alias;
+ eval ${which_declare} ) | /usr/bin/which --tty-only --read-alias --read-functions --show-tilde --show-dot $@
+}
+BASH_FUNC_module%%=() {  if [ -z "${LMOD_SH_DBG_ON+x}" ]; then
+ case "$-" in 
+ *v*x*)
+ __lmod_sh_dbg='vx'
+ ;;
+ *v*)
+ __lmod_sh_dbg='v'
+ ;;
+ *x*)
+ __lmod_sh_dbg='x'
+ ;;
+ esac;
+ fi;
+ if [ -n "${__lmod_sh_dbg:-}" ]; then
+ set +$__lmod_sh_dbg;
+ echo "Shell debugging temporarily silenced: export LMOD_SH_DBG_ON=1 for Lmod's output" 1>&2;
+ fi;
+ eval "$($LMOD_CMD shell "$@")" && eval "$(${LMOD_SETTARG_CMD:-:} -s sh)";
+ __lmod_my_status=$?;
+ if [ -n "${__lmod_sh_dbg:-}" ]; then
+ echo "Shell debugging restarted" 1>&2;
+ set -$__lmod_sh_dbg;
+ fi;
+ unset __lmod_sh_dbg;
+ return $__lmod_my_status
+}
+BASH_FUNC_scl%%=() {  if [ "$1" = "load" -o "$1" = "unload" ]; then
+ eval "module $@";
+ else
+ /usr/bin/scl "$@";
+ fi
+}
+BASH_FUNC_ml%%=() {  eval "$($LMOD_DIR/ml_cmd "$@")"
+}
+_=/usr/bin/env

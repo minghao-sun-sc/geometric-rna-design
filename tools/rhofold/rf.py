@@ -164,13 +164,16 @@ class RhoFold(nn.Module):
             output_filepath_relaxed = copy.copy(output_filepath)
             output_filepath = f'{output_filepath[:-4]}_unrelaxed.pdb'
         
+        # Extract pLDDT scores
+        plddt_scores = output['plddt'][0].data.cpu().numpy()
+        
         # Save designed 3D structure to PDB file
         self.structure_module.converter.export_pdb_file(
             data_dict['seq'],
             node_cords_pred.data.cpu().numpy(),
             path=output_filepath, 
             chain_id=None,
-            confidence=output['plddt'][0].data.cpu().numpy(),
+            confidence=plddt_scores,
             logger=None
         )
 
@@ -181,4 +184,4 @@ class RhoFold(nn.Module):
             amber_relax = AmberRelaxation(max_iterations=relax_steps)
             amber_relax.process(output_filepath, output_filepath_relaxed)
 
-        return node_cords_pred
+        return node_cords_pred, plddt_scores

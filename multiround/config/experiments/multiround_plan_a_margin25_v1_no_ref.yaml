@@ -1,0 +1,135 @@
+# Multi-Round Plan A with margin25 pairs, no reference model updates
+# DPO (β=0.13) + SFT (λ=0.10), lr=1.8e-4, 5 rounds, 20 epochs each
+# Reference model always remains the base gRNAde model
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc     
+  run_name: multiround_plan_a_margin25_v1_no_ref
+  mode: online
+  tags: ["multiround", "dpo", "plan_a", "margin25", "no_ref_update"]
+  notes: "Multi-round Plan A training with margin25 pairs, no ref model updates, 5 rounds x 20 epochs"
+  group: "plan_a_experiments"
+
+# Multi-round specific settings
+multiround:
+  total_rounds: 5
+  epochs_per_round: 20
+  update_reference: false  # Keep reference model as base gRNAde
+  eval_temperature: 0.5    # Temperature for evaluation sampling (rounds 1-4)
+  final_eval_temperature: 0.1  # Temperature for final round evaluation
+  n_samples_eval: 8        # Number of samples per test item for evaluation
+  n_samples_final_eval: 64 # Number of samples for final round pass@k analysis
+  
+  # Save evaluation data (sequences + 3D structures) to multiround/runs/{run_name}/
+  save_eval_data: true
+  eval_data_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref/eval_data
+  
+  # Pass@k analysis (only on final round for computational efficiency)
+  passk:
+    enabled_final_only: true
+    k_values: [1, 2, 4, 8, 16, 32, 64]
+    tm_threshold: 0.45
+    rmsd_threshold: 8.0
+    mfe_threshold: null  # Will be determined from distribution
+
+# Use the existing multiround infrastructure
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  pair_margin: "25"  # Use margin25 pairs
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+  base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
+  save_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref
+  external_tools_dir: tools
+  project_root: /mnt/rna01/smh/projects/ribopo
+  data_root: /mnt/rna01/smh/projects/ribopo/data
+  wandb_dir: /mnt/rna01/smh/projects/ribopo
+
+# Model config (matches gRNAde checkpoint)
+featurizer:
+  split: train
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.1
+  distance_eps: 0.001
+  device: cpu
+
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim:  [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim:  [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+# Updated hyperparameters as requested
+optimizer:
+  name: adamw
+  lr: 1.8e-4                 # As requested
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  grad_clip_norm: 1.0
+
+scheduler:
+  name: cosine
+  warmup_steps: 1000
+  min_lr_ratio: 0.1
+
+training:
+  epochs: 20                 # Per round
+  batch_size: 16
+  grad_accum_steps: 4
+  num_workers: 8
+  pin_memory: false
+  drop_last: false
+  compile: false
+  precision: bf16
+  log_every: 1
+  val_every: 50
+  save_every: 50
+  keep_last_n: 5
+
+# DPO hyperparameters as requested
+dpo:
+  beta: 0.13                 # As requested
+  sft_lambda: 0.10           # As requested
+  label_smoothing: 0.0
+  max_len: null
+
+# Evaluation metrics to compute each round
+evaluation:
+  metrics: [
+    'recovery', 'perplexity', 
+    'sc_score_eternafold', 'sc_score_vienna', 'sc_score_rhofold'
+  ]
+  # Primary metrics: TM, RMSD, MFE
+  # Also log: lDDT, pLDDT, GDT, INF, Clash, 2D metrics, diversity (3-mer)
+  save_designs: true
+  compute_passk_final: true
+
+tools:
+  usalign:
+    dir_name: USalign
+    executable_name: USalign
+  eternafold:
+    root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold
+  x3dna:
+    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
+    bin:  /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
+  molprobity:
+    root: /mnt/rna01/smh/projects/ribopo/tools/molprobity

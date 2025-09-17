@@ -10,6 +10,9 @@ X3DNA_PATH = os.environ.get("X3DNA")
 
 ETERNAFOLD_PATH = os.environ.get("ETERNAFOLD")
 
+MOLPROBITY_HOME = os.environ.get("MOLPROBITY_HOME") # Placeholder
+
+
 
 # Value to fill missing coordinate entries when reading PDB files
 FILL_VALUE = 1e-5
@@ -75,6 +78,8 @@ DOTBRACKET_TO_NUM = {
 
 
 # 3D self-consistency score thresholds for desingability/validity
-RMSD_THRESHOLD = 2.0
+RMSD_THRESHOLD_2 = 2.0
+RMSD_THRESHOLD = 8.0
 TM_THRESHOLD = 0.45
 GDT_THRESHOLD = 0.50
+PLDDT_THRESHOLD = 0.70   

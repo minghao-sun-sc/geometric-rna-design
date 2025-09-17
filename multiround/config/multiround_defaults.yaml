@@ -1,0 +1,73 @@
+# multiround/config/multiround_defaults.yaml
+# Multi-round DPO configuration extending dpo/configs/defaults.yaml
+# Implements Plan A: 5-round training with comprehensive evaluation
+
+# Inherit base configuration from single-round DPO
+inherit_from: dpo/configs/defaults.yaml
+
+# Multiround-specific settings
+multiround:
+  num_rounds: 5                      # Total training rounds
+  epochs_per_round: 20               # Epochs per round
+  current_round: 1                   # Starting round (will be updated)
+  
+  # Evaluation settings
+  eval_samples: 8                    # Sequences per test backbone for per-round evaluation
+  final_eval_samples: 64             # Sequences for final pass@k analysis
+  eval_temperature: 0.5              # Temperature for evaluation sampling
+  
+  # Pair and reference model management
+  pair_rebuild: 0                    # 0=no rebuild, N=rebuild every N rounds
+  update_reference: false             # Clone policy→reference at start of each round
+  
+  # Output organization
+  output_root: runs/multiround       # Base directory for multiround runs
+  save_round_checkpoints: true       # Save checkpoint at end of each round
+  save_best_only: false              # Save all checkpoints vs best only
+
+# Override single-round settings for multiround
+training:
+  epochs: 20                         # Will be used per round
+  save_every: 50                    # More frequent saves for multiround
+  val_every: 50                      # More frequent validation
+
+# Enhanced wandb logging for multiround
+wandb:
+  enable: true
+  project: RiboPO-Multiround
+  entity: minghao-sun-soc
+  run_name: multiround_plan_a_margin125  # Will be updated per experiment
+  tags: ["multiround", "plan_a", "dpo"]
+  notes: "Multi-round DPO training following Plan A specification"
+  group: "multiround_experiments"
+
+# Evaluation metrics configuration
+evaluation:
+  # Primary metrics (logged every round)
+  primary_metrics: ["tm", "rmsd", "mfe"]
+  
+  # Secondary metrics (logged every round)
+  secondary_metrics: ["plddt", "gdt", "inf_all", "clashscore", "diversity_3mer"]
+  
+  # Final round metrics (expensive, only final evaluation)
+  final_metrics: ["pass_k"]
+  
+  # Pass@k settings
+  pass_k:
+    k_values: [1, 2, 4, 8, 16, 32, 64]
+    thresholds:
+      tm_score: [0.4, 0.45, 0.5, 0.55]
+      rmsd: [8.0, 6.0, 4.0, 2.0]
+      mfe: [-10.0, -15.0, -20.0]  # More negative is better
+  
+  # Visualization settings
+  plot_distributions: true           # Generate metric distribution plots
+  plot_round_progression: true       # Track improvement across rounds
+  save_sample_sequences: true        # Save designed sequences for analysis
+
+# Checkpointing strategy
+checkpoints:
+  save_frequency: "per_round"        # "per_round", "per_epoch", or step count
+  keep_best_n: 3                     # Keep top N checkpoints by TM score
+  metric_for_best: "tm_mean"         # Metric to determine best checkpoint
+  tie_breaker: "rmsd_mean"           # Secondary metric for tie-breaking

@@ -58,6 +58,9 @@ uv pip install wandb gdown pyyaml ipdb python-dotenv tqdm cpdb-protein torchmetr
 uv pip install numpy==1.26.3
 mamba install ruby -y
 
+# OpenStructure, lDDT
+mamba install -c bioconda openstructure
+
 # For thermostability calculation
 mamba install -c bioconda usalign viennarna cd-hit -y
 # Check if the gRNAde env was configured successfully
