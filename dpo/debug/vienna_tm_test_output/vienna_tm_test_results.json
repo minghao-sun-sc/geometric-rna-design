@@ -1,0 +1,14 @@
+{
+  "n_structures": 1,
+  "n_samples_per_structure": 2,
+  "temperature": 0.5,
+  "recovery": 0.47413793206214905,
+  "perplexity": 1.361302375793457,
+  "vienna_mfe": 0.0,
+  "vienna_ED": 0.0,
+  "vienna_ED_per_nt": 0.0,
+  "vienna_pS0": 0.0,
+  "vienna_entropy": 0.0,
+  "vienna_diversity": 0.0,
+  "vienna_Tm": 0.0
+}

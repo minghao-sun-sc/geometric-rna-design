@@ -5,12 +5,12 @@ from typing import Any, List, Literal, Optional
 import torch
 import cpdb
 
-from src.data.sec_struct_utils import pdb_to_sec_struct
-
-import biotite
-from biotite.structure.io import load_structure
-from biotite.structure import sasa as get_sasa
-from biotite.structure import apply_residue_wise
+# Import these locally to avoid NetworkX conflicts
+# from src.data.sec_struct_utils import pdb_to_sec_struct
+# import biotite
+# from biotite.structure.io import load_structure
+# from biotite.structure import sasa as get_sasa
+# from biotite.structure import apply_residue_wise
 
 from src.constants import (
     RNA_ATOMS, 
@@ -84,12 +84,19 @@ def pdb_to_tensor(
     
     sec_struct = None
     if return_sec_struct:
+        # Import locally to avoid NetworkX conflicts
+        from src.data.sec_struct_utils import pdb_to_sec_struct
         # get secondary structure
         sec_struct = pdb_to_sec_struct(filepath, sequence, keep_pseudoknots)
         assert len(sec_struct) == len(sequence), "Sequence and secondary structure must be the same length"
 
     sasa = None
     if return_sasa:
+        # Import locally to avoid NetworkX conflicts
+        import biotite
+        from biotite.structure.io import load_structure
+        from biotite.structure import sasa as get_sasa
+        from biotite.structure import apply_residue_wise
         # get solvent accessibile surface area
         atom_array = load_structure(filepath)
         sasa = apply_residue_wise(

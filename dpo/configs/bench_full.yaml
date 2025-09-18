@@ -11,12 +11,12 @@ paths:
   
   # Checkpoints to evaluate
   checkpoints:
-    - name: "BASE_gRNAde_1state_das"
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
       path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
     # - name: "DPO_v2_best"
     #   path: runs/offline_dpo/dpo_rna_v2/best.pt
-    # - name: "eval_dpo_v5_best_temp0.1"  
+    # - name: "eval_dpo_v5_best_temp0.1_samp1_full_"  
       # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
       # path: runs/offline_dpo/dpo_rna_v5/best.pt
 
@@ -52,7 +52,7 @@ eval:
   
   # Sampling parameters
   n_samples: 1                  # number of sequences to sample per structure
-  temperature: 0.5              # sampling temperature (low for consistent sampling)
+  temperature: 0.1              # sampling temperature (low for consistent sampling)
   
   # Structure optimization options
   # use_relax: true               # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)

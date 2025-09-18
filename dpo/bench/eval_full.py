@@ -37,8 +37,9 @@ from Bio.SeqRecord import SeqRecord
 
 import wandb
 
-from src.data.featurizer import RNAGraphFeaturizer
-from src.data.data_utils import get_backbone_coords
+# Import these inside functions to avoid NetworkX conflicts
+# from src.data.featurizer import RNAGraphFeaturizer  
+# from src.data.data_utils import get_backbone_coords
 from src.constants import NUM_TO_LETTER, RMSD_THRESHOLD, RMSD_THRESHOLD_2, TM_THRESHOLD, GDT_THRESHOLD, PLDDT_THRESHOLD
 
 from dpo.ref_manager import build_model_from_cfg
@@ -100,6 +101,9 @@ class FullEvalDataset(Dataset):
 
         self.items: List[GraphItem] = []
         
+        # Import here to avoid NetworkX conflicts at module level
+        from src.data.featurizer import RNAGraphFeaturizer
+        
         # Force featurizer to use CPU to avoid device mismatch issues
         featurizer_device = "cpu"
         self.featurizer = RNAGraphFeaturizer(
@@ -118,6 +122,8 @@ class FullEvalDataset(Dataset):
             entry = all_items[gi]
             # Build coords_list (3-bead backbone) for each conformer
             coords_list = []
+            # Import locally to avoid NetworkX conflicts
+            from src.data.data_utils import get_backbone_coords
             for coords in entry["coords_list"]:
                 if isinstance(coords, torch.Tensor):
                     coords_list.append(get_backbone_coords(coords.clone().detach(), entry["sequence"]))
@@ -250,6 +256,7 @@ def eval_full_metrics(
     vienna_pS0_list = []
     vienna_entropy_list = []
     vienna_diversity_list = []
+    vienna_tm_list = []
     
     # Diversity metrics storage
     diversity_3mer_list = []
@@ -347,6 +354,7 @@ def eval_full_metrics(
                 # Compute Vienna metrics for each sample
                 v_mfe_scores, v_ed_scores, v_ednt_scores = [], [], []
                 v_pS0_scores, v_entropy_scores, v_diversity_scores = [], [], []
+                v_tm_scores = []  # Add melting temperature storage
                 
                 for seq_nums in samples.cpu().numpy():
                     from src.constants import NUM_TO_LETTER
@@ -365,6 +373,16 @@ def eval_full_metrics(
                     v_pS0_scores.append(v["pS0"])
                     v_entropy_scores.append(v["entropy_mean"])
                     v_diversity_scores.append(v["diversity"])
+                    
+                    # Calculate melting temperature (optional, can be expensive)
+                    # Use step=2.0 for faster calculation vs default step=1.0
+                    from src.evaluator import vienna_Tm_by_pS0
+                    try:
+                        tm = vienna_Tm_by_pS0(seq, target_db, Tmin=10, Tmax=95, step=2.0, threshold=0.5)
+                        v_tm_scores.append(tm)
+                    except Exception as e:
+                        print(f"Vienna Tm calculation failed for sample: {e}")
+                        v_tm_scores.append(float('nan'))
                 
                 # Store metrics
                 vienna_mfe_list.extend(v_mfe_scores)
@@ -373,6 +391,7 @@ def eval_full_metrics(
                 vienna_pS0_list.extend([x for x in v_pS0_scores if not np.isnan(x)])
                 vienna_entropy_list.extend(v_entropy_scores)
                 vienna_diversity_list.extend(v_diversity_scores)
+                vienna_tm_list.extend([x for x in v_tm_scores if not np.isnan(x)])  # Store Tm values
                 
             except Exception as e:
                 print(f"Vienna metrics failed for {item.gid}: {e}")
@@ -383,6 +402,7 @@ def eval_full_metrics(
                 vienna_pS0_list.extend([0.0] * n_samples)
                 vienna_entropy_list.extend([0.0] * n_samples)
                 vienna_diversity_list.extend([0.0] * n_samples)
+                vienna_tm_list.extend([0.0] * n_samples)  # Add Tm fallback
         
         # Diversity metrics (3-mer correlation)
         if 'diversity_3mer' in metrics:
@@ -544,7 +564,11 @@ def eval_full_metrics(
         if clashscore_list:
             results["clashscore"] = np.nanmean(clashscore_list)
         if lddt_list:
-            results["lddt"] = np.nanmean(lddt_list)
+            # Calculate lDDT statistics with proper NaN handling
+            lddt_array = np.array(lddt_list)
+            valid_lddt = lddt_array[~np.isnan(lddt_array)]
+            results["lddt"] = np.mean(valid_lddt) if len(valid_lddt) > 0 else float('nan')
+            results["lddt_success_rate"] = len(valid_lddt) / len(lddt_array) if len(lddt_array) > 0 else 0.0
         if mcq_abs_list:
             results.update({
                 "mcq_abs_deg": np.nanmean(mcq_abs_list),
@@ -562,6 +586,7 @@ def eval_full_metrics(
             "vienna_pS0": np.mean(vienna_pS0_list) if vienna_pS0_list else 0.0,
             "vienna_entropy": np.mean(vienna_entropy_list) if vienna_entropy_list else 0.0,
             "vienna_diversity": np.mean(vienna_diversity_list) if vienna_diversity_list else 0.0,
+            "vienna_Tm": np.mean(vienna_tm_list) if vienna_tm_list else 0.0,
         })
     
     # Add diversity metrics if computed
@@ -579,8 +604,8 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str, help="Path to config file")
-    parser.add_argument("--n_samples", default=8, type=int, help="Number of samples per structure")
-    parser.add_argument("--temperature", default=1.0, type=float, help="Sampling temperature")
+    parser.add_argument("--n_samples", default=None, type=int, help="Number of samples per structure (overrides config)")
+    parser.add_argument("--temperature", default=None, type=float, help="Sampling temperature (overrides config)")
     parser.add_argument("--metrics", nargs="+", 
                        default=None,  # Use config file metrics if not specified
                        help="Metrics to compute (overrides config if specified)")
@@ -624,10 +649,14 @@ def main():
         name, path = ck.name, ck.path
         print(f"\n[Evaluating] {name} <- {path}")
         
+        # Use command line args if provided, otherwise use config values
+        n_samples = args.n_samples if args.n_samples is not None else getattr(cfg.eval, 'n_samples', 8)
+        temperature = args.temperature if args.temperature is not None else getattr(cfg.eval, 'temperature', 0.5)
+        
         stats = eval_full_metrics(
             cfg, ds, name, path, device,
-            n_samples=getattr(args, 'n_samples', getattr(cfg.eval, 'n_samples', 8)),
-            temperature=getattr(args, 'temperature', getattr(cfg.eval, 'temperature', 1.0)),
+            n_samples=n_samples,
+            temperature=temperature,
             metrics=args.metrics,
             save_designs=args.save_designs,
             output_dir=out_dir
@@ -674,8 +703,9 @@ def main():
             # Show lDDT score if available
             if 'lddt' in row and not pd.isna(row.get('lddt', np.nan)):
                 lddt_val = row.get('lddt', 0)
+                lddt_success_rate = row.get('lddt_success_rate', 0.0)
                 lddt_note = " ✓" if lddt_val > 0.7 else "" if lddt_val < 0.3 else ""
-                print(f"    lDDT: {lddt_val:.4f} - local distance accuracy{lddt_note}")
+                print(f"    lDDT: {lddt_val:.4f} - local distance accuracy{lddt_note} (success: {lddt_success_rate:.1%})")
             # Show MCQ scores if available
             if 'mcq_abs_deg' in row and not pd.isna(row.get('mcq_abs_deg', np.nan)):
                 mcq_abs = row.get('mcq_abs_deg', 0)
@@ -732,14 +762,18 @@ def main():
                 w.writerow(r)
         print(f"\n[Saved CSV results to] {out_csv}")
     
+    # Get actual values used (from args or config)
+    actual_n_samples = args.n_samples if args.n_samples is not None else getattr(cfg.eval, 'n_samples', 8)
+    actual_temperature = args.temperature if args.temperature is not None else getattr(cfg.eval, 'temperature', 0.5)
+    
     # Prepare comprehensive JSON output
     json_output = {
         "metadata": {
             "timestamp": timestamp,
             "split": cfg.paths.split_name,
             "n_structures": len(ds),
-            "n_samples_per_structure": args.n_samples,
-            "temperature": args.temperature,
+            "n_samples_per_structure": actual_n_samples,
+            "temperature": actual_temperature,
             "metrics_computed": args.metrics,
             "save_designs": args.save_designs,
             "config_file": args.config,

@@ -9,9 +9,10 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import biotite
-from biotite.structure.io import load_structure
-from biotite.structure import dot_bracket_from_structure
+# Import these locally to avoid NetworkX conflicts
+# import biotite
+# from biotite.structure.io import load_structure
+# from biotite.structure import dot_bracket_from_structure
 
 from src.constants import (
     PROJECT_PATH,
@@ -42,6 +43,10 @@ def pdb_to_sec_struct(
     """
     if len(sequence) < max_len_for_biotite:
         try:
+            # Import locally to avoid NetworkX conflicts
+            import biotite
+            from biotite.structure.io import load_structure
+            from biotite.structure import dot_bracket_from_structure
             # get secondary structure using biotite
             atom_array = load_structure(pdb_file_path)
             sec_struct = dot_bracket_from_structure(atom_array)[0]

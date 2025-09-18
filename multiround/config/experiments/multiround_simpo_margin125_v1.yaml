@@ -1,20 +1,20 @@
-# Multi-Round Plan A with margin25 pairs, no reference model updates
-# DPO (β=0.13) + SFT (λ=0.10), lr=1.8e-4, 5 rounds, 20 epochs each
+# Multi-Round SimPO with margin125 pairs (0.125*std)
+# SimPO (β=2.0, γ=0.65) + SFT (λ=0.01), lr=4e-5, 5 rounds, 20 epochs each
 # Reference model always remains the base gRNAde model
 
 seed: 42
 device: cuda
-loss_type: dpo
+loss_type: simpo  # Using SimPO instead of DPO
 
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc     
-  run_name: multiround_plan_a_margin25_v1_no_ref
+  run_name: simpo_m125_v1_b2.0_g0.65_l0.01
   mode: online
-  tags: ["multiround", "dpo", "plan_a", "margin25", "no_ref_update"]
-  notes: "Multi-round Plan A training with margin25 pairs, no ref model updates, 5 rounds x 20 epochs"
-  group: "plan_a_experiments"
+  tags: ["multiround", "simpo", "margin125", "conservative", "fixed_pairs"]
+  notes: "Multi-round SimPO (β=2.0, γ=0.65, λ=0.01, lr=4e-5) with fixed margin125 pairs throughout all rounds"
+  group: "simpo_experiments"
 
 # Multi-round specific settings
 multiround:
@@ -27,9 +27,12 @@ multiround:
   n_samples_eval: 8        # Number of samples per test item for evaluation
   n_samples_final_eval: 64 # Number of samples for final round pass@k analysis
   
+  # No dynamic pairs - use margin125 throughout
+  dynamic_pairs: false
+  
   # Save evaluation data (sequences + 3D structures) to multiround/runs/{run_name}/
   save_eval_data: true
-  eval_data_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref/eval_data
+  eval_data_dir: multiround/runs/simpo_m125_v1/eval_data
   
   # Pass@k analysis (only on final round for computational efficiency)
   passk:
@@ -39,17 +42,17 @@ multiround:
     rmsd_threshold: 8.0
     mfe_threshold: null  # Will be determined from distribution
 
-# Use the existing multiround infrastructure
+# Use margin125 pairs throughout
 paths:
   processed_pt: data/processed.pt
   split_pt: data/das_split.pt
-  pair_margin: "25"  # Use margin25 pairs
+  pair_margin: "125"  # Use margin125 pairs
   pairs:
-    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
-    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
-    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
-  save_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref
+  save_dir: multiround/runs/simpo_m125_v1
   external_tools_dir: tools
   project_root: /mnt/rna01/smh/projects/ribopo
   data_root: /mnt/rna01/smh/projects/ribopo/data
@@ -77,10 +80,10 @@ model:
   drop_rate: 0.5
   out_dim: 4
 
-# Updated hyperparameters as requested
+# SimPO conservative hyperparameters as requested
 optimizer:
   name: adamw
-  lr: 1.8e-4                 # As requested
+  lr: 0.00004                # Conservative learning rate (4e-5)
   weight_decay: 0.01
   betas: [0.9, 0.999]
   eps: 1.0e-8
@@ -105,12 +108,18 @@ training:
   save_every: 50
   keep_last_n: 5
 
-# DPO hyperparameters as requested
+# DPO section (required even for SimPO)
 dpo:
-  beta: 0.13                 # As requested
-  sft_lambda: 0.10           # As requested
+  beta: 0.0                  # Not used in SimPO
+  sft_lambda: 0.01           # SFT regularization
   label_smoothing: 0.0
   max_len: null
+
+# SimPO hyperparameters (conservative settings)
+simpo:
+  beta: 2.0                  # Conservative β (reward scale)
+  gamma: 0.65                # Conservative γ (target margin)
+  sft_lambda: 0.01           # Conservative SFT regularization
 
 # Evaluation metrics to compute each round
 evaluation:

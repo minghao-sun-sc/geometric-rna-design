@@ -29,12 +29,13 @@ import tempfile
 from MDAnalysis.analysis.align import rotation_matrix
 from MDAnalysis.analysis.rms import rmsd as get_rmsd
 
-from src.data.data_utils import pdb_to_tensor, get_c4p_coords
-from src.data.sec_struct_utils import (
-    predict_sec_struct,
-    dotbracket_to_paired,
-    dotbracket_to_adjacency
-)
+# Import these locally to avoid NetworkX conflicts
+# from src.data.data_utils import pdb_to_tensor, get_c4p_coords
+# from src.data.sec_struct_utils import (
+#     predict_sec_struct,
+#     dotbracket_to_paired,
+#     dotbracket_to_adjacency
+# )
 from src.constants import (
     NUM_TO_LETTER,
     PROJECT_PATH,
@@ -208,6 +209,8 @@ def evaluate(
             sasa = np.mean(raw_data['sasa_list'], axis=0)[mask_coords]
 
             # per residue indicator for paired/unpaired: seq_len x 1
+            # Import locally to avoid NetworkX conflicts
+            from src.data.sec_struct_utils import dotbracket_to_paired
             paired = np.mean(
                 [dotbracket_to_paired(sec_struct) for sec_struct in raw_data['sec_struct_list']], axis=0
             )[mask_coords]
@@ -217,6 +220,8 @@ def evaluate(
                 rmsds = np.zeros_like(sasa)
             else:
                 rmsds = []
+                # Import locally to avoid NetworkX conflicts
+                from src.data.data_utils import get_c4p_coords
                 for i in range(len(raw_data["coords_list"])):
                     for j in range(i + 1, len(raw_data["coords_list"])):
                         coords_i = get_c4p_coords(raw_data["coords_list"][i])
@@ -518,6 +523,8 @@ def self_consistency_score_eternafold(
     """
     n_true_ss = len(true_sec_struct_list)
     sequence_length = mask_coords.sum()
+    # Import locally to avoid NetworkX conflicts
+    from src.data.sec_struct_utils import dotbracket_to_adjacency, predict_sec_struct
     # map all entries from dotbracket to numerical representation
     true_sec_struct_list = np.array([dotbracket_to_adjacency(ss) for ss in true_sec_struct_list])
     # mask out missing sequence coordinates
@@ -611,6 +618,8 @@ def self_consistency_score_ribonanzanet_sec_struct(
         num_to_letter = NUM_TO_LETTER,
         return_sec_structs = False
     ):
+    # Import locally to avoid NetworkX conflicts
+    from src.data.sec_struct_utils import dotbracket_to_adjacency
     # map from dotbracket to numerical representation
     true_sec_struct = np.array(dotbracket_to_adjacency(true_sec_struct, keep_pseudoknots=True))
     # mask out missing sequence coordinates
@@ -687,6 +696,8 @@ def self_consistency_score_rhofold(
         _, _ = rhofold.predict(design_fasta_path, design_pdb_path, use_relax)  # Now returns (coords, plddt)
 
         # Load C4' coordinates of designed structure
+        # Import locally to avoid NetworkX conflicts
+        from src.data.data_utils import pdb_to_tensor, get_c4p_coords
         _, coords, _, _ = pdb_to_tensor(
             design_pdb_path,
             return_sec_struct=False,
@@ -798,6 +809,8 @@ def self_consistency_score_rhofold_extended(
         sc_plddt.append(np.mean(plddt))
 
         # Load C4' coordinates of designed structure
+        # Import locally to avoid NetworkX conflicts
+        from src.data.data_utils import pdb_to_tensor, get_c4p_coords
         _, coords, _, _ = pdb_to_tensor(
             design_pdb_path,
             return_sec_struct=False,
@@ -855,8 +868,9 @@ def self_consistency_score_rhofold_extended(
                 native_pdb_path = os.path.join(DATA_PATH, "raw", f"{nid}.pdb")
                 if os.path.exists(native_pdb_path):
                     try:
-                        lddt = get_lddt(design_pdb_path, native_pdb_path)
-                        if lddt > 0:  # Only include successful calculations
+                        # Use OpenStructure lDDT v2 to avoid NetworkX conflicts
+                        lddt = get_lddt_openstructure_v2(design_pdb_path, native_pdb_path)
+                        if not np.isnan(lddt):  # Only include successful calculations (NaN for failures)
                             _lddt_scores.append(lddt)
                     except Exception as e:
                         print(f"[RhoFold eval] lDDT failed for {nid}: {e}")
@@ -1455,11 +1469,11 @@ def get_lddt_inverse_folding(predicted_pdb_path, native_pdb_path):
 
         if not common_res_nums:
             # No common positions found
-            return -1.0
+            return float('nan')
         
         if len(common_res_nums) < 3:
             # Need at least 3 residues for meaningful lDDT
-            return -1.0
+            return float('nan')
         
         with tempfile.TemporaryDirectory() as temp_dir:
             extracted_model_path = os.path.join(temp_dir, 'model_common.pdb')
@@ -1489,11 +1503,11 @@ def get_lddt_inverse_folding(predicted_pdb_path, native_pdb_path):
             if result.returncode == 0 and result.stdout.strip():
                 return float(result.stdout.strip())
             else:
-                return -1.0
+                return float('nan')
 
     except Exception as e:
         print(f"An error occurred during inverse folding lDDT calculation: {e}")
-        return -1.0
+        return float('nan')
 
 def get_lddt(predicted_pdb_path, native_pdb_path):
     """
@@ -1501,6 +1515,189 @@ def get_lddt(predicted_pdb_path, native_pdb_path):
     Uses position-based comparison suitable for inverse folding.
     """
     return get_lddt_inverse_folding(predicted_pdb_path, native_pdb_path)
+
+
+def get_lddt_openstructure_v2(predicted_pdb_path, native_pdb_path):
+    """
+    Calculate lDDT using OpenStructure 2.4+ implementation in isolated environment.
+    
+    This version uses the isolated lddt_env environment to avoid NetworkX conflicts
+    and provides improved lDDT calculation using modern OpenStructure API.
+    
+    Args:
+        predicted_pdb_path (str): Path to predicted/model PDB structure
+        native_pdb_path (str): Path to native/reference PDB structure
+        
+    Returns:
+        float: lDDT score (0-1) or NaN if calculation fails
+        
+    Note:
+        Uses parameters optimized for RNA structures:
+        - inclusion_radius: 15 Å (standard)
+        - sequence_separation: 0 (consider all contacts except intra-residue)
+        - thresholds: [0.5, 1.0, 2.0, 4.0] Å (standard lDDT thresholds)
+        - bb_only: False (consider all atoms for RNA)
+        - check_resnames: False (suitable for inverse folding)
+    """
+    try:
+        import tempfile
+        import subprocess
+        
+        # Verify input files exist
+        if not os.path.exists(predicted_pdb_path):
+            print(f"Predicted PDB not found: {predicted_pdb_path}")
+            return float('nan')
+        if not os.path.exists(native_pdb_path):
+            print(f"Native PDB not found: {native_pdb_path}")
+            return float('nan')
+        
+        # Create temporary script for OpenStructure lDDT calculation
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            script_content = f'''#!/usr/bin/env python3
+import sys
+import os
+
+def calculate_lddt_v2(predicted_pdb, native_pdb):
+    """Calculate lDDT using OpenStructure in isolated environment"""
+    try:
+        import ost
+        import ost.mol
+        import ost.io
+        from ost.mol.alg import lddt
+        
+        # Load structures
+        native_entity = ost.io.LoadPDB(native_pdb)
+        predicted_entity = ost.io.LoadPDB(predicted_pdb)
+        
+        if not native_entity.IsValid() or not predicted_entity.IsValid():
+            return float('nan')
+        
+        # Option 1: Try direct calculation without cleaning (works for most RNA)
+        try:
+            scorer = lddt.lDDTScorer(
+                target=native_entity,
+                inclusion_radius=15.0,           # Standard inclusion radius
+                sequence_separation=0,           # Consider all contacts except intra-residue
+                bb_only=False                   # Consider all atoms for RNA
+            )
+            
+            global_lddt, per_residue_lddt = scorer.lDDT(
+                model=predicted_entity,
+                thresholds=[0.5, 1.0, 2.0, 4.0],    # Standard lDDT thresholds
+                check_resnames=False,                # Don't enforce residue name matching
+                no_interchain=False,                 # Include interchain contacts if present
+                no_intrachain=False                  # Include intrachain contacts
+            )
+            
+            if global_lddt is not None:
+                return float(global_lddt)
+        except Exception:
+            pass
+        
+        # Option 2: Try with nucleic acid selection if direct fails
+        try:
+            native_clean = native_entity.Select("nucleic")
+            predicted_clean = predicted_entity.Select("nucleic")
+            
+            if len(native_clean.residues) > 0 and len(predicted_clean.residues) > 0:
+                scorer = lddt.lDDTScorer(
+                    target=native_clean,
+                    inclusion_radius=15.0,
+                    sequence_separation=0,
+                    bb_only=False
+                )
+                
+                global_lddt, per_residue_lddt = scorer.lDDT(
+                    model=predicted_clean,
+                    thresholds=[0.5, 1.0, 2.0, 4.0],
+                    check_resnames=False,
+                    no_interchain=False,
+                    no_intrachain=False
+                )
+                
+                if global_lddt is not None:
+                    return float(global_lddt)
+        except Exception:
+            pass
+        
+        # Option 3: Try backbone-only as fallback
+        try:
+            scorer = lddt.lDDTScorer(
+                target=native_entity,
+                inclusion_radius=15.0,
+                sequence_separation=0,
+                bb_only=True  # backbone only
+            )
+            
+            global_lddt, per_residue_lddt = scorer.lDDT(
+                model=predicted_entity,
+                thresholds=[0.5, 1.0, 2.0, 4.0],
+                check_resnames=False
+            )
+            
+            if global_lddt is not None:
+                return float(global_lddt)
+        except Exception:
+            pass
+        
+        # All calculation methods failed
+        return float('nan')
+        
+    except Exception as e:
+        print(f"OpenStructure lDDT v2 error: {{e}}", file=sys.stderr)
+        return float('nan')
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: script.py <predicted_pdb> <native_pdb>")
+        sys.exit(1)
+    
+    predicted_pdb = sys.argv[1]
+    native_pdb = sys.argv[2]
+    
+    result = calculate_lddt_v2(predicted_pdb, native_pdb)
+    print(result)
+'''
+            f.write(script_content)
+            script_path = f.name
+        
+        # Use isolated lddt_env to run OpenStructure lDDT calculation
+        conda_base = "/mnt/dna01/library-seq/luca/miniforge3"
+        lddt_python = os.path.join(conda_base, "envs", "lddt_env", "bin", "python")
+        
+        command = [
+            lddt_python,
+            script_path,
+            predicted_pdb_path,
+            native_pdb_path
+        ]
+        
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        
+        # Clean up temporary script
+        os.unlink(script_path)
+        
+        if result.returncode == 0 and result.stdout.strip():
+            lddt_score = float(result.stdout.strip())
+            return lddt_score
+        else:
+            if result.stderr:
+                print(f"lDDT v2 stderr: {result.stderr.strip()}")
+            return float('nan')
+            
+    except subprocess.TimeoutExpired:
+        print(f"lDDT v2 calculation timed out")
+        if 'script_path' in locals() and os.path.exists(script_path):
+            os.unlink(script_path)
+        return float('nan')
+    except Exception as e:
+        print(f"lDDT v2 subprocess error: {e}")
+        if 'script_path' in locals() and os.path.exists(script_path):
+            os.unlink(script_path)
+        return float('nan')
+
+
 
 def get_usalign_tmscore(predicted_pdb_path: str,
                         native_pdb_path: str,

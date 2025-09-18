@@ -25,8 +25,17 @@ class MultiRoundWandBManager:
     
     def __init__(self, cfg):
         self.cfg = cfg
-        self.experiment_name = getattr(cfg.experiment, 'name', 'unknown_experiment')
-        self.experiment_strategy = getattr(cfg.experiment, 'strategy', 'plan_a')
+        # Handle missing experiment config gracefully
+        experiment_config = getattr(cfg, 'experiment', None)
+        if experiment_config:
+            self.experiment_name = getattr(experiment_config, 'name', 'unknown_experiment')
+            self.experiment_strategy = getattr(experiment_config, 'strategy', 'plan_a')
+        else:
+            # Extract from wandb run_name if no experiment config
+            run_name = getattr(cfg.wandb, 'run_name', 'unknown_experiment')
+            self.experiment_name = run_name
+            self.experiment_strategy = 'plan_a'
+        
         self.dynamic_pairs = getattr(cfg.multiround, 'dynamic_pairs', False)
         
         # Generate enhanced run configuration
@@ -171,7 +180,8 @@ class MultiRoundWandBManager:
         notes_parts = []
         
         # Add experiment description
-        description = getattr(self.cfg.experiment, 'description', '')
+        experiment_config = getattr(self.cfg, 'experiment', None)
+        description = getattr(experiment_config, 'description', '') if experiment_config else ''
         if description:
             notes_parts.append(description)
         

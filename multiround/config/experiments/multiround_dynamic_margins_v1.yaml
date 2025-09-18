@@ -19,6 +19,7 @@ wandb:
 
 # Multi-round with dynamic pair switching
 multiround:
+  num_rounds: 5
   total_rounds: 5
   epochs_per_round: 20
   update_reference: false  # Keep reference model as base gRNAde

@@ -18,6 +18,7 @@ wandb:
 
 # Single round configuration
 multiround:
+  num_rounds: 1
   total_rounds: 1
   epochs_per_round: 20
   update_reference: false

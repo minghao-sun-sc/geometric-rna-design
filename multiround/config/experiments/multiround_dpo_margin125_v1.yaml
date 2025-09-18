@@ -1,5 +1,6 @@
-# Multi-Round Plan A with margin25 pairs, no reference model updates
+# Multi-Round DPO with margin125 pairs (0.125*std)
 # DPO (β=0.13) + SFT (λ=0.10), lr=1.8e-4, 5 rounds, 20 epochs each
+# Direct comparison with SimPO using same margin125 pairs
 # Reference model always remains the base gRNAde model
 
 seed: 42
@@ -10,11 +11,11 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc     
-  run_name: multiround_plan_a_margin25_v1_no_ref
+  run_name: dpo_m125_v1_b0.13_l0.10_lr1.8e-4
   mode: online
-  tags: ["multiround", "dpo", "plan_a", "margin25", "no_ref_update"]
-  notes: "Multi-round Plan A training with margin25 pairs, no ref model updates, 5 rounds x 20 epochs"
-  group: "plan_a_experiments"
+  tags: ["multiround", "dpo", "margin125", "fixed_pairs", "comparison"]
+  notes: "Multi-round DPO (β=0.13, λ=0.10, lr=1.8e-4) with margin125 pairs for direct SimPO comparison"
+  group: "dpo_simpo_comparison"
 
 # Multi-round specific settings
 multiround:
@@ -27,9 +28,12 @@ multiround:
   n_samples_eval: 8        # Number of samples per test item for evaluation
   n_samples_final_eval: 64 # Number of samples for final round pass@k analysis
   
+  # No dynamic pairs - use margin125 throughout (matching SimPO experiment)
+  dynamic_pairs: false
+  
   # Save evaluation data (sequences + 3D structures) to multiround/runs/{run_name}/
   save_eval_data: true
-  eval_data_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref/eval_data
+  eval_data_dir: multiround/runs/dpo_m125_v1/eval_data
   
   # Pass@k analysis (only on final round for computational efficiency)
   passk:
@@ -39,17 +43,17 @@ multiround:
     rmsd_threshold: 8.0
     mfe_threshold: null  # Will be determined from distribution
 
-# Use the existing multiround infrastructure
+# Use margin125 pairs throughout (same as SimPO comparison)
 paths:
   processed_pt: data/processed.pt
   split_pt: data/das_split.pt
-  pair_margin: "25"  # Use margin25 pairs
+  pair_margin: "125"  # Use margin125 pairs
   pairs:
-    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
-    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
-    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
-  save_dir: multiround/runs/multiround_plan_a_margin25_v1_no_ref
+  save_dir: multiround/runs/dpo_m125_v1
   external_tools_dir: tools
   project_root: /mnt/rna01/smh/projects/ribopo
   data_root: /mnt/rna01/smh/projects/ribopo/data
@@ -77,10 +81,10 @@ model:
   drop_rate: 0.5
   out_dim: 4
 
-# Updated hyperparameters as requested
+# DPO hyperparameters (standard settings for comparison)
 optimizer:
   name: adamw
-  lr: 1.8e-4                 # As requested
+  lr: 0.00018              # 1.8e-4 as float
   weight_decay: 0.01
   betas: [0.9, 0.999]
   eps: 1.0e-8
@@ -105,10 +109,10 @@ training:
   save_every: 50
   keep_last_n: 5
 
-# DPO hyperparameters as requested
+# DPO hyperparameters as requested (standard settings)
 dpo:
-  beta: 0.13                 # As requested
-  sft_lambda: 0.10           # As requested
+  beta: 0.13                 # Standard DPO β
+  sft_lambda: 0.10           # Standard SFT regularization
   label_smoothing: 0.0
   max_len: null
 
