@@ -279,26 +279,59 @@ class BaselineEvaluator:
         return designed_sequences
         
     def _match_sequences_to_structures(self, designed_sequences: Dict[str, List[str]]) -> Dict:
-        """Match designed sequences to test structures."""
+        """Match designed sequences to test structures with flexible chain ID matching."""
         matched = {}
         
         for structure_id, sequences in designed_sequences.items():
+            # Try exact match first
             if structure_id in self.structure_data:
                 matched[structure_id] = {
                     'designed_sequences': sequences,
                     'structure_data': self.structure_data[structure_id]
                 }
             else:
-                # Check why structure was not included
-                if structure_id in self.test_structure_ids:
-                    if structure_id not in self.native_sequences:
-                        print(f"   ⚠️ Structure {structure_id} missing native sequence (skipping)")
-                    else:
-                        print(f"   ⚠️ Structure {structure_id} missing PDB file (skipping)")
+                # Try to find a matching structure with simplified chain ID
+                # E.g., 3B58_1_B-C-A -> 3B58_1_B
+                base_structure_id = self._find_base_structure_id(structure_id)
+                
+                if base_structure_id and base_structure_id in self.structure_data:
+                    print(f"   🔄 Mapping {structure_id} -> {base_structure_id}")
+                    matched[structure_id] = {
+                        'designed_sequences': sequences,
+                        'structure_data': self.structure_data[base_structure_id]
+                    }
                 else:
-                    print(f"   ⚠️ Structure {structure_id} not in test dataset (skipping)")
+                    # Check why structure was not included
+                    if structure_id in self.test_structure_ids:
+                        if structure_id not in self.native_sequences:
+                            print(f"   ⚠️ Structure {structure_id} missing native sequence (skipping)")
+                        else:
+                            print(f"   ⚠️ Structure {structure_id} missing PDB file (skipping)")
+                    else:
+                        print(f"   ⚠️ Structure {structure_id} not in test dataset (skipping)")
                 
         return matched
+        
+    def _find_base_structure_id(self, structure_id: str) -> str:
+        """Find the base structure ID by simplifying multi-chain notation."""
+        # Handle multi-chain cases like:
+        # 3B58_1_B-C-A -> 3B58_1_B
+        # 1ZFT_1_D-C-A-B -> 1ZFT_1_D
+        # 1XPE_1_A-B -> 1XPE_1_A
+        
+        if '-' in structure_id:
+            # Extract the first chain part
+            base_part = structure_id.split('-')[0]
+            if base_part in self.structure_data:
+                return base_part
+                
+        # Also try common patterns
+        for test_id in self.structure_data.keys():
+            # Check if test_id is a prefix of structure_id
+            if structure_id.startswith(test_id + '-') or structure_id.startswith(test_id + '_'):
+                return test_id
+                
+        return None
         
     def _evaluate_matched_sequences(self, matched_sequences: Dict, model_name: str, output_dir: str) -> Dict:
         """Evaluate each matched sequence using the full evaluation pipeline."""

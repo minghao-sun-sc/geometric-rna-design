@@ -129,22 +129,19 @@ def evaluate_ridiff_model(model_dir: str, output_dir: str, config, n_samples_per
         print(f"❌ seq.fasta not found in {model_dir}")
         return None
     
-    # Load test dataset structure IDs to filter ridiff structures
+    # Load test dataset structure IDs to filter ridiff structures  
+    # Use the same test set as BaselineEvaluator for consistency
     test_structures = set()
-    test_jsonl_path = "data/pairs_margin125/by_das/split/test.jsonl"
-    if os.path.exists(test_jsonl_path):
-        import json
-        with open(test_jsonl_path, 'r') as f:
+    test_ids_file = "data/das_split_raw_data/test_set_structure_ids.txt"
+    if os.path.exists(test_ids_file):
+        with open(test_ids_file, 'r') as f:
             for line in f:
-                data = json.loads(line.strip())
-                pdb_file = data.get('pdb_file', '')
-                # Extract structure ID from "./data/raw/2OIY_1_A-B.pdb"
-                if pdb_file:
-                    structure_id = os.path.basename(pdb_file).replace('.pdb', '')
+                structure_id = line.strip()
+                if structure_id:
                     test_structures.add(structure_id)
         print(f"   Found {len(test_structures)} structures in test dataset")
     else:
-        print(f"⚠️ Test dataset not found at {test_jsonl_path}, will process all ridiff structures")
+        print(f"⚠️ Test dataset not found at {test_ids_file}, will process all ridiff structures")
     
     # Parse ridiff format and create consolidated FASTA with top N predictions per structure
     consolidated_fasta = os.path.join(output_dir, f"{model_name}_consolidated_sequences.fasta")
