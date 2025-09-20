@@ -1,0 +1,88 @@
+# 11. DPO with Dynamic Margins (R1-R2: margin25, R3-R5: margin125)
+# Strategic curriculum: start easy (margin25), then harder (margin125)
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 11_dpo_dynamic_m25_m125
+  mode: online
+  tags: ["11_dpo", "dynamic_margins", "curriculum", "advanced"]
+  notes: "DPO with dynamic margins: R1-R2 use margin25, R3-R5 use margin125"
+  group: "advanced_experiments"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 20
+  update_reference: true
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+  
+  # Dynamic preference pair switching
+  dynamic_pairs: true
+  pair_configs:
+    # Rounds 1-2: use margin25 (easier/more diverse pairs)
+    rounds_1_2: 
+      margin_type: "25"
+      description: "Margin 25 for initial rounds"
+      pairs:
+        train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+    # Rounds 3-5: use margin125 (harder/more selective pairs)  
+    rounds_3_5:
+      margin_type: "125"
+      description: "Margin 125 for later rounds"
+      pairs:
+        train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+paths:
+  pair_margin: "25"  # Starting margin
+  save_dir: multiround/runs/11_dpo_dynamic_margins
+  
+  # Both margin datasets available for switching
+  pairs_margin25:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+  pairs_margin125:
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.13
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+optimizer:
+  lr: 0.00018                  # 1.8e-4 converted to decimal
+  weight_decay: 0.01
+
+training:
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 4
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true
+
+# Data validation and fallback settings
+validation:
+  check_pair_files: true
+  fallback_to_static: true
+  static_fallback_margin: "125"
+  enable_data_validation: true

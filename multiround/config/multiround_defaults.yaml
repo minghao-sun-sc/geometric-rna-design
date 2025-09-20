@@ -18,7 +18,7 @@ multiround:
   
   # Pair and reference model management
   pair_rebuild: 0                    # 0=no rebuild, N=rebuild every N rounds
-  update_reference: false             # Clone policy→reference at start of each round
+  update_reference: true             # Clone policy→reference at start of each round
   
   # Output organization
   output_root: runs/multiround       # Base directory for multiround runs
@@ -28,8 +28,10 @@ multiround:
 # Override single-round settings for multiround
 training:
   epochs: 20                         # Will be used per round
-  save_every: 50                    # More frequent saves for multiround
-  val_every: 50                      # More frequent validation
+  log_every: 1                       # Log WandB metrics every training step
+  save_every: 50                     # Save checkpoints every 50 steps
+  val_every: 50                      # Run validation every 50 steps
+  keep_last_n: 5                     # Keep last 5 checkpoints
 
 # Enhanced wandb logging for multiround
 wandb:
@@ -67,7 +69,7 @@ evaluation:
 
 # Checkpointing strategy
 checkpoints:
-  save_frequency: "per_round"        # "per_round", "per_epoch", or step count
-  keep_best_n: 3                     # Keep top N checkpoints by TM score
-  metric_for_best: "tm_mean"         # Metric to determine best checkpoint
-  tie_breaker: "rmsd_mean"           # Secondary metric for tie-breaking
+  save_frequency: 50                 # Save checkpoint every 50 steps (matches training.save_every)
+  keep_best_n: 5                     # Keep top 5 checkpoints by TM score (matches training.keep_last_n)
+  # metric_for_best: "tm_mean"         # Metric to determine best checkpoint
+  # tie_breaker: "rmsd_mean"           # Secondary metric for tie-breaking

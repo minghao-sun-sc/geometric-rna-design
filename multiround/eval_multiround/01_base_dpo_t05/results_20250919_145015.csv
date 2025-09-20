@@ -1,0 +1,4 @@
+checkpoint,path,split,n_structures,n_samples,temperature,recovery,perplexity
+BASE,checkpoints/gRNAde_ARv1_1state_das.h5,test,2,8,0.5,0.43236351013183594,1.3564560413360596
+DPO_v3_s16k,runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt,test,2,8,0.5,0.5024425387382507,1.3117800951004028
+DPO_v5_best,runs/offline_dpo/dpo_rna_v5/best.pt,test,2,8,0.5,0.4933549165725708,1.2872756719589233

@@ -1,0 +1,51 @@
+# 01. SFT-only Ablation (β=0, λ=0.10, 1 round)
+# Baseline for comparison with DPO+SFT methods
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo  # Keep DPO structure but β=0
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 01_sft_b0_l010
+  mode: online
+  tags: ["01_sft", "ablation", "baseline"]
+  notes: "SFT-only baseline (β=0, λ=0.10) vs DPO+SFT"
+  group: "core_experiments"
+
+multiround:
+  num_rounds: 1
+  epochs_per_round: 20
+  update_reference: false
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+paths:
+  pair_margin: "25"
+  save_dir: multiround/runs/01_sft_ablation
+
+dpo:
+  beta: 0.0                    # No DPO loss
+  sft_lambda: 0.10             # SFT only
+  label_smoothing: 0.0
+
+optimizer:
+  lr: 0.00018                  # 1.8e-4 converted to decimal
+  weight_decay: 0.01
+
+training:
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 4
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true

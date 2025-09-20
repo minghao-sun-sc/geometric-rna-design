@@ -62,10 +62,7 @@ def save_checkpoint(root, name, model, optimizer, scheduler, step, best_metric, 
     }
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(obj, path)
-    # also write a pointer for latest/best
-    if name in ["best", "latest"]:
-        link_dir = os.path.join(root, "latest" if name=="latest" else "best")
-        os.makedirs(os.path.dirname(os.path.join(root, name)), exist_ok=True)
+    print(f"✅ Saved checkpoint: {path}")  # Debug output
 
 
 def load_checkpoint(path, model, optimizer=None, scheduler=None, device="cpu"):

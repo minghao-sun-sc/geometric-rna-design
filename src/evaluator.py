@@ -341,7 +341,7 @@ def evaluate(
 
                 # Use extended RhoFold evaluation with all metrics
                 (sc_score_rmsd, sc_score_tm, sc_score_gdt, sc_score_plddt, 
-                 sc_inf_dict, sc_clash_arr) = self_consistency_score_rhofold_extended(
+                 sc_inf_dict, sc_clash_dict, sc_lddt_arr, sc_mcq_dict) = self_consistency_score_rhofold_extended(
                     samples.cpu().numpy(),
                     raw_data,
                     mask_coords,
@@ -364,13 +364,17 @@ def evaluate(
                     inf_wc_list.append(np.nanmean(sc_inf_dict["wc"]))
                     inf_nwc_list.append(np.nanmean(sc_inf_dict["nwc"]))
                     inf_stack_list.append(np.nanmean(sc_inf_dict["stack"]))
-                    clashscore_list.append(np.nanmean(sc_clash_arr) if sc_clash_arr.size > 0 else np.nan)
+                    # Handle both pre and post relax clash scores
+                    clashscore_pre_list.append(np.nanmean(sc_clash_dict["pre_relax"]) if sc_clash_dict["pre_relax"].size > 0 else np.nan)
+                    clashscore_post_list.append(np.nanmean(sc_clash_dict["post_relax"]) if sc_clash_dict["post_relax"].size > 0 else np.nan)
                 except NameError:
                     inf_all_list = [np.nanmean(sc_inf_dict["all"])]
                     inf_wc_list = [np.nanmean(sc_inf_dict["wc"])]
                     inf_nwc_list = [np.nanmean(sc_inf_dict["nwc"])]
                     inf_stack_list = [np.nanmean(sc_inf_dict["stack"])]
-                    clashscore_list = [np.nanmean(sc_clash_arr) if sc_clash_arr.size > 0 else np.nan]
+                    # Handle both pre and post relax clash scores  
+                    clashscore_pre_list = [np.nanmean(sc_clash_dict["pre_relax"]) if sc_clash_dict["pre_relax"].size > 0 else np.nan]
+                    clashscore_post_list = [np.nanmean(sc_clash_dict["post_relax"]) if sc_clash_dict["post_relax"].size > 0 else np.nan]
 
 
                 rmsd_within_thresh_list.append((sc_score_rmsd <= RMSD_THRESHOLD).sum() / n_samples)
@@ -482,7 +486,8 @@ def evaluate(
         out['inf_wc']    = inf_wc_list
         out['inf_nwc']   = inf_nwc_list
         out['inf_stack'] = inf_stack_list
-        out['clashscore'] = clashscore_list
+        out['clashscore_pre_relax'] = clashscore_pre_list
+        out['clashscore_post_relax'] = clashscore_post_list
     return out
 
 
@@ -788,7 +793,7 @@ def self_consistency_score_rhofold_extended(
     # Containers
     sc_rmsds, sc_tms, sc_gddts, sc_plddt = [], [], [], []
     sc_inf_all, sc_inf_wc, sc_inf_nwc, sc_inf_stack = [], [], [], []
-    sc_clash = []
+    sc_clash_pre, sc_clash_post = [], []  # Separate containers for pre/post relax clash scores
     sc_lddt = []
     sc_mcq_abs, sc_mcq_R, sc_mcq_sd = [], [], []
 
@@ -852,14 +857,41 @@ def self_consistency_score_rhofold_extended(
                 sc_inf_nwc.append(np.nan)
                 sc_inf_stack.append(np.nan)
 
-        # Clashscore (Phenix MolProbity) if requested
+        # Clashscore (Phenix MolProbity) - Pre and Post Relax if requested
         if use_clash:
-            try:
-                clash = get_clash_score_phenix(design_pdb_path, phenix_wrapper_path)
-            except Exception as e:
-                print(f"[RhoFold eval] clashscore (Phenix) failed: {e}")
-                clash = np.nan
-            sc_clash.append(clash)
+            if use_relax:
+                # When relaxation is used, calculate clash scores before and after relax
+                # Pre-relax: calculate on _unrelaxed.pdb file
+                pre_relax_pdb_path = f'{design_pdb_path[:-4]}_unrelaxed.pdb'
+                post_relax_pdb_path = design_pdb_path  # This is the relaxed structure
+                
+                # Calculate pre-relax clash score
+                try:
+                    clash_pre = get_clash_score_phenix(pre_relax_pdb_path, phenix_wrapper_path)
+                except Exception as e:
+                    print(f"[RhoFold eval] pre-relax clashscore (Phenix) failed: {e}")
+                    clash_pre = np.nan
+                
+                # Calculate post-relax clash score
+                try:
+                    clash_post = get_clash_score_phenix(post_relax_pdb_path, phenix_wrapper_path)
+                except Exception as e:
+                    print(f"[RhoFold eval] post-relax clashscore (Phenix) failed: {e}")
+                    clash_post = np.nan
+                    
+            else:
+                # When no relaxation, only calculate pre-relax clash score, use NaN for post-relax
+                try:
+                    clash_pre = get_clash_score_phenix(design_pdb_path, phenix_wrapper_path)
+                except Exception as e:
+                    print(f"[RhoFold eval] clashscore (Phenix) failed: {e}")
+                    clash_pre = np.nan
+                
+                # No post-relax calculation when relaxation is disabled
+                clash_post = np.nan
+                
+            sc_clash_pre.append(clash_pre)
+            sc_clash_post.append(clash_post)
 
         # lDDT (Local Distance Difference Test) if requested
         if use_lddt:
@@ -918,12 +950,18 @@ def self_consistency_score_rhofold_extended(
         "circ_sd_deg": np.array(sc_mcq_sd) if use_mcq else np.array([]),
     }
 
+    # Package clash dict (return empty arrays if disabled, to keep shape stable)
+    clash_dict = {
+        "pre_relax": np.array(sc_clash_pre) if use_clash else np.array([]),
+        "post_relax": np.array(sc_clash_post) if use_clash else np.array([]),
+    }
+
     return (np.array(sc_rmsds),
             np.array(sc_tms),
             np.array(sc_gddts),
             np.array(sc_plddt),
             inf_dict,
-            np.array(sc_clash) if use_clash else np.array([]),
+            clash_dict,
             np.array(sc_lddt) if use_lddt else np.array([]),
             mcq_dict)
 
@@ -1557,8 +1595,37 @@ def get_lddt_openstructure_v2(predicted_pdb_path, native_pdb_path):
 import sys
 import os
 
+def create_chain_mapping(predicted_entity, native_entity):
+    """Create chain mapping for lDDT calculation with multi-chain support."""
+    try:
+        # Get chain information
+        native_chains = [(c.name, len(c.residues)) for c in native_entity.chains]
+        predicted_chains = [(c.name, len(c.residues)) for c in predicted_entity.chains]
+        
+        if not native_chains or not predicted_chains:
+            return None
+        
+        # Strategy 1: Single predicted chain vs multi-chain native
+        # Map predicted chain to largest native chain
+        if len(predicted_chains) == 1 and len(native_chains) > 1:
+            largest_native = max(native_chains, key=lambda x: x[1])
+            return {{predicted_chains[0][0]: largest_native[0]}}
+        
+        # Strategy 2: Multi-chain vs multi-chain or single vs single
+        # Map largest predicted to largest native
+        if len(predicted_chains) >= 1 and len(native_chains) >= 1:
+            largest_native = max(native_chains, key=lambda x: x[1])
+            largest_predicted = max(predicted_chains, key=lambda x: x[1])
+            return {{largest_predicted[0]: largest_native[0]}}
+        
+        return None
+        
+    except Exception as e:
+        print(f"Chain mapping error: {{e}}", file=sys.stderr)
+        return None
+
 def calculate_lddt_v2(predicted_pdb, native_pdb):
-    """Calculate lDDT using OpenStructure in isolated environment"""
+    """Calculate lDDT using OpenStructure with proper chain mapping support."""
     try:
         import ost
         import ost.mol
@@ -1572,7 +1639,12 @@ def calculate_lddt_v2(predicted_pdb, native_pdb):
         if not native_entity.IsValid() or not predicted_entity.IsValid():
             return float('nan')
         
-        # Option 1: Try direct calculation without cleaning (works for most RNA)
+        # Create chain mapping for multi-chain structures
+        chain_mapping = None
+        if len(native_entity.chains) > 1 or len(predicted_entity.chains) > 1:
+            chain_mapping = create_chain_mapping(predicted_entity, native_entity)
+        
+        # Option 1: Try direct calculation with chain mapping
         try:
             scorer = lddt.lDDTScorer(
                 target=native_entity,
@@ -1581,25 +1653,39 @@ def calculate_lddt_v2(predicted_pdb, native_pdb):
                 bb_only=False                   # Consider all atoms for RNA
             )
             
-            global_lddt, per_residue_lddt = scorer.lDDT(
-                model=predicted_entity,
-                thresholds=[0.5, 1.0, 2.0, 4.0],    # Standard lDDT thresholds
-                check_resnames=False,                # Don't enforce residue name matching
-                no_interchain=False,                 # Include interchain contacts if present
-                no_intrachain=False                  # Include intrachain contacts
-            )
+            # Build lDDT arguments
+            lddt_args = {{
+                'model': predicted_entity,
+                'thresholds': [0.5, 1.0, 2.0, 4.0],    # Standard lDDT thresholds
+                'check_resnames': False,                # Don't enforce residue name matching
+                'no_interchain': False,                 # Include interchain contacts if present
+                'no_intrachain': False                  # Include intrachain contacts
+            }}
+            
+            # Add chain mapping if needed
+            if chain_mapping is not None:
+                lddt_args['chain_mapping'] = chain_mapping
+            
+            global_lddt, per_residue_lddt = scorer.lDDT(**lddt_args)
             
             if global_lddt is not None:
                 return float(global_lddt)
-        except Exception:
-            pass
+        except Exception as e:
+            # If chain mapping fails, try without it for single-chain case
+            if "chain mapping" not in str(e).lower():
+                print(f"Direct lDDT failed: {{e}}", file=sys.stderr)
         
-        # Option 2: Try with nucleic acid selection if direct fails
+        # Option 2: Try with nucleic acid selection and chain mapping
         try:
             native_clean = native_entity.Select("nucleic")
             predicted_clean = predicted_entity.Select("nucleic")
             
             if len(native_clean.residues) > 0 and len(predicted_clean.residues) > 0:
+                # Update chain mapping for cleaned structures
+                clean_chain_mapping = None
+                if len(native_clean.chains) > 1 or len(predicted_clean.chains) > 1:
+                    clean_chain_mapping = create_chain_mapping(predicted_clean, native_clean)
+                
                 scorer = lddt.lDDTScorer(
                     target=native_clean,
                     inclusion_radius=15.0,
@@ -1607,20 +1693,25 @@ def calculate_lddt_v2(predicted_pdb, native_pdb):
                     bb_only=False
                 )
                 
-                global_lddt, per_residue_lddt = scorer.lDDT(
-                    model=predicted_clean,
-                    thresholds=[0.5, 1.0, 2.0, 4.0],
-                    check_resnames=False,
-                    no_interchain=False,
-                    no_intrachain=False
-                )
+                lddt_args = {{
+                    'model': predicted_clean,
+                    'thresholds': [0.5, 1.0, 2.0, 4.0],
+                    'check_resnames': False,
+                    'no_interchain': False,
+                    'no_intrachain': False
+                }}
+                
+                if clean_chain_mapping is not None:
+                    lddt_args['chain_mapping'] = clean_chain_mapping
+                
+                global_lddt, per_residue_lddt = scorer.lDDT(**lddt_args)
                 
                 if global_lddt is not None:
                     return float(global_lddt)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Nucleic lDDT failed: {{e}}", file=sys.stderr)
         
-        # Option 3: Try backbone-only as fallback
+        # Option 3: Try backbone-only with chain mapping as fallback
         try:
             scorer = lddt.lDDTScorer(
                 target=native_entity,
@@ -1629,16 +1720,21 @@ def calculate_lddt_v2(predicted_pdb, native_pdb):
                 bb_only=True  # backbone only
             )
             
-            global_lddt, per_residue_lddt = scorer.lDDT(
-                model=predicted_entity,
-                thresholds=[0.5, 1.0, 2.0, 4.0],
-                check_resnames=False
-            )
+            lddt_args = {{
+                'model': predicted_entity,
+                'thresholds': [0.5, 1.0, 2.0, 4.0],
+                'check_resnames': False
+            }}
+            
+            if chain_mapping is not None:
+                lddt_args['chain_mapping'] = chain_mapping
+            
+            global_lddt, per_residue_lddt = scorer.lDDT(**lddt_args)
             
             if global_lddt is not None:
                 return float(global_lddt)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Backbone lDDT failed: {{e}}", file=sys.stderr)
         
         # All calculation methods failed
         return float('nan')

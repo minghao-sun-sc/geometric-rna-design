@@ -1,0 +1,51 @@
+# 06. DPO with margin25 pairs, 3 rounds (faster iteration)
+# Test if 3 rounds is sufficient for convergence
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 06_dpo_m25_3r
+  mode: online
+  tags: ["06_dpo", "m25", "3rounds", "fast"]
+  notes: "DPO with margin25, 3 rounds for fast iteration"
+  group: "plan_a_variations"
+
+multiround:
+  num_rounds: 3
+  epochs_per_round: 5
+  update_reference: false
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+paths:
+  pair_margin: "25"
+  save_dir: multiround/runs/06_dpo_m25_3r
+
+dpo:
+  beta: 0.13
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+optimizer:
+  lr: 0.00018                  # 1.8e-4 converted to decimal
+  weight_decay: 0.01
+
+training:
+  epochs: 5
+  batch_size: 16
+  grad_accum_steps: 4
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true

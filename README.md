@@ -11,8 +11,6 @@ Various Evaluation Metrics
 
 
 
-
-
 ## Project Overview
 
 RiboPO implements preference optimization methods (DPO/SimPO) to fine-tune the gRNAde RNA inverse folding model. The goal is to improve RNA sequence design that correctly folds into target 3D structures, critical for RNA therapeutics and synthetic biology.
@@ -75,6 +73,8 @@ python dpo/debug/test_evaluator_usalign_pair.py
   - `data.py`: Preference pair dataset with RBF error handling
   - `bench/`: Evaluation pipelines (eval_full.py, eval_benchmark.py)
   - `hpo/`: Hyperparameter optimization configs
+
+- multiround ribopo
 
 ### Key Design Patterns
 1. **Zero-modification approach**: All DPO logic isolated in `dpo/` folder
@@ -163,3 +163,14 @@ W&B metrics (wandb.ai):
 3. **Check GPU utilization**: Aim for >70% with proper batching
 4. **Monitor convergence**: SimPO typically converges faster than DPO
 5. **Validate checkpoints**: Use eval_benchmark.py for quick validation
+
+
+
+
+Important commands:
+
+eval baselines
+
+python evaluate_baselines.py --models rdesign --limit 15 --output_dir /tmp/test_baseline_eval_limited
+
+

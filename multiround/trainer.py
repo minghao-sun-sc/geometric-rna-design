@@ -116,7 +116,14 @@ class MultiRoundDPOTrainer:
         print(f"   Pair margin: {getattr(self.cfg.paths, 'pair_margin', 'unknown')}\n")
         
         try:
-            for round_num in range(1, self.num_rounds + 1):
+            # Support resuming from a specific round
+            start_round = self.current_round
+            if start_round > 1:
+                print(f"🔄 Resuming training from round {start_round}")
+                # Load the best checkpoint from the previous round
+                self._load_checkpoint_for_resume(start_round)
+            
+            for round_num in range(start_round, self.num_rounds + 1):
                 print(f"\n{'='*60}")
                 print(f"🔄 ROUND {round_num}/{self.num_rounds}")
                 print(f"{'='*60}")
@@ -125,14 +132,16 @@ class MultiRoundDPOTrainer:
                 round_result = self.train_round(round_num)
                 self.round_metrics.append(round_result)
                 
-                # Log round completion
+                # Log round completion with monotonic step tracking
                 if self.cfg.wandb.enable:
+                    # Use current step offset to maintain monotonicity, ensure minimum step 1
+                    current_step = max(1, getattr(self, 'wandb_step_offset', 0) + getattr(self.trainer, 'global_step', 0))
                     wandb.log({
                         "round/completed": round_num,
                         "round/total_rounds": self.num_rounds,
                         **{f"round_{round_num}/{k}": v for k, v in round_result.items() 
                            if isinstance(v, (int, float))}
-                    })
+                    }, step=current_step)
                 
                 # Early stopping check (optional)
                 if self._should_stop_early(round_result):
@@ -170,25 +179,35 @@ class MultiRoundDPOTrainer:
         
         print(f"📁 Round {round_num} output: {round_dir}")
         
-        # Step 1: Update reference model (clone policy → reference)
-        if round_num > 1 and getattr(self.cfg.multiround, 'update_reference', True):
+        # Step 1: Initialize/update trainer for this round
+        self._setup_trainer_for_round(round_num, round_dir)
+        
+        # Step 2: Update reference model (clone policy → reference) AFTER trainer setup
+        if round_num > 1 and getattr(self.cfg.multiround, 'update_reference', False):
             print(f"🔄 Updating reference model from previous round's policy...")
             self._update_reference_model()
         
-        # Step 2: Initialize/update trainer for this round
-        self._setup_trainer_for_round(round_num, round_dir)
-        
-        # Log pair configuration to wandb
+        # Log pair configuration to wandb with monotonic step tracking
         if self.cfg.wandb.enable:
             current_margin = self.pair_provider.get_current_margin_type()
             pair_counts = self.pair_provider.current_config.get_pair_counts()
+            # Use current step offset to maintain monotonicity, ensure minimum step 1
+            current_step = max(1, getattr(self, 'wandb_step_offset', 0) + getattr(self.trainer, 'global_step', 0))
             wandb.log({
                 f"round_{round_num}/margin_type": current_margin,
                 f"round_{round_num}/train_pairs": pair_counts['train'],
                 f"round_{round_num}/val_pairs": pair_counts['val'],
                 f"round_{round_num}/test_pairs": pair_counts['test'],
-                "round": round_num
-            })
+                "progress/round": round_num,
+                "round": round_num  # Keep for backward compatibility
+            }, step=current_step)
+            
+            # Update run summary for dashboard visibility
+            if wandb.run:
+                wandb.run.summary.update({
+                    "current_round": round_num,
+                    "round_start_time": datetime.now().isoformat()
+                })
             print(f"📊 Logged margin type '{current_margin}' and pair counts to wandb")
         
         # Step 3: Train for specified epochs
@@ -218,8 +237,21 @@ class MultiRoundDPOTrainer:
         eval_time = datetime.now() - eval_start
         print(f"✅ Evaluation completed in {eval_time}")
         
-        # Step 5: Save checkpoint
+        # Step 5: Save checkpoint and select best
         checkpoint_path = self._save_round_checkpoint(round_num, round_dir, eval_result)
+        
+        # Step 5b: Select best checkpoint for reference model update
+        best_checkpoint_info = self.select_best_checkpoint_from_round(round_num, round_dir)
+        if best_checkpoint_info and best_checkpoint_info.get('is_best', False):
+            # Update the tracking with the new best checkpoint
+            if self.best_checkpoints and self.best_checkpoints[-1]['round'] != round_num:
+                self.best_checkpoints[-1] = best_checkpoint_info
+            
+            # Save selection rationale
+            selection_path = os.path.join(round_dir, "evaluation", f"checkpoint_selection_round_{round_num}.json")
+            with open(selection_path, 'w') as f:
+                json.dump(best_checkpoint_info, f, indent=2)
+            print(f"💾 Checkpoint selection rationale saved: {selection_path}")
         
         # Step 6: Compile round results
         round_result = {
@@ -265,6 +297,14 @@ class MultiRoundDPOTrainer:
             # Create new DPOTrainer instance with updated config
             self.trainer = DPOTrainer(self.cfg)
             
+            # Initialize step offset for proper W&B step tracking across rounds
+            if not hasattr(self, 'wandb_step_offset'):
+                self.wandb_step_offset = 0
+            if round_num > 1:
+                # Calculate offset based on previous rounds to maintain monotonic stepping
+                self.wandb_step_offset = getattr(self, 'total_steps_completed', 0)
+                print(f"🔄 W&B step offset for round {round_num}: {self.wandb_step_offset}")
+            
             # Log the pair switching
             current_margin = self.pair_provider.get_current_margin_type()
             print(f"✅ DPOTrainer initialized for round {round_num} with margin {current_margin} pairs")
@@ -283,24 +323,28 @@ class MultiRoundDPOTrainer:
         # Set the correct number of epochs for this round
         # Note: We'll handle this by controlling the training loop rather than modifying config
         
-        # Load checkpoint from previous round if continuing
-        if round_num > 1 and hasattr(self, 'best_checkpoints') and self.best_checkpoints:
+        # Load resume checkpoint if this is a resume scenario
+        self._load_resume_checkpoint_if_needed()
+        
+        # Load checkpoint from previous round if continuing (non-resume scenario)
+        if (round_num > 1 and hasattr(self, 'best_checkpoints') and self.best_checkpoints 
+            and not hasattr(self, '_resume_from_round')):
             prev_checkpoint = self.best_checkpoints[-1]['path']
             if os.path.exists(prev_checkpoint):
                 print(f"🔄 Loading checkpoint from round {round_num-1}: {prev_checkpoint}")
                 load_checkpoint(prev_checkpoint, self.trainer.policy, self.trainer.optimizer)
                 
-        # Update reference model if needed (clone policy state to reference)
-        if round_num > 1 and getattr(self.cfg.multiround, 'update_reference', False):
-            print(f"🔄 Updating reference model from round {round_num-1} policy...")
-            self.trainer.reference.load_state_dict(self.trainer.policy.state_dict())
-            print("✅ Reference model updated")
+        # Reference model update is now handled in train_round() after trainer setup
+        # This ensures consistent timing and logic
     
     def _update_reference_model(self):
         """Update reference model by cloning current policy."""
-        if self.trainer is not None:
-            update_reference_model(self.trainer.policy, self.trainer.reference)
-            print("✅ Reference model updated")
+        if self.trainer is None:
+            raise RuntimeError("Cannot update reference model: trainer not initialized")
+        
+        # Use consistent state_dict copying method
+        self.trainer.reference.load_state_dict(self.trainer.policy.state_dict())
+        print("✅ Reference model updated from current policy")
     
     def _train_for_round(self, num_epochs: int) -> Dict:
         """
@@ -322,10 +366,28 @@ class MultiRoundDPOTrainer:
         final_train_loss = None
         final_val_loss = None
         
+        # Calculate steps per epoch based on dataset size and gradient accumulation
+        train_dataset_size = len(self.trainer.train_loader.dataset)
+        batches_per_epoch = (train_dataset_size + cfg.training.batch_size - 1) // cfg.training.batch_size
+        # With gradient accumulation, we process grad_accum_steps batches per optimizer step
+        steps_per_epoch = batches_per_epoch  # Each batch is one forward pass (one step)
+        print(f"📊 Training: {train_dataset_size} samples, {batches_per_epoch} batches/steps per epoch (grad_accum every {cfg.training.grad_accum_steps} steps)")
+        
+        # Create iterator for the dataloader
+        train_iter = iter(self.trainer.train_loader)
+        
         for epoch in range(num_epochs):
             meters = defaultdict(AverageMeter)
+            print(f"📖 Starting epoch {epoch}/{num_epochs-1} (step {self.trainer.global_step})")
             
-            for batch in self.trainer.train_loader:
+            # Process exactly steps_per_epoch batches for this epoch
+            for step_in_epoch in range(steps_per_epoch):
+                try:
+                    batch = next(train_iter)
+                except StopIteration:
+                    # Reset iterator if we've exhausted the dataloader
+                    train_iter = iter(self.trainer.train_loader)
+                    batch = next(train_iter)
                 self.trainer.global_step += 1
                 
                 # Move batch to device
@@ -333,8 +395,14 @@ class MultiRoundDPOTrainer:
                 batch.winner_seq = batch.winner_seq.to(self.trainer.device)
                 batch.loser_seq = batch.loser_seq.to(self.trainer.device)
 
-                with autocast(enabled=cfg.training.precision in ["fp16", "bf16"], 
-                             dtype=torch.bfloat16 if cfg.training.precision=="bf16" else torch.float16):
+                # Safe precision access with bf16 default, fallback to fp32 if unsupported
+                precision = getattr(cfg.training, 'precision', 'bf16')
+                # Check if bf16 is supported by the current GPU
+                if precision == 'bf16' and not torch.cuda.is_bf16_supported():
+                    print("⚠️ BF16 not supported on this GPU, falling back to FP32")
+                    precision = 'fp32'
+                with autocast(enabled=precision in ["fp16", "bf16"], 
+                             dtype=torch.bfloat16 if precision=="bf16" else torch.float16):
                     # DPO forward
                     out = dpo_step_losses(
                         model=self.trainer.policy,
@@ -373,26 +441,75 @@ class MultiRoundDPOTrainer:
                 # log every step
                 if (self.trainer.global_step % cfg.training.log_every) == 0 and wandb.run is not None:
                     log = {k: v.avg for k, v in meters.items()}
-                    log["epoch"] = epoch
-                    log["step"] = self.trainer.global_step
-                    log["round"] = self.current_round
-                    wandb.log(log, step=self.trainer.global_step)
+                    # Add clear progress tracking (0-based epoch numbering)
+                    log["progress/epoch"] = epoch
+                    log["progress/round"] = self.current_round
+                    log["progress/step"] = self.trainer.global_step
+                    log["progress/epoch_in_round"] = epoch  # Clear indicator of epoch within current round
+                    log["progress/total_epochs_completed"] = (self.current_round - 1) * self.epochs_per_round + epoch
+                    log["progress/step_in_epoch"] = step_in_epoch
+                    log["progress/steps_per_epoch"] = steps_per_epoch
+                    wandb_step = max(1, self.wandb_step_offset + self.trainer.global_step)
+                    wandb.log(log, step=wandb_step)
+                    
+                    # Update run summary with current progress (visible in dashboard)
+                    if wandb.run:
+                        wandb.run.summary.update({
+                            "current_round": self.current_round,
+                            "current_epoch": epoch,
+                            "current_step": self.trainer.global_step,
+                            "total_epochs_completed": (self.current_round - 1) * self.epochs_per_round + epoch,
+                            "steps_per_epoch": steps_per_epoch
+                        })
 
                 # periodic eval (but use round-specific frequency)
                 if (self.trainer.global_step % cfg.training.val_every) == 0:
                     val_stats = self.trainer.evaluate(self.trainer.val_loader, split="val")
                     if wandb.run is not None:
-                        wandb.log({f"val/{k}": v for k, v in val_stats.items()}, step=self.trainer.global_step)
+                        wandb_step = max(1, self.wandb_step_offset + self.trainer.global_step)
+                        wandb.log({f"val/{k}": v for k, v in val_stats.items()}, step=wandb_step)
                     
                     round_val_losses.append(val_stats.get("loss_dpo", 0.0))
                     final_val_loss = val_stats.get("loss_dpo", 0.0)
+                
+                # Periodic checkpoint saving every save_every steps
+                if (self.trainer.global_step % cfg.training.save_every) == 0:
+                    self._save_step_checkpoint(epoch, self.trainer.global_step, self.current_round)
 
+            # End of epoch - flush any remaining accumulated gradients
+            if self.trainer.global_step % cfg.training.grad_accum_steps != 0:
+                print(f"🔄 Flushing accumulated gradients at end of epoch {epoch}")
+                if cfg.optimizer.grad_clip_norm and cfg.optimizer.grad_clip_norm > 0:
+                    self.trainer.scaler.unscale_(self.trainer.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.trainer.policy.parameters(), cfg.optimizer.grad_clip_norm)
+                self.trainer.scaler.step(self.trainer.optimizer)
+                self.trainer.scaler.update()
+                self.trainer.optimizer.zero_grad(set_to_none=True)
+                self.trainer.scheduler.step()
+            
             # End of epoch - capture training loss
             round_train_losses.append(meters["train/loss"].avg)
             final_train_loss = meters["train/loss"].avg
+            print(f"✅ Completed epoch {epoch}/{num_epochs-1} (step {self.trainer.global_step}, loss: {final_train_loss:.4f})")
+            
+            # Log epoch completion to WandB
+            if self.cfg.wandb.enable and wandb.run is not None:
+                wandb_step = max(1, self.wandb_step_offset + self.trainer.global_step)
+                wandb.log({
+                    "epoch_completion/epoch": epoch,
+                    "epoch_completion/round": self.current_round,
+                    "epoch_completion/avg_loss": final_train_loss,
+                    "epoch_completion/steps_completed": self.trainer.global_step
+                }, step=wandb_step)
         
         # Compile round training results
         total_steps_this_round = self.trainer.global_step - round_start_step
+        
+        # Update total completed steps for W&B step offset tracking
+        if not hasattr(self, 'total_steps_completed'):
+            self.total_steps_completed = 0
+        self.total_steps_completed += total_steps_this_round
+        
         training_result = {
             'total_steps': total_steps_this_round,
             'final_train_loss': final_train_loss,
@@ -410,18 +527,49 @@ class MultiRoundDPOTrainer:
         
         return training_result
     
+    def _save_step_checkpoint(self, epoch: int, step: int, round_num: int):
+        """Save periodic checkpoint during training."""
+        round_dir = os.path.join(self.output_root, f"round_{round_num:02d}")
+        checkpoints_dir = os.path.join(round_dir, "checkpoints")
+        
+        # Ensure checkpoint directory exists
+        os.makedirs(checkpoints_dir, exist_ok=True)
+        
+        checkpoint_name = f"step_{step}_epoch_{epoch}.pt"
+        checkpoint_path = os.path.join(checkpoints_dir, checkpoint_name)
+        
+        # Save step checkpoint
+        save_checkpoint(
+            checkpoints_dir,  # checkpoints subdirectory
+            f"step_{step}_epoch_{epoch}",  # name (without .pt extension)
+            self.trainer.policy,
+            self.trainer.optimizer,
+            self.trainer.scheduler,
+            self.trainer.global_step,
+            0.0,  # no eval metric for step checkpoints
+            self.cfg
+        )
+        
+        print(f"💾 Step checkpoint saved: {checkpoint_path}")
+    
     def _save_round_checkpoint(self, round_num: int, round_dir: str, eval_result: Dict) -> str:
         """Save checkpoint for the current round."""
         checkpoint_name = f"round_{round_num}_best.pt"
-        checkpoint_path = os.path.join(round_dir, checkpoint_name)
+        # Use the checkpoints subdirectory created by create_round_output_dir()
+        checkpoint_path = os.path.join(round_dir, "checkpoints", checkpoint_name)
         
         # Determine if this is the best checkpoint
-        metric_name = getattr(self.cfg.checkpoints, 'metric_for_best', 'tm_mean')
+        # Handle config structure safely - checkpoints may be a SimpleNamespace or dict
+        checkpoints_cfg = getattr(self.cfg, 'checkpoints', None)
+        if checkpoints_cfg is not None:
+            metric_name = getattr(checkpoints_cfg, 'metric_for_best', 'tm_mean')
+        else:
+            metric_name = 'tm_mean'  # fallback default
         current_metric = eval_result.get(metric_name, 0.0)
         
-        # Save checkpoint using the correct signature
+        # Save checkpoint using the correct signature and checkpoints subdirectory
         save_checkpoint(
-            round_dir,  # root directory
+            os.path.join(round_dir, "checkpoints"),  # checkpoints subdirectory
             f"round_{round_num}_best",  # name (without .pt extension)
             self.trainer.policy,
             self.trainer.optimizer,
@@ -442,6 +590,162 @@ class MultiRoundDPOTrainer:
         
         print(f"💾 Checkpoint saved: {checkpoint_path}")
         return checkpoint_path
+    
+    def select_best_checkpoint_from_round(self, round_num: int, round_dir: str) -> Dict:
+        """
+        Select the best checkpoint from the current round using pass@k metrics.
+        
+        Args:
+            round_num: Current round number
+            round_dir: Directory containing round data
+            
+        Returns:
+            dict: Information about the selected best checkpoint
+        """
+        # Load evaluation results for candidate selection
+        eval_results_path = os.path.join(round_dir, "evaluation", f"eval_results_round_{round_num}.json")
+        if not os.path.exists(eval_results_path):
+            print(f"⚠️ No evaluation results found at {eval_results_path}")
+            if self.best_checkpoints:
+                return self.best_checkpoints[-1]
+            return None
+        
+        try:
+            with open(eval_results_path, 'r') as f:
+                eval_data = json.load(f)
+            
+            # Primary metric: pass@8 with TM-score >= 0.45
+            primary_metric_key = "passk_tm_0.45_k8"
+            primary_score = eval_data.get(primary_metric_key, 0.0)
+            
+            # Tie-breaker: MFE (lower is better)
+            mfe_score = eval_data.get('mfe_mean', 0.0)
+            
+            # Create candidate info
+            candidate_info = {
+                'round': round_num,
+                'path': os.path.join(round_dir, "checkpoints", f"round_{round_num}_best.pt"),
+                'primary_metric': primary_score,
+                'tiebreaker_metric': mfe_score,
+                'selection_criteria': {
+                    'primary': f"{primary_metric_key} = {primary_score:.4f}",
+                    'tiebreaker': f"mfe_mean = {mfe_score:.4f}"
+                },
+                'eval_metrics': eval_data
+            }
+            
+            # Log selection rationale
+            print(f"🎯 Checkpoint selection for round {round_num}:")
+            print(f"   Primary metric ({primary_metric_key}): {primary_score:.4f}")
+            print(f"   Tie-breaker (MFE): {mfe_score:.4f}")
+            
+            # Compare with previous best if available
+            if self.best_checkpoints and round_num > 1:
+                prev_best = self.best_checkpoints[-1]
+                prev_primary = prev_best.get('primary_metric', 0.0)
+                prev_mfe = prev_best.get('tiebreaker_metric', 0.0)
+                
+                # Selection logic: higher pass@k is better, lower MFE is better (for ties)
+                is_better = False
+                if primary_score > prev_primary:
+                    is_better = True
+                    reason = f"Higher pass@k ({primary_score:.4f} > {prev_primary:.4f})"
+                elif abs(primary_score - prev_primary) < 1e-6:  # Essentially equal
+                    if mfe_score < prev_mfe:  # Lower MFE is better
+                        is_better = True
+                        reason = f"Equal pass@k, better MFE ({mfe_score:.4f} < {prev_mfe:.4f})"
+                    else:
+                        reason = f"Equal pass@k, worse MFE ({mfe_score:.4f} >= {prev_mfe:.4f})"
+                else:
+                    reason = f"Lower pass@k ({primary_score:.4f} < {prev_primary:.4f})"
+                
+                print(f"   Comparison with round {prev_best['round']}: {reason}")
+                
+                if is_better:
+                    print(f"✅ Round {round_num} checkpoint selected as new best")
+                    candidate_info['selection_reason'] = reason
+                    candidate_info['is_best'] = True
+                else:
+                    print(f"🔄 Keeping round {prev_best['round']} checkpoint as best")
+                    candidate_info['selection_reason'] = reason
+                    candidate_info['is_best'] = False
+                    return prev_best
+            else:
+                candidate_info['is_best'] = True
+                candidate_info['selection_reason'] = "First round or no previous checkpoint"
+            
+            return candidate_info
+            
+        except Exception as e:
+            print(f"❌ Error during checkpoint selection: {e}")
+            import traceback
+            traceback.print_exc()
+            if self.best_checkpoints:
+                return self.best_checkpoints[-1]
+            return None
+    
+    def _load_checkpoint_for_resume(self, start_round: int):
+        """Load checkpoint from previous round when resuming training."""
+        try:
+            # Find checkpoint from the previous round (in checkpoints subdirectory)
+            prev_round = start_round - 1
+            round_dir = os.path.join(self.output_root, f"round_{prev_round:02d}")
+            checkpoint_path = os.path.join(round_dir, "checkpoints", f"round_{prev_round}_best.pt")
+            
+            if os.path.exists(checkpoint_path):
+                print(f"📂 Found checkpoint from round {prev_round}: {checkpoint_path}")
+                
+                # Store checkpoint info for later loading (avoid double trainer creation)
+                self._resume_checkpoint_path = checkpoint_path
+                self._resume_from_round = prev_round
+                
+                # Load checkpoint metadata to get step count for W&B offset
+                try:
+                    checkpoint_data = torch.load(checkpoint_path, map_location='cpu')
+                    if 'step' in checkpoint_data:
+                        # Seed W&B step offset from loaded checkpoint
+                        self.wandb_step_offset = checkpoint_data['step']
+                        print(f"🔄 Resume: W&B step offset set to {self.wandb_step_offset}")
+                except Exception as e:
+                    print(f"⚠️ Could not load checkpoint metadata for step offset: {e}")
+                    self.wandb_step_offset = 0
+                
+                print(f"✅ Resume setup complete - will load checkpoint after trainer initialization")
+                return
+            else:
+                print(f"❌ No checkpoint found for resume: {checkpoint_path}")
+                
+        except Exception as e:
+            print(f"❌ Resume setup failed: {e}")
+            
+        # If we get here, resume failed - continue with fresh training
+        self._resume_checkpoint_path = None
+        self._resume_from_round = None
+    
+    def _load_resume_checkpoint_if_needed(self):
+        """Load resume checkpoint after trainer is properly initialized."""
+        if not hasattr(self, '_resume_checkpoint_path') or self._resume_checkpoint_path is None:
+            return
+            
+        try:
+            print(f"📂 Loading resume checkpoint: {self._resume_checkpoint_path}")
+            step, best_metric = load_checkpoint(
+                self._resume_checkpoint_path,
+                self.trainer.policy,
+                self.trainer.optimizer
+            )
+            
+            print(f"✅ Resume checkpoint loaded: step {step}, metric: {best_metric}")
+            
+            # Clear resume state
+            self._resume_checkpoint_path = None
+            self._resume_from_round = None
+            
+        except Exception as e:
+            print(f"❌ Resume checkpoint loading failed: {e}")
+            # Clear resume state on failure
+            self._resume_checkpoint_path = None
+            self._resume_from_round = None
     
     def _should_stop_early(self, round_result: Dict) -> bool:
         """Check if training should stop early (placeholder for future implementation)."""
@@ -513,10 +817,12 @@ class MultiRoundDPOTrainer:
         
         print(f"📊 Final results saved: {results_path}")
         
-        # Log to wandb
+        # Log to wandb with monotonic step tracking
         if self.cfg.wandb.enable:
+            # Use final step for summary metrics, ensure minimum step 1
+            final_step = max(1, getattr(self, 'wandb_step_offset', 0) + getattr(self.trainer, 'global_step', 0))
             wandb.log({
                 "final/total_rounds": summary['total_rounds_completed'],
                 "final/best_tm_score": summary.get('best_round_by_tm', {}).get('tm_mean', 0),
                 "final/total_training_hours": summary['total_training_time_sec'] / 3600,
-            })
+            }, step=final_step)

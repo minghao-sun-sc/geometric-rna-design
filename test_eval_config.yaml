@@ -1,0 +1,53 @@
+device: cuda
+eval:
+  max_structures: 2
+  metrics:
+  - recovery
+  - perplexity
+  - sc_eternafold
+  - sc_rhofold
+  - sc_vienna
+  - diversity_3mer
+  n_samples: 8
+  out_dir: multiround/eval_multiround/test_debug
+  save_designs: true
+  temperature: 0.5
+  use_lddt: true
+  use_relax: true
+  wandb:
+    enable: false
+featurizer:
+  device: cpu
+  distance_eps: 0.001
+  max_num_conformers: 1
+  noise_scale: 0.0
+  num_posenc: 32
+  num_rbf: 32
+  radius: 0.0
+  split: test
+  top_k: 32
+model:
+  drop_rate: 0.5
+  edge_h_dim:
+  - 64
+  - 4
+  edge_in_dim:
+  - 131
+  - 3
+  name: AutoregressiveMultiGNNv1
+  node_h_dim:
+  - 128
+  - 16
+  node_in_dim:
+  - 15
+  - 4
+  num_layers: 4
+  out_dim: 4
+paths:
+  checkpoints:
+  - name: BASE
+    path: checkpoints/gRNAde_ARv1_1state_das.h5
+  processed_pt: data/processed.pt
+  split_name: test
+  split_pt: data/das_split.pt
+seed: 42

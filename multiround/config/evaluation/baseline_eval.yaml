@@ -1,0 +1,95 @@
+# Configuration for Baseline Model Evaluation
+# Use this config to evaluate sequence-only baseline models against the same test dataset
+
+# Test dataset configuration
+test_dataset:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  split_name: test
+
+# Device configuration
+device: cuda
+
+# Baseline models to evaluate (add your models here)
+baseline_models:
+  # Example baseline model configurations
+  - name: "gRNAde_base"
+    description: "Original gRNAde baseline"
+    sequences_file: "baselines/gRNAde_base_sequences.fasta"
+    format: "fasta"
+    
+  - name: "RNAinverse_model"
+    description: "RNAinverse design model"
+    sequences_file: "baselines/rnainverse_sequences.json"
+    format: "json"
+    
+  # Add more models as needed:
+  # - name: "your_model_name"
+  #   description: "Description of your model"
+  #   sequences_file: "path/to/your/sequences.fasta"
+  #   format: "fasta"  # or "json" or "csv"
+
+# RhoFold configuration for structure prediction
+rhofold:
+  use_relax: false     # No relaxation for baseline comparison (as specified)
+  use_msa: false       # No MSA for baseline comparison (as specified)
+  save_predicted_structures: true  # Save predicted PDBs for analysis
+
+# Evaluation settings
+evaluation:
+  # Metrics to compute (all 12 metrics by default)
+  compute_all_metrics: true
+  
+  # Specific metric flags (set to false to disable)
+  compute_2d_metrics: true      # EternaFold self-consistency
+  compute_3d_metrics: true      # RMSD, TM, GDT vs natives
+  compute_inf_metrics: true     # Interaction Network Fidelity
+  compute_clash_metrics: true   # MolProbity clash scores
+  compute_lddt_metrics: true    # Local Distance Difference Test
+  compute_mcq_metrics: true     # Mean of Circular Quantities
+  compute_vienna_metrics: true  # Thermodynamic stability
+  
+  # Advanced options
+  save_individual_metrics: true
+  create_comparison_table: true
+  save_structure_alignments: false
+
+# Tool paths (update these if tools are in different locations)
+tools:
+  phenix_wrapper_path: tools/run_phenix.sh
+  rhofold_model_path: tools/rhofold/model_20221010_params.pt
+
+# Output configuration
+output:
+  base_dir: "eval_baselines"
+  organize_by_model: true      # Create subdirectories per model
+  save_predicted_pdbs: true
+  save_alignment_data: true
+  
+  # Results format
+  save_json: true
+  save_csv: true              # Also save results as CSV for analysis
+  create_plots: true          # Create distribution plots
+
+# Comparison settings (for multi-model comparison)
+comparison:
+  create_summary_table: true
+  metrics_for_ranking:
+    - "tm_score_mean"
+    - "rmsd_mean"
+    - "sequence_recovery_mean"
+    - "mfe_mean"
+  plot_comparisons: true
+  
+# Advanced filtering (optional)
+filtering:
+  min_sequence_length: 10
+  max_sequence_length: 1000
+  exclude_structures: []      # List of structure IDs to exclude
+  include_only: []            # If specified, only evaluate these structure IDs
+
+# Logging
+logging:
+  level: "INFO"
+  save_log: true
+  log_individual_failures: true

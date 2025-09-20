@@ -267,7 +267,8 @@ def eval_full_metrics(
     inf_wc_list = []
     inf_nwc_list = []
     inf_stack_list = []
-    clashscore_list = []
+    clashscore_pre_list = []
+    clashscore_post_list = []
     lddt_list = []
     mcq_abs_list = []
     mcq_R_list = []
@@ -469,13 +470,13 @@ def eval_full_metrics(
                     use_relax=getattr(cfg.eval, 'use_relax', True),  # Config-controlled Amber relaxation
                     use_inf=True,
                     use_clash=True,
-                    use_lddt=getattr(cfg.eval, 'use_lddt', False),    # Config-controlled lDDT calculation
+                    use_lddt=getattr(cfg.eval, 'use_lddt', True),     # Config-controlled lDDT calculation
                     use_mcq=True,
                     phenix_wrapper_path=os.path.join(PROJECT_PATH, "tools", "run_phenix.sh"),
                 )
                 
                 # Unpack 8 values from extended function
-                sc_rmsd, sc_tm, sc_gdt, sc_plddt, inf_dict, clash_scores, lddt_scores, mcq_dict = result
+                sc_rmsd, sc_tm, sc_gdt, sc_plddt, inf_dict, clash_dict, lddt_scores, mcq_dict = result
                 
                 sc_rmsd_list.extend(sc_rmsd.tolist())
                 sc_tm_list.extend(sc_tm.tolist())
@@ -489,13 +490,24 @@ def eval_full_metrics(
                     inf_nwc_list.extend(inf_dict['nwc'].tolist() if hasattr(inf_dict['nwc'], 'tolist') else [inf_dict['nwc']] * n_samples)
                     inf_stack_list.extend(inf_dict['stack'].tolist() if hasattr(inf_dict['stack'], 'tolist') else [inf_dict['stack']] * n_samples)
                 
-                if clash_scores is not None and len(clash_scores) > 0:
-                    # Validate clash scores and warn if abnormally high
-                    clash_vals = clash_scores.tolist() if hasattr(clash_scores, 'tolist') else clash_scores
-                    for c_val in clash_vals:
-                        if c_val > 100:
-                            print(f"  ⚠️ Warning: High clash score {c_val:.1f} for {item.gid} (expected <50)")
-                    clashscore_list.extend(clash_vals)
+                if clash_dict is not None and 'pre_relax' in clash_dict:
+                    # Handle pre-relax clash scores
+                    clash_pre_scores = clash_dict['pre_relax']
+                    if clash_pre_scores is not None and len(clash_pre_scores) > 0:
+                        clash_pre_vals = clash_pre_scores.tolist() if hasattr(clash_pre_scores, 'tolist') else clash_pre_scores
+                        for c_val in clash_pre_vals:
+                            if c_val > 100:
+                                print(f"  ⚠️ Warning: High pre-relax clash score {c_val:.1f} for {item.gid} (expected <50)")
+                        clashscore_pre_list.extend(clash_pre_vals)
+                    
+                    # Handle post-relax clash scores
+                    clash_post_scores = clash_dict['post_relax']
+                    if clash_post_scores is not None and len(clash_post_scores) > 0:
+                        clash_post_vals = clash_post_scores.tolist() if hasattr(clash_post_scores, 'tolist') else clash_post_scores
+                        for c_val in clash_post_vals:
+                            if not np.isnan(c_val) and c_val > 100:
+                                print(f"  ⚠️ Warning: High post-relax clash score {c_val:.1f} for {item.gid} (expected <50)")
+                        clashscore_post_list.extend(clash_post_vals)
                 
                 # Store lDDT scores
                 if lddt_scores is not None and len(lddt_scores) > 0:
@@ -526,6 +538,19 @@ def eval_full_metrics(
                 tm_within_thresh_list.append(0.0)
                 gdt_within_thresh_list.append(0.0)
                 plddt_within_thresh_list.append(0.0)
+                
+                # CRITICAL: Add NaN values for extended metrics to ensure consistent columns
+                # (This is scientifically valid - NaN means "measurement failed", not fake data)
+                inf_all_list.extend([np.nan] * n_samples)
+                inf_wc_list.extend([np.nan] * n_samples)
+                inf_nwc_list.extend([np.nan] * n_samples)
+                inf_stack_list.extend([np.nan] * n_samples)
+                clashscore_pre_list.extend([np.nan] * n_samples)
+                clashscore_post_list.extend([np.nan] * n_samples)
+                lddt_list.extend([np.nan] * n_samples)
+                mcq_abs_list.extend([np.nan] * n_samples)
+                mcq_R_list.extend([np.nan] * n_samples)
+                mcq_sd_list.extend([np.nan] * n_samples)
     
     # Aggregate metrics
     n_processed = len(items_to_process)
@@ -561,8 +586,10 @@ def eval_full_metrics(
                 "inf_nwc": np.nanmean(inf_nwc_list),
                 "inf_stack": np.nanmean(inf_stack_list),
             })
-        if clashscore_list:
-            results["clashscore"] = np.nanmean(clashscore_list)
+        if clashscore_pre_list:
+            results["clashscore_pre_relax"] = np.nanmean(clashscore_pre_list)
+        if clashscore_post_list:
+            results["clashscore_post_relax"] = np.nanmean(clashscore_post_list)
         if lddt_list:
             # Calculate lDDT statistics with proper NaN handling
             lddt_array = np.array(lddt_list)
@@ -695,11 +722,18 @@ def main():
                 nwc_note = " (normal for complex cases)" if inf_nwc < 0 else ""
                 print(f"    INF (non-WC): {inf_nwc:.4f} - non-WC interactions{nwc_note}")
                 print(f"    INF (stack): {row.get('inf_stack', 0):.4f} - stacking interactions")
-            # Show clash score if available with warning
-            if 'clashscore' in row and not pd.isna(row.get('clashscore', np.nan)):
-                clash_val = row.get('clashscore', 0)
-                clash_note = " (high without relaxation)" if clash_val > 100 else " ✓" if clash_val < 20 else ""
-                print(f"    Clash score: {clash_val:.2f}{clash_note}")
+            # Show clash scores if available with warnings
+            if 'clashscore_pre_relax' in row and not pd.isna(row.get('clashscore_pre_relax', np.nan)):
+                clash_pre_val = row.get('clashscore_pre_relax', 0)
+                clash_pre_note = " (high)" if clash_pre_val > 100 else " ✓" if clash_pre_val < 20 else ""
+                print(f"    Clash score (pre-relax): {clash_pre_val:.2f}{clash_pre_note}")
+                
+            if 'clashscore_post_relax' in row and not pd.isna(row.get('clashscore_post_relax', np.nan)):
+                clash_post_val = row.get('clashscore_post_relax', 0)
+                clash_post_note = " (high)" if clash_post_val > 100 else " ✓" if clash_post_val < 20 else ""
+                print(f"    Clash score (post-relax): {clash_post_val:.2f}{clash_post_note}")
+            elif 'clashscore_pre_relax' in row:
+                print(f"    Clash score (post-relax): N/A (no relaxation performed)")
             # Show lDDT score if available
             if 'lddt' in row and not pd.isna(row.get('lddt', np.nan)):
                 lddt_val = row.get('lddt', 0)
@@ -827,11 +861,21 @@ def main():
         print(f"[Info] Main results still saved to: {json_path}")
     
     if use_wandb:
-        # Create comparison table
-        table = wandb.Table(columns=list(rows[0].keys()) if rows else [])
-        for r in rows:
-            table.add_data(*[r[k] for k in r.keys()])
-        wandb.log({"full_eval/comparison_table": table})
+        # Create comparison table with consistent columns
+        if rows:
+            # Get all unique columns across all rows
+            all_columns = set()
+            for r in rows:
+                all_columns.update(r.keys())
+            all_columns = sorted(list(all_columns))
+            
+            # Create table with all columns
+            table = wandb.Table(columns=all_columns)
+            for r in rows:
+                # Fill missing columns with NaN for consistency
+                row_data = [r.get(col, np.nan) for col in all_columns]
+                table.add_data(*row_data)
+            wandb.log({"checkpoint_comparison": table})
         wandb.finish()
 
 

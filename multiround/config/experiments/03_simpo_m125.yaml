@@ -1,0 +1,51 @@
+# 03. Multi-Round SimPO with margin125 pairs (β=2.0, γ=0.65, λ=0.01, 5 rounds)
+# Direct comparison with DPO using same margin125 pairs
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: simpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 03_simpo_m125_b20_g065
+  mode: online
+  tags: ["03_simpo", "m125", "5rounds"]
+  notes: "Multi-round SimPO (β=2.0, γ=0.65, λ=0.01) with margin125 pairs"
+  group: "core_experiments"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 20
+  update_reference: false
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+paths:
+  pair_margin: "125"
+  save_dir: multiround/runs/03_simpo_m125
+
+simpo:
+  beta: 2.0                    # Conservative SimPO β
+  gamma: 0.65                  # Conservative SimPO γ
+  sft_lambda: 0.01             # Conservative SFT regularization
+
+optimizer:
+  lr: 0.00004                  # Lower LR for SimPO (4e-5 converted to decimal)
+  weight_decay: 0.01
+
+training:
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 4
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true

@@ -79,14 +79,24 @@ def validate_config(cfg: SN) -> bool:
             print(f"❌ Required file not found: {path_value}")
             return False
     
-    # Check pair files
-    pair_files = ['train', 'val', 'test']
-    for split in pair_files:
-        if hasattr(cfg.paths.pairs, split):
-            pair_path = getattr(cfg.paths.pairs, split)
-            if not os.path.exists(pair_path):
-                print(f"❌ Pair file not found: {pair_path}")
-                return False
+    # Check pair files (conditional validation for dynamic vs static pairs)
+    dynamic_pairs = getattr(cfg.multiround, 'dynamic_pairs', False)
+    
+    if dynamic_pairs:
+        print("ℹ️ Dynamic pairs mode: skipping static pair file validation")
+        # For dynamic pairs, we only need to validate that the base data files exist
+        # The pair files will be generated dynamically during training
+    else:
+        # Static pairs mode: validate that all pair files exist
+        pair_files = ['train', 'val', 'test']
+        for split in pair_files:
+            if hasattr(cfg.paths.pairs, split):
+                pair_path = getattr(cfg.paths.pairs, split)
+                if not os.path.exists(pair_path):
+                    print(f"❌ Static pair file not found: {pair_path}")
+                    print(f"💡 Hint: For dynamic pairs, set 'multiround.dynamic_pairs: true' in config")
+                    return False
+        print("✅ Static pair files validated")
     
     # Validate multiround settings
     if not hasattr(cfg.multiround, 'num_rounds') or cfg.multiround.num_rounds < 1:
@@ -96,6 +106,62 @@ def validate_config(cfg: SN) -> bool:
     if not hasattr(cfg.multiround, 'epochs_per_round') or cfg.multiround.epochs_per_round < 1:
         print(f"❌ Invalid epochs_per_round: {getattr(cfg.multiround, 'epochs_per_round', 'missing')}")
         return False
+    
+    # Validate pass@k configuration if present
+    if hasattr(cfg, 'evaluation') and hasattr(cfg.evaluation, 'pass_k'):
+        passk_cfg = cfg.evaluation.pass_k
+        
+        # Validate k_values
+        if hasattr(passk_cfg, 'k_values'):
+            k_values = passk_cfg.k_values
+            if not isinstance(k_values, list) or not k_values:
+                print(f"❌ Invalid pass@k k_values: must be non-empty list")
+                return False
+            
+            # Check k_values are positive integers
+            for k in k_values:
+                if not isinstance(k, int) or k < 1:
+                    print(f"❌ Invalid k value: {k} (must be positive integer)")
+                    return False
+            
+            # Check k_values are reasonable (≤ final_eval_samples)
+            max_k = max(k_values)
+            final_samples = (getattr(cfg.multiround, 'final_eval_samples', None) or 
+                           getattr(cfg.multiround, 'n_samples_final_eval', 64))
+            if max_k > final_samples:
+                print(f"⚠️ Warning: max k_value {max_k} > final_eval_samples {final_samples}")
+        
+        # Validate thresholds
+        if hasattr(passk_cfg, 'thresholds'):
+            thresholds = passk_cfg.thresholds
+            
+            # Check TM score thresholds
+            if hasattr(thresholds, 'tm_score'):
+                tm_thresholds = thresholds.tm_score
+                if isinstance(tm_thresholds, list):
+                    for tm_thr in tm_thresholds:
+                        if not (0.0 <= tm_thr <= 1.0):
+                            print(f"❌ Invalid TM threshold: {tm_thr} (must be 0.0-1.0)")
+                            return False
+            
+            # Check RMSD thresholds
+            if hasattr(thresholds, 'rmsd'):
+                rmsd_thresholds = thresholds.rmsd
+                if isinstance(rmsd_thresholds, list):
+                    for rmsd_thr in rmsd_thresholds:
+                        if rmsd_thr <= 0:
+                            print(f"❌ Invalid RMSD threshold: {rmsd_thr} (must be positive)")
+                            return False
+            
+            # Check MFE thresholds (more negative is better, so they should be negative)
+            if hasattr(thresholds, 'mfe'):
+                mfe_thresholds = thresholds.mfe
+                if isinstance(mfe_thresholds, list):
+                    for mfe_thr in mfe_thresholds:
+                        if mfe_thr > 0:
+                            print(f"⚠️ Warning: MFE threshold {mfe_thr} is positive (more negative usually indicates better stability)")
+        
+        print("✅ Pass@k configuration validated")
     
     print("✅ Configuration validation passed")
     return True
@@ -122,16 +188,25 @@ def print_config_summary(cfg: SN):
     print(f"Batch size: {cfg.training.batch_size}")
     print(f"Learning rate: {cfg.optimizer.lr}")
     
-    # Evaluation setup
-    print(f"Eval samples (per round): {getattr(cfg.multiround, 'eval_samples', 8)}")
-    print(f"Final eval samples: {getattr(cfg.multiround, 'final_eval_samples', 64)}")
+    # Evaluation setup (handle both naming schemes)
+    eval_samples = (getattr(cfg.multiround, 'eval_samples', None) or 
+                   getattr(cfg.multiround, 'n_samples_eval', 8))
+    final_eval_samples = (getattr(cfg.multiround, 'final_eval_samples', None) or 
+                         getattr(cfg.multiround, 'n_samples_final_eval', 64))
+    print(f"Eval samples (per round): {eval_samples}")
+    print(f"Final eval samples: {final_eval_samples}")
     
-    # Output
+    # Output (show actual enhanced run name that will be used)
     output_root = getattr(cfg.multiround, 'output_root', 'runs/multiround')
-    run_name = cfg.wandb.run_name or 'multiround_run'
-    print(f"Output: {output_root}/{run_name}")
+    # Import here to get the actual enhanced run name
+    from multiround.wandb_manager import MultiRoundWandBManager
+    wandb_manager = MultiRoundWandBManager(cfg)
+    enhanced_run_name = wandb_manager.get_wandb_config()['name']
+    print(f"Output: {output_root}/{enhanced_run_name}")
+    print(f"   Enhanced run name: {enhanced_run_name}")
+    print(f"   Base run name: {cfg.wandb.run_name or 'multiround_run'}")
     
-    # WandB
+    # WandB (reuse manager instance)
     print(f"WandB: {'enabled' if cfg.wandb.enable else 'disabled'}")
     if cfg.wandb.enable:
         print(f"  Project: {cfg.wandb.project}")

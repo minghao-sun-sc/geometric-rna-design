@@ -181,3 +181,190 @@ The system now handles length mismatches gracefully:
 7. **Ease of Use**: Simple config changes for different experiments
 
 The enhanced system is production-ready and extensible for future Plan B implementation while solving all the immediate concerns about WandB organization, data quality, and dynamic preference pair management.
+
+---
+
+## 🆕 NEW: Enhanced Evaluation Integration & Baseline Comparison Pipeline
+
+### 5. Enhanced Multi-Round Evaluation Integration
+
+**Implementation**: Comprehensive improvements to evaluation results storage, checkpoint selection, and individual metrics tracking.
+
+**Key Features**:
+- ✅ **Individual Metrics Storage**: Save per-structure metrics (not just averages)
+- ✅ **Organized Output Structure**: Separate directories for evaluation, designs, checkpoints
+- ✅ **Data-Driven Checkpoint Selection**: Use pass@8 with TM-score ≥ 0.45 as primary criterion
+- ✅ **MFE Tie-Breaking**: Lower MFE values as tie-breaker for checkpoint selection
+- ✅ **Distribution Plots**: Automatic PDF plots for pLDDT, RMSD, MFE progression
+- ✅ **Selection Rationale**: Detailed logging of checkpoint selection decisions
+- ✅ **Pass@k Integration**: Comprehensive pass@k analysis for checkpoint ranking
+
+**Enhanced Directory Structure**:
+```
+runs/experiment_name/round_XX/
+├── evaluation/
+│   ├── eval_results_round_XX.json          # Aggregated metrics
+│   ├── individual_metrics_round_XX.json    # Per-structure metrics
+│   ├── distribution_plots_round_XX.png     # Metric distributions
+│   └── checkpoint_selection_round_XX.json  # Selection rationale
+├── designs/                                 # Designed sequences
+└── checkpoints/                            # Model checkpoints
+```
+
+**Files Enhanced**:
+- `multiround/evaluator.py` - Enhanced with individual metrics and plotting
+- `multiround/trainer.py` - Added intelligent checkpoint selection
+
+### 6. Baseline Model Evaluation Pipeline
+
+**Implementation**: Complete evaluation pipeline for sequence-only baseline models using the same comprehensive metrics as trained models.
+
+**Key Features**:
+- ✅ **Multiple Input Formats**: FASTA, JSON, CSV support
+- ✅ **Structure Prediction**: RhoFold+ integration (no relax, no MSA as specified)
+- ✅ **Complete Metrics Suite**: All 12 evaluation metrics for fair comparison
+- ✅ **Automatic Matching**: Match sequences with test dataset structures
+- ✅ **Standardized Output**: Same format as multi-round evaluation
+- ✅ **Batch Processing**: Evaluate multiple baseline models
+
+**Supported Input Formats**:
+
+1. **FASTA Format**:
+```fasta
+>1DDY_1_A
+GGGCUCGUAGAUCAGCGGUAGAUCGCUUCCUUCGCAUGGAUGCCGACUGGCUCUUAAACACGGGUGAUACCGUCACGCACU
+>1Y26_1_X
+CGCCGGGUAGCGCUGGGCUUCCGGGGACGGGCGUAGAGCGCACCAUGGUCGGCAGCGGUUCCGCACGGAGCUUU
+```
+
+2. **JSON Format**:
+```json
+{
+  "1DDY_1_A": "GGGCUCGUAGAUCAGCGGUAGAUCGCUUCCUUCGCAUGGAUGCCGACUGGCUCUUAAACACGGGUGAUACCGUCACGCACU",
+  "1Y26_1_X": "CGCCGGGUAGCGCUGGGCUUCCGGGGACGGGCGUAGAGCGCACCAUGGUCGGCAGCGGUUCCGCACGGAGCUUU"
+}
+```
+
+3. **CSV Format**:
+```csv
+structure_id,sequence,chain,description
+1DDY_1_A,GGGCUCGUAGAUCAGCGGUAG...,A,Test sequence
+1Y26_1_X,CGCCGGGUAGCGCUGGGCUUC...,X,Another test
+```
+
+**Usage Examples**:
+
+```bash
+# Evaluate a single baseline model
+python multiround/eval_baseline.py \
+    --sequences baselines/model_sequences.fasta \
+    --model_name "BaselineModel" \
+    --output_dir eval_baselines/BaselineModel \
+    --config multiround/config/evaluation/baseline_eval.yaml
+
+# Evaluate multiple models
+for model in ModelA ModelB ModelC; do
+    python multiround/eval_baseline.py \
+        --sequences baselines/${model}_sequences.fasta \
+        --model_name $model \
+        --output_dir eval_baselines/$model
+done
+```
+
+**Files Created**:
+- `multiround/eval_baseline.py` - Complete baseline evaluation pipeline
+- `multiround/config/evaluation/baseline_eval.yaml` - Configuration for baseline evaluation
+
+### 7. Comprehensive Testing & Debugging
+
+**Implementation**: Extensive test suite to validate all new functionality.
+
+**Test Coverage**:
+- ✅ **Multi-Round Metrics**: Individual metrics saving, distribution plots, output organization
+- ✅ **Checkpoint Selection**: Selection logic, tie-breaking, edge cases, rationale logging
+- ✅ **Baseline Evaluation**: Sequence loading, metrics computation, results aggregation
+- ✅ **End-to-End Testing**: Complete pipeline validation with mock data
+- ✅ **Error Handling**: Graceful handling of missing files, malformed data
+
+**Debug Scripts Created**:
+- `multiround/debug/test_multiround_metrics.py` - Test enhanced evaluation features
+- `multiround/debug/test_baseline_eval.py` - Test baseline evaluation pipeline
+- `multiround/debug/test_checkpoint_selection.py` - Test checkpoint selection logic
+
+**Running Tests**:
+```bash
+# Test all new functionality
+python multiround/debug/test_multiround_metrics.py
+python multiround/debug/test_baseline_eval.py
+python multiround/debug/test_checkpoint_selection.py
+```
+
+## 🎯 Problem Solutions Delivered
+
+### Problem 1: Multi-Round Evaluation Integration
+**Solution**: ✅ **Complete Integration**
+- Individual structure metrics saved for detailed analysis
+- Designed sequences organized in run-specific directories
+- Pass@k analysis integrated for checkpoint selection
+- Distribution plots showing model progression across rounds
+- Transparent checkpoint selection with logged rationale
+
+### Problem 2: Baseline Model Evaluation
+**Solution**: ✅ **Comprehensive Baseline Pipeline**
+- Evaluate any sequence-only baseline model with same 12-metric pipeline
+- Support for multiple input formats (FASTA, JSON, CSV)
+- RhoFold+ structure prediction (no relax, no MSA as specified)
+- Fair comparison using identical evaluation methodology
+- Standardized output format for easy comparison with trained models
+
+## 🚀 Key Benefits Achieved
+
+1. **Complete Data Tracking**: Individual structure performance across rounds enables detailed analysis
+2. **Data-Driven Decisions**: Checkpoint selection based on pass@k metrics improves model selection
+3. **Fair Baseline Comparison**: Same evaluation pipeline ensures apples-to-apples comparison
+4. **Research Reproducibility**: Detailed logging and rationale for all decisions
+5. **Organized Storage**: Structured output directories for easy navigation and analysis
+6. **Progress Visualization**: Distribution plots show model evolution across training rounds
+7. **Flexible Input Support**: Multiple sequence formats for baseline model integration
+8. **Comprehensive Testing**: Extensive test suite ensures reliability and correctness
+
+## 📊 Enhanced Evaluation Metrics
+
+All evaluations now provide:
+
+1. **Basic Metrics**: Recovery, Perplexity
+2. **2D Structure**: EternaFold self-consistency
+3. **3D Structure**: RMSD, TM-score, GDT, pLDDT, lDDT
+4. **Advanced**: INF (interaction fidelity), Clash scores, MCQ
+5. **Thermodynamics**: Vienna MFE, ED, entropy, p(S0), diversity, Tm
+6. **Sequence**: 3-mer diversity
+
+## 🔧 Usage Integration
+
+### Enhanced Multi-Round Training
+```bash
+# Run multi-round training with enhanced evaluation
+python multiround/trainer.py --config multiround/config/experiments/11_dpo_dynamic_margins.yaml
+
+# Results automatically organized with:
+# - Individual metrics per structure
+# - Distribution plots per round
+# - Checkpoint selection rationale
+# - Pass@k analysis for model ranking
+```
+
+### Baseline Model Comparison
+```bash
+# Evaluate baseline models for comparison
+python multiround/eval_baseline.py \
+    --sequences baselines/competitor.fasta \
+    --model_name "Competitor" \
+    --output_dir eval_baselines/Competitor
+
+# Compare with trained model results
+python analysis/compare_models.py \
+    --trained_results runs/experiment/round_05/evaluation/ \
+    --baseline_results eval_baselines/Competitor/
+```
+
+The enhanced system now provides a complete solution for both improved multi-round training evaluation and fair baseline model comparison, with comprehensive testing and debugging capabilities.

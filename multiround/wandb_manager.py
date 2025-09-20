@@ -283,8 +283,11 @@ class MultiRoundWandBManager:
             # Multiround-specific parameters
             'dynamic_pairs': self.dynamic_pairs,
             'update_reference': getattr(self.cfg.multiround, 'update_reference', False),
-            'eval_samples': getattr(self.cfg.multiround, 'eval_samples', 8),
-            'final_eval_samples': getattr(self.cfg.multiround, 'final_eval_samples', 64),
+            # Handle both naming schemes for eval samples
+            'eval_samples': (getattr(self.cfg.multiround, 'eval_samples', None) or 
+                           getattr(self.cfg.multiround, 'n_samples_eval', 8)),
+            'final_eval_samples': (getattr(self.cfg.multiround, 'final_eval_samples', None) or 
+                                 getattr(self.cfg.multiround, 'n_samples_final_eval', 64)),
             
             # Experiment metadata
             'experiment_name': self.experiment_name,

@@ -1,0 +1,51 @@
+# 04. Multi-Round DPO with margin25 pairs (β=0.13, λ=0.10, 5 rounds)
+# Plan A approach with larger margin for more preference pairs
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 04_dpo_m25_b013_l010
+  mode: online
+  tags: ["04_dpo", "m25", "plan_a", "5rounds"]
+  notes: "Multi-round DPO (β=0.13, λ=0.10) with margin25 pairs (Plan A)"
+  group: "core_experiments"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 20
+  update_reference: false
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+paths:
+  pair_margin: "25"
+  save_dir: multiround/runs/04_dpo_m25
+
+dpo:
+  beta: 0.13                   # Standard DPO β
+  sft_lambda: 0.10             # Standard SFT regularization
+  label_smoothing: 0.0
+
+optimizer:
+  lr: 0.00018                  # 1.8e-4 converted to decimal
+  weight_decay: 0.01
+
+training:
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 4
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true
