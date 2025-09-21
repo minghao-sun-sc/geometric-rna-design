@@ -1,0 +1,82 @@
+# 12. No-Reference SimPO with Dynamic Margins - 10 Epochs per Round
+# No reference model updates, dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs/round
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: simpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 12_no_ref_simpo_dynamic_10e
+  mode: online
+  tags: ["12_no_ref", "simpo", "dynamic_margins", "10epochs", "ablation"]
+  notes: "No-reference SimPO with dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs per round"
+  group: "ablation_experiments"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 10          # Reduced from 20 to 10 epochs per round
+  update_reference: false       # Key: no reference model updates
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+  
+  # Dynamic preference pair switching
+  dynamic_pairs: true
+  pair_configs:
+    # Rounds 1-2: use margin25 (easier/more diverse pairs)
+    rounds_1_2: 
+      margin_type: "25"
+      description: "Margin 25 for initial rounds"
+      pairs:
+        train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+    # Rounds 3-5: use margin125 (harder/more selective pairs)  
+    rounds_3_5:
+      margin_type: "125"
+      description: "Margin 125 for later rounds"
+      pairs:
+        train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+# Experiment-specific paths
+paths:
+  pair_margin: "25"  # Starting margin
+  save_dir: multiround/runs/12_no_ref_simpo_dynamic_10e
+  # Override default pairs to use margin25 initially
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+# SimPO-specific parameters
+simpo:
+  beta: 2.0                     # Optimized SimPO beta parameter
+  gamma: 0.65                   # Optimized SimPO margin parameter
+  label_smoothing: 0.0
+
+dpo:
+  sft_lambda: 0.01              # Reduced SFT regularization for SimPO
+
+# Override training epochs to match epochs_per_round
+training:
+  epochs: 10  # Matched to epochs_per_round
+
+# Override optimizer learning rate for SimPO (higher than DPO)
+optimizer:
+  lr: 0.0004  # 4e-4 optimized for SimPO (higher than DPO's 1.8e-4)
+
+# Data validation and fallback settings
+validation:
+  check_pair_files: true
+  fallback_to_static: true
+  static_fallback_margin: "125"
+  enable_data_validation: true

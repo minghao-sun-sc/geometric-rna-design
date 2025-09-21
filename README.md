@@ -37,8 +37,8 @@ sbatch dpo/scripts/train.slurm dpo/configs/defaults.yaml
 # Full evaluation with sampling (comprehensive metrics)
 python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml --n_samples 8 --temperature 0.5
 
-# Basic teacher-forced evaluation (fast)
-python -m dpo.bench.eval_benchmark --config dpo/configs/bench.yaml
+# # Basic teacher-forced evaluation (fast)
+# python -m dpo.bench.eval_benchmark --config dpo/configs/bench.yaml
 
 # SLURM submission
 sbatch dpo/scripts/eval.slurm dpo/configs/bench_full.yaml

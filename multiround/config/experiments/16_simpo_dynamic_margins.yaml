@@ -1,4 +1,4 @@
-# 12. SimPO with Dynamic Margins (R1-R2: margin25, R3-R5: margin125)
+# 16. SimPO with Dynamic Margins (R1-R2: margin25, R3-R5: margin125)
 # Strategic curriculum: start easy (margin25), then harder (margin125)
 
 inherit_from: multiround/config/multiround_defaults.yaml
@@ -11,16 +11,16 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc
-  run_name: 12_spo_dnm_svckpt
+  run_name: 16_simpo_dynamic_m25_m125
   mode: online
-  tags: ["12_simpo", "dynamic_margins", "curriculum", "advanced"]
+  tags: ["16_simpo", "dynamic_margins", "curriculum", "advanced"]
   notes: "SimPO with dynamic margins: R1-R2 use margin25, R3-R5 use margin125"
   group: "advanced_experiments"
 
 multiround:
   num_rounds: 5
   epochs_per_round: 20
-  update_reference: false
+  update_reference: true       # Enable reference model updates to match DPO version
   eval_temperature: 0.5
   final_eval_temperature: 0.1
   n_samples_eval: 8
@@ -47,38 +47,28 @@ multiround:
         val: data/pairs_margin125/by_das/clean/val.clean.jsonl
         test: data/pairs_margin125/by_das/clean/test.clean.jsonl
 
+# Experiment-specific paths
 paths:
   pair_margin: "25"  # Starting margin
-  save_dir: multiround/runs/12_simpo_dynamic_margins
-  
-  # Both margin datasets available for switching
-  pairs_margin25:
+  save_dir: multiround/runs/16_simpo_dynamic_margins
+  # Override default pairs to use margin25 initially
+  pairs:
     train: data/pairs_margin25/by_das/clean/train.clean.jsonl
     val: data/pairs_margin25/by_das/clean/val.clean.jsonl
     test: data/pairs_margin25/by_das/clean/test.clean.jsonl
-  pairs_margin125:
-    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
-    val: data/pairs_margin125/by_das/clean/val.clean.jsonl
-    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
 
 simpo:
   beta: 2.0                    # Conservative SimPO β
   gamma: 0.65                  # Conservative SimPO γ
   sft_lambda: 0.01             # Conservative SFT regularization
 
-optimizer:
-  lr: 0.00004                  # Lower LR for SimPO (4e-5 converted to decimal)
-  weight_decay: 0.01
-
+# Override training epochs to match epochs_per_round
 training:
-  epochs: 20
-  batch_size: 16
-  grad_accum_steps: 4
+  epochs: 20  # Matched to epochs_per_round
 
-evaluation:
-  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
-  save_designs: true
-  compute_passk_final: true
+# Override optimizer learning rate for SimPO (higher than DPO)
+optimizer:
+  lr: 0.0004  # 4e-4 optimized for SimPO (higher than DPO's 1.8e-4)
 
 # Data validation and fallback settings
 validation:

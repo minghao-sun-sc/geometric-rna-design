@@ -1,5 +1,5 @@
-# 03. Multi-Round SimPO with margin125 pairs (β=2.0, γ=0.65, λ=0.01, 5 rounds)
-# Direct comparison with DPO using same margin125 pairs
+# 05. SimPO with Margin 25 (0.25*std preference pairs)
+# SimPO alternative to DPO using 0.25*std preference margins
 
 inherit_from: multiround/config/multiround_defaults.yaml
 
@@ -11,16 +11,16 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc
-  run_name: 03_simpo_m125_b20_g065
+  run_name: 05_simpo_m25_b20_g065
   mode: online
-  tags: ["03_simpo", "m125", "5rounds"]
-  notes: "Multi-round SimPO (β=2.0, γ=0.65, λ=0.01) with margin125 pairs"
+  tags: ["05_simpo", "margin25", "baseline"]
+  notes: "SimPO with 0.25*std preference margins vs DPO comparison"
   group: "core_experiments"
 
 multiround:
   num_rounds: 5
   epochs_per_round: 20
-  update_reference: true       # Enable reference model updates
+  update_reference: true
   eval_temperature: 0.5
   final_eval_temperature: 0.1
   n_samples_eval: 8
@@ -29,9 +29,13 @@ multiround:
 
 # Experiment-specific paths
 paths:
-  pair_margin: "125"
-  save_dir: multiround/runs/03_simpo_m125
-  # Use default margin125 pairs (already set in defaults)
+  pair_margin: "25"
+  save_dir: multiround/runs/05_simpo_m25
+  # Override default pairs to use margin25
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
 
 # SimPO-specific parameters
 simpo:
@@ -40,7 +44,7 @@ simpo:
   label_smoothing: 0.0
 
 dpo:
-  sft_lambda: 0.01             # SFT regularization for SimPO
+  sft_lambda: 0.01             # Reduced SFT for SimPO
 
 # Override training epochs to match epochs_per_round
 training:

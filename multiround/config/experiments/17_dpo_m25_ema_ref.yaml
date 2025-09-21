@@ -1,0 +1,64 @@
+# 17. DPO with EMA Reference Model - Margin 25
+# Uses exponential moving average for reference model updates
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 17_dpo_m25_ema_ref
+  mode: online
+  tags: ["17_ema", "margin25", "advanced", "ema_reference"]
+  notes: "DPO with EMA reference model - smoothed reference updates"
+  group: "advanced_experiments"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 20
+  update_reference: true
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+  # EMA-specific settings
+  use_ema_reference: true
+  ema_decay: 0.999             # α ∈ [0.99, 0.9999] - higher = smoother
+  ema_update_frequency: "optimizer_step"  # Update on every optimizer step
+
+# Experiment-specific paths
+paths:
+  pair_margin: "25"
+  save_dir: multiround/runs/17_dpo_m25_ema_ref
+  # Override default pairs to use margin25
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.13
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+# Override training epochs to match epochs_per_round
+training:
+  epochs: 20  # Matched to epochs_per_round
+
+# Override optimizer learning rate for DPO
+optimizer:
+  lr: 0.00018  # 1.8e-4 optimized for DPO
+
+# EMA configuration
+ema:
+  enable: true
+  decay: 0.999                 # Exponential decay factor
+  update_after_step: 0         # Start EMA immediately
+  update_every: 1              # Update every optimizer step
+  use_ema_for_reference: true  # Use EMA model as reference for next round

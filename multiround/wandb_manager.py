@@ -12,6 +12,11 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import hashlib
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
 class MultiRoundWandBManager:
     """
     Enhanced WandB management for multiround experiments.
@@ -32,11 +37,13 @@ class MultiRoundWandBManager:
             self.experiment_strategy = getattr(experiment_config, 'strategy', 'plan_a')
         else:
             # Extract from wandb run_name if no experiment config
-            run_name = getattr(cfg.wandb, 'run_name', 'unknown_experiment')
+            wandb_cfg = getattr(cfg, 'wandb', None)
+            run_name = getattr(wandb_cfg, 'run_name', 'unknown_experiment') if wandb_cfg else 'unknown_experiment'
             self.experiment_name = run_name
             self.experiment_strategy = 'plan_a'
         
-        self.dynamic_pairs = getattr(cfg.multiround, 'dynamic_pairs', False)
+        multiround_cfg = getattr(cfg, 'multiround', None)
+        self.dynamic_pairs = getattr(multiround_cfg, 'dynamic_pairs', False) if multiround_cfg else False
         
         # Generate enhanced run configuration
         self.run_config = self._generate_run_config()

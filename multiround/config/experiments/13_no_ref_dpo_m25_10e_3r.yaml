@@ -1,0 +1,51 @@
+# 13. No-Reference DPO Margin 25 - 10 Epochs, 3 Rounds
+# Fast iteration: no reference updates, margin25, reduced epochs and rounds
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 13_no_ref_dpo_m25_10e_3r
+  mode: online
+  tags: ["13_no_ref", "margin25", "10epochs", "3rounds", "fast"]
+  notes: "No-reference DPO with margin25, 10 epochs per round, 3 rounds total"
+  group: "ablation_experiments"
+
+multiround:
+  num_rounds: 3                 # Reduced to 3 rounds for faster iteration
+  epochs_per_round: 10          # Reduced from 20 to 10 epochs per round
+  update_reference: false       # Key: no reference model updates
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+
+# Experiment-specific paths
+paths:
+  pair_margin: "25"
+  save_dir: multiround/runs/13_no_ref_dpo_m25_10e_3r
+  # Override default pairs to use margin25
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.13                    # Optimized DPO beta
+  sft_lambda: 0.10              # Optimized SFT regularization
+  label_smoothing: 0.0
+
+# Override training epochs to match epochs_per_round
+training:
+  epochs: 10  # Matched to epochs_per_round
+
+# Override optimizer learning rate for DPO
+optimizer:
+  lr: 0.00018  # 1.8e-4 optimized for DPO

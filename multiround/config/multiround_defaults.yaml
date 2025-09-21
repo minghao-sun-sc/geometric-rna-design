@@ -8,7 +8,7 @@ inherit_from: dpo/configs/defaults.yaml
 # Multiround-specific settings
 multiround:
   num_rounds: 5                      # Total training rounds
-  epochs_per_round: 20               # Epochs per round
+  epochs_per_round: 10               # Epochs per round
   current_round: 1                   # Starting round (will be updated)
   
   # Evaluation settings
@@ -25,13 +25,112 @@ multiround:
   save_round_checkpoints: true       # Save checkpoint at end of each round
   save_best_only: false              # Save all checkpoints vs best only
 
-# Override single-round settings for multiround
+# Complete training configuration for multiround
 training:
-  epochs: 20                         # Will be used per round
+  epochs: 10                         # Will be used per round
+  batch_size: 16                     # Training batch size
+  grad_accum_steps: 4                # Gradient accumulation steps
+  num_workers: 8                     # Number of data loading workers
+  precision: bf16                    # Use bfloat16 for mixed precision training
+  pin_memory: false                  # Disabled to avoid multiprocessing issues with complex graph data
+  drop_last: false                   # Use all training data
+  compile: false                     # PyTorch 2.0 compilation (disabled for stability)
   log_every: 1                       # Log WandB metrics every training step
   save_every: 50                     # Save checkpoints every 50 steps
   val_every: 50                      # Run validation every 50 steps
   keep_last_n: 5                     # Keep last 5 checkpoints
+
+# Complete optimizer configuration
+optimizer:
+  name: adamw
+  lr: 1.8e-4                         # Base learning rate (will be overridden per experiment)
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  grad_clip_norm: 1.0
+
+# Learning rate scheduler configuration
+scheduler:
+  name: cosine
+  warmup_steps: 1000                 # Linear warmup steps (global)
+  min_lr_ratio: 0.1                  # Final lr = min_lr_ratio * base lr
+
+# Featurizer configuration for data preprocessing
+featurizer:
+  split: train
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1              # matches the checkpoint family (1-state)
+  noise_scale: 0.1
+  distance_eps: 0.001
+  device: cpu                        # use CPU for featurizer to avoid device mismatch
+
+# Model architecture configuration (gRNAde specifications)
+model:
+  name: AutoregressiveMultiGNNv1
+  # EXACT shapes used by gRNAde checkpoints
+  node_in_dim: [15, 4]
+  node_h_dim: [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim: [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+# DPO/SimPO configuration defaults
+dpo:
+  beta: 0.13                         # Default DPO beta (will be overridden per experiment)
+  sft_lambda: 0.10                   # Default SFT regularization (will be overridden per experiment)
+  label_smoothing: 0.0
+  max_len: 512                       # Maximum sequence length for training
+
+# SimPO-specific configuration (when loss_type: simpo)
+simpo:
+  beta: 2.0                          # Default SimPO beta parameter
+  gamma: 0.65                        # Default SimPO margin parameter
+  label_smoothing: 0.0
+
+# Path configuration with all required fields
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
+  external_tools_dir: tools
+  project_root: /mnt/rna01/smh/projects/ribopo
+  data_root: /mnt/rna01/smh/projects/ribopo/data
+  wandb_dir: /mnt/rna01/smh/projects/ribopo
+  
+  # Default pair configuration (will be overridden per experiment)
+  pair_margin: "125"                 # Default to 0.125*std margin pairs
+  pairs:
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+  
+  # Alternative datasets for different margin thresholds
+  pairs_margin125:
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+  pairs_margin25:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+# Tools configuration for external dependencies
+tools:
+  usalign:
+    dir_name: USalign
+    executable_name: USalign
+  eternafold:
+    root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold
+  x3dna:
+    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
+    bin: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
+  molprobity:
+    root: /mnt/rna01/smh/projects/ribopo/tools/molprobity
 
 # Enhanced wandb logging for multiround
 wandb:
@@ -44,6 +143,35 @@ wandb:
   group: "multiround_experiments"
 
 # Evaluation metrics configuration
+# Evaluation configuration (based on proven bench_full.yaml)
+eval:
+  batch_size: 16
+  num_workers: 6                # avoid CUDA multiprocessing issues
+  pin_memory: true
+  
+  # Sampling parameters
+  n_samples: 8                  # number of sequences to sample per structure
+  temperature: 0.5              # sampling temperature (low for consistent sampling)
+  
+  # Structure optimization options
+  use_relax: false              # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
+  use_lddt: true                # Enable lDDT calculation (expensive and may return nan for mismatched sequences)
+
+  # Metrics to compute (all by default)
+  metrics:
+    - recovery                  # sequence recovery (teacher-forced)
+    - perplexity               # model confidence
+    - sc_eternafold            # 2D self-consistency with EternaFold
+    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT, pLDDT, INF, clash, lDDT, MCQ)
+    - vienna_mfe               # Vienna thermodynamics - Minimum Free Energy
+    - vienna_ED                # Vienna thermodynamics - Ensemble Defect (+ Shannon entropy)
+    - diversity_3mer           # 3-mer correlation diversity
+    # - novelty_tpn              # Trimer Profile Novelty (sequence novelty vs natural RNAs); disabled due to high computational cost
+  
+  # Save designed sequences and structures
+  save_designs: true          # set to true to save all designs as FASTA files
+
+# Multiround-specific evaluation settings
 evaluation:
   # Primary metrics (logged every round)
   primary_metrics: ["tm", "rmsd", "mfe"]

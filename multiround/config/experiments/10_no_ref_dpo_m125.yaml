@@ -1,5 +1,5 @@
-# 02. Multi-Round DPO with margin125 pairs (β=0.13, λ=0.10, 5 rounds)
-# Standard DPO baseline for comparison with SimPO
+# 10. DPO without Reference Update - Margin 125
+# Tests margin125 (stricter preferences) without reference model updates
 
 inherit_from: multiround/config/multiround_defaults.yaml
 
@@ -11,16 +11,16 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc
-  run_name: 02_dpo_m125_b013_l010
+  run_name: 10_no_ref_dpo_m125_5r
   mode: online
-  tags: ["02_dpo", "m125", "5rounds"]
-  notes: "Multi-round DPO (β=0.13, λ=0.10) with margin125 pairs"
-  group: "core_experiments"
+  tags: ["10_no_ref", "margin125", "5_rounds", "ablation"]
+  notes: "DPO margin125 without reference updates - full 5 rounds"
+  group: "ablation_experiments"
 
 multiround:
   num_rounds: 5
   epochs_per_round: 20
-  update_reference: true       # Enable reference model updates
+  update_reference: false      # Key difference: no reference updates
   eval_temperature: 0.5
   final_eval_temperature: 0.1
   n_samples_eval: 8
@@ -29,13 +29,13 @@ multiround:
 
 # Experiment-specific paths
 paths:
-  pair_margin: "125"
-  save_dir: multiround/runs/02_dpo_m125
+  pair_margin: "125"           # Using stricter margin125 preferences
+  save_dir: multiround/runs/10_no_ref_dpo_m125
   # Use default margin125 pairs (already set in defaults)
 
 dpo:
-  beta: 0.13                   # Standard DPO β
-  sft_lambda: 0.10             # Standard SFT regularization
+  beta: 0.13
+  sft_lambda: 0.10
   label_smoothing: 0.0
 
 # Override training epochs to match epochs_per_round

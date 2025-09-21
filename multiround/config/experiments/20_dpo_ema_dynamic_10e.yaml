@@ -1,0 +1,74 @@
+# 20. DPO EMA Reference with Dynamic Margins - 10 Epochs, 5 Rounds
+# EMA reference strategy with dynamic margin curriculum, 10 epochs/round
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 20_dpo_ema_dynamic_10e
+  mode: online
+  tags: ["20_dpo", "ema_strategy", "dynamic_margins", "10epochs"]
+  notes: "DPO with EMA reference strategy and dynamic margin curriculum, 10 epochs per round"
+  group: "advanced_experiments"
+
+multiround:
+  epochs_per_round: 10          # Reduced from 20 to 10 epochs per round
+
+  # EMA-specific settings (primary focus)
+  use_ema_reference: true
+  ema_decay: 0.9999             # Higher decay for smoother updates
+  ema_update_frequency: "optimizer_step"  # Update on every optimizer step
+  
+  # Dynamic preference pair switching
+  dynamic_pairs: true
+  pair_configs:
+    # Rounds 1-2: use margin25 (easier/more diverse pairs)
+    rounds_1_2: 
+      margin_type: "25"
+      description: "Margin 25 for initial rounds"
+      pairs:
+        train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+    # Rounds 3-5: use margin125 (harder/more selective pairs)  
+    rounds_3_5:
+      margin_type: "125"
+      description: "Margin 125 for later rounds"
+      pairs:
+        train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+# Experiment-specific paths
+paths:
+  save_dir: multiround/runs/20_dpo_ema_dynamic_10e
+
+# Override training epochs to match epochs_per_round
+training:
+  epochs: 10  # Matched to epochs_per_round
+
+# Override optimizer learning rate for DPO
+optimizer:
+  lr: 0.00018  # 1.8e-4 optimized for DPO
+
+# EMA configuration (enhanced)
+ema:
+  enable: true
+  decay: 0.9999                 # Higher exponential decay factor for smoother averaging
+  update_after_step: 0          # Start EMA immediately
+  update_every: 1               # Update every optimizer step
+  use_ema_for_reference: true   # Use EMA model as reference for next round
+  use_ema_for_eval: false       # Use main model for evaluation
+
+# Data validation and fallback settings
+validation:
+  check_pair_files: true
+  fallback_to_static: true
+  static_fallback_margin: "125"
+  enable_data_validation: true

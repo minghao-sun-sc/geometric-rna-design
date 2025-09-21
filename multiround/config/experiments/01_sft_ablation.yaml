@@ -27,25 +27,25 @@ multiround:
   n_samples_final_eval: 64
   save_eval_data: true
 
+# Experiment-specific paths
 paths:
   pair_margin: "25"
   save_dir: multiround/runs/01_sft_ablation
+  # Override default pairs to use margin25
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
 
 dpo:
   beta: 0.0                    # No DPO loss
   sft_lambda: 0.10             # SFT only
   label_smoothing: 0.0
 
-optimizer:
-  lr: 0.00018                  # 1.8e-4 converted to decimal
-  weight_decay: 0.01
-
+# Override training epochs to match epochs_per_round
 training:
-  epochs: 20
-  batch_size: 16
-  grad_accum_steps: 4
+  epochs: 20  # Matched to epochs_per_round
 
-evaluation:
-  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
-  save_designs: true
-  compute_passk_final: true
+# Override optimizer learning rate  
+optimizer:
+  lr: 0.00018  # 1.8e-4 optimized for DPO

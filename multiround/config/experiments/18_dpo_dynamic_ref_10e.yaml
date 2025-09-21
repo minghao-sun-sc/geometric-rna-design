@@ -1,0 +1,60 @@
+# 18. DPO Dynamic Margins with Reference Update - 10 Epochs, 5 Rounds
+# Dynamic margins (R1-R2: margin25, R3-R5: margin125) with reference updates, 10 epochs/round
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 18_dpo_dynamic_ref_10e
+  mode: online
+  tags: ["18_dpo", "dynamic_margins", "ref_update", "10epochs"]
+  notes: "DPO with dynamic margins (R1-R2: margin25, R3-R5: margin125), reference updates, 10 epochs per round"
+  group: "advanced_experiments"
+
+multiround:
+  epochs_per_round: 10          # Reduced from 20 to 10 epochs per round
+  
+  # Dynamic preference pair switching
+  dynamic_pairs: true
+  pair_configs:
+    # Rounds 1-2: use margin25 (easier/more diverse pairs)
+    rounds_1_2: 
+      margin_type: "25"
+      description: "Margin 25 for initial rounds"
+      pairs:
+        train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+    # Rounds 3-5: use margin125 (harder/more selective pairs)  
+    rounds_3_5:
+      margin_type: "125"
+      description: "Margin 125 for later rounds"
+      pairs:
+        train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+# Experiment-specific paths
+paths:
+  save_dir: multiround/runs/18_dpo_dynamic_ref_10e
+
+# Override training epochs to match epochs_per_round
+training:
+  epochs: 10  # Matched to epochs_per_round
+
+# Override optimizer learning rate for DPO
+optimizer:
+  lr: 0.00018  # 1.8e-4 optimized for DPO
+
+# Data validation and fallback settings
+validation:
+  check_pair_files: true
+  fallback_to_static: true
+  static_fallback_margin: "125"
+  enable_data_validation: true

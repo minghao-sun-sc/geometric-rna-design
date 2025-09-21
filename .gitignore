@@ -16,6 +16,7 @@ Miniforge3-Linux-x86_64.sh
 exit/
 
 # DPO-RNA
+multiround/runs/*
 dpo/runs/*
 dpo/__pycache__/
 dpo/debug/__pycache__/

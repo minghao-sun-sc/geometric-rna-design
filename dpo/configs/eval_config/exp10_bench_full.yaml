@@ -11,18 +11,19 @@ paths:
   
   # Checkpoints to evaluate
   checkpoints:
-    # - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
-      # path: checkpoints/gRNAde_ARv1_1state_das.h5
+    - name: "exp10_rd1_best_m25_e10"
+      path: runs/multiround/plan_a_10_dpo_m25_7r_e10_m25_b0.13_l0.1_bs64_0919_0223/round_01/round_1_best.pt
     # Add DPO checkpoints once training completes:
-    - name: "exp12_spo_dnm_rd1_ep10"
-      path: runs/multiround/plan_a_12_spo_dnm_svckpt_dynamic_b0.12_l0.1_bs64_0920_1139/round_01/checkpoints/step_9050_epoch_9.pt
-    - name: "exp01_sft_best"  
+    - name: "exp10_rd2_best_m25_e10"
+      path: runs/multiround/plan_a_10_dpo_m25_7r_e10_m25_b0.13_l0.1_bs64_0919_0223/round_02/round_2_best.pt
+    - name: "exp10_rd3_best_m25_e10"  
       # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
       # path: runs/offline_dpo/dpo_rna_v5/best.pt
-      path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
+      path: runs/multiround/plan_a_10_dpo_m25_7r_e10_m25_b0.13_l0.1_bs64_0919_0223/round_03/round_3_best.pt
 
 
 # python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml
+# python -m dpo.bench.eval_full --config dpo/configs/eval_config/exp10_bench_full.yaml
 
 featurizer:
   split: test
