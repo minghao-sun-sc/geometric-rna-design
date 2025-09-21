@@ -1,4 +1,4 @@
-# 11. No-Reference DPO with Dynamic Margins - 10 Epochs per Round
+# 21. No-Reference DPO with Dynamic Margins - 10 Epochs per Round
 # No reference model updates, dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs/round
 
 inherit_from: multiround/config/multiround_defaults.yaml
@@ -11,11 +11,11 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc
-  run_name: 11_no_ref_dpo_dynamic_10e
+  run_name: 21_no_ref_dpo_0.13_dynamic_10e
   mode: online
-  tags: ["11_no_ref", "dynamic_margins", "10epochs", "ablation"]
+  tags: ["21_no_ref", "dynamic_margins", "10epochs", "ablation"]
   notes: "No-reference DPO with dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs per round"
-  group: "ablation_experiments"
+  group: "no_ref"
 
 multiround:
   num_rounds: 5
@@ -53,7 +53,7 @@ multiround:
 # Experiment-specific paths
 paths:
   pair_margin: "25"  # Starting margin
-  save_dir: multiround/runs/11_no_ref_dpo_dynamic_10e
+  save_dir: multiround/runs/21_no_ref_dpo_0.13_dynamic_10e
   # Override default pairs to use margin25 initially
   pairs:
     train: data/pairs_margin25/by_das/clean/train.clean.jsonl
@@ -61,12 +61,12 @@ paths:
     test: data/pairs_margin25/by_das/clean/test.clean.jsonl
 
 dpo:
-  beta: 0.12                    # Optimized DPO beta
+  beta: 0.13                    # Optimized DPO beta
   sft_lambda: 0.10              # Optimized SFT regularization
   label_smoothing: 0.0
 
 
-# python -m multiround.train --config multiround/config/experiments/11_no_ref_dpo_dynamic_10e.yaml
+# python -m multiround.train --config multiround/config/experiments/21_no_ref_dpo_0.13_dynamic_10e.yaml
 
 # Override training epochs to match epochs_per_round
 training:

@@ -55,7 +55,19 @@ class MultiRoundEvaluator:
         # Pass@k configuration
         evaluation_cfg = getattr(cfg, 'evaluation', None)
         self.passk_config = getattr(evaluation_cfg, 'pass_k', None) if evaluation_cfg else None
-        self.passk_rounds = [1, 3, 5]  # Rounds where pass@k analysis is performed (R1, R3, R_final)
+        
+        # Handle skip_intermediate_passk option for faster training
+        skip_intermediate = getattr(multiround_cfg, 'skip_intermediate_passk', False) if multiround_cfg else False
+        if skip_intermediate:
+            # Only do pass@k on final round when skipping intermediate
+            self.passk_rounds = [self.num_rounds]  # Only final round
+            print(f"🚀 Pass@k analysis limited to final round ({self.num_rounds}) for faster training")
+        else:
+            self.passk_rounds = [1, 3, 5]  # Standard: R1, R3, R_final
+            
+        # Ensure final round is always included if it's not already
+        if self.num_rounds not in self.passk_rounds:
+            self.passk_rounds.append(self.num_rounds)
         
         # Distribution analysis
         self.distribution_analyzer = None

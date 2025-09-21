@@ -1,4 +1,4 @@
-# 11. No-Reference DPO with Dynamic Margins - 10 Epochs per Round
+# 21. No-Reference DPO with Dynamic Margins - 10 Epochs per Round
 # No reference model updates, dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs/round
 
 inherit_from: multiround/config/multiround_defaults.yaml
@@ -11,15 +11,15 @@ wandb:
   enable: true
   project: MultiRound-DPO-RNA
   entity: minghao-sun-soc
-  run_name: 11_no_ref_dpo_dynamic_10e
+  run_name: 22_no_ref_dpo_dynamic_20e
   mode: online
-  tags: ["11_no_ref", "dynamic_margins", "10epochs", "ablation"]
+  tags: ["21_no_ref", "dynamic_margins", "10epochs", "ablation"]
   notes: "No-reference DPO with dynamic margins (R1-R2: margin25, R3-R5: margin125), 10 epochs per round"
-  group: "ablation_experiments"
+  group: "no_ref"
 
 multiround:
   num_rounds: 5
-  epochs_per_round: 10          # Reduced from 20 to 10 epochs per round
+  epochs_per_round: 20          # Reduced from 20 to 10 epochs per round
   update_reference: false       # Key: no reference model updates
   eval_temperature: 0.5
   final_eval_temperature: 0.1
@@ -53,7 +53,7 @@ multiround:
 # Experiment-specific paths
 paths:
   pair_margin: "25"  # Starting margin
-  save_dir: multiround/runs/11_no_ref_dpo_dynamic_10e
+  save_dir: multiround/runs/22_no_ref_dpo_dynamic_20e
   # Override default pairs to use margin25 initially
   pairs:
     train: data/pairs_margin25/by_das/clean/train.clean.jsonl
@@ -66,11 +66,11 @@ dpo:
   label_smoothing: 0.0
 
 
-# python -m multiround.train --config multiround/config/experiments/11_no_ref_dpo_dynamic_10e.yaml
+# python -m multiround.train --config multiround/config/experiments/22_no_ref_dpo_0.12_dnm_20e.yaml
 
 # Override training epochs to match epochs_per_round
 training:
-  epochs: 10                     # Matched to epochs_per_round
+  epochs: 20                     # Matched to epochs_per_round
   batch_size: 32                # Smaller batch for A40 48GB (vs 32 for A100)
   grad_accum_steps: 2           # Effective batch = 72 (slightly larger than A100's 64)
   num_workers: 6                # Optimized for typical CPU count

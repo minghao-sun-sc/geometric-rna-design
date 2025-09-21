@@ -41,6 +41,7 @@ from src.constants import (
     PROJECT_PATH,
     MOLPROBITY_HOME,
     RMSD_THRESHOLD,
+    RMSD_THRESHOLD_2,
     TM_THRESHOLD,
     GDT_THRESHOLD,
     PLDDT_THRESHOLD,
@@ -106,7 +107,7 @@ def evaluate(
             sc_score_ribonanzanet_list: list of 1D self-consistency scores per data point
             sc_score_rmsd_list: list of 3D self-consistency RMSDs per data point
             sc_score_tm_list: list of 3D self-consistency TM-scores per data point
-            sc_score_gddt_list: list of 3D self-consistency GDTs per data point
+            sc_score_gdt_list: list of 3D self-consistency GDTs per data point
             rmsd_within_thresh_list: list of % scRMSDs within threshold per data point
             tm_within_thresh_list: list of % scTMs within threshold per data point
             gddt_within_thresh_list: list of % scGDDTs within threshold per data point
@@ -162,7 +163,7 @@ def evaluate(
     rmsd_within_thresh_list = []  # list of % scRMSDs within threshold per data point
     sc_score_tm_list = []  # list of 3D self-consistency TM-scores per data point
     tm_within_thresh_list = []  # list of % scTMs within threshold per data point
-    sc_score_gddt_list = []  # list of 3D self-consistency GDTs per data point
+    sc_score_gdt_list = []  # list of 3D self-consistency GDTs per data point
     gddt_within_thresh_list = []  # list of % scGDDTs within threshold per data point
     sc_score_plddt_list = []  # list of 3D self-consistency PLDDTs per data point
     plddt_within_thresh_list = []  # list of % scPLDDTs within threshold per data point
@@ -363,7 +364,7 @@ def evaluate(
                 
                 sc_score_rmsd_list.append(sc_score_rmsd.mean())
                 sc_score_tm_list.append(sc_score_tm.mean())
-                sc_score_gddt_list.append(sc_score_gdt.mean())
+                sc_score_gdt_list.append(sc_score_gdt.mean())
                 sc_score_plddt_list.append(sc_score_plddt.mean())
                 
                 # INF and clash score arrays
@@ -446,7 +447,7 @@ def evaluate(
                             pred_cm_arr,
                             sc_score_rmsd,
                             sc_score_tm,
-                            sc_score_gddt,
+                            sc_score_gdt,
                             sc_score_plddt
                     )):
                         seq_str = "".join(NUM_TO_LETTER[int(n)] for n in seq_nums)
@@ -484,7 +485,7 @@ def evaluate(
     if 'sc_score_rhofold' in metrics:
         out['sc_score_rmsd'] = sc_score_rmsd_list
         out['sc_score_tm'] = sc_score_tm_list
-        out['sc_score_gddt'] = sc_score_gddt_list
+        out['sc_score_gdt'] = sc_score_gdt_list
         out['rmsd_within_thresh'] = rmsd_within_thresh_list
         out['rmsd_within_2A'] = rmsd_within_2A_list
         out['tm_within_thresh'] = tm_within_thresh_list

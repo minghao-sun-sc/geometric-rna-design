@@ -11,15 +11,15 @@ paths:
   
   # Checkpoints to evaluate
   checkpoints:
-    # - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
-      # path: checkpoints/gRNAde_ARv1_1state_das.h5
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
-    - name: "exp12_spo_dnm_rd1_ep10"
-      path: runs/multiround/plan_a_12_spo_dnm_svckpt_dynamic_b0.12_l0.1_bs64_0920_1139/round_01/checkpoints/step_9050_epoch_9.pt
-    - name: "exp01_sft_best"  
+    # - name: "exp12_spo_dnm_rd1_ep10"
+      # path: runs/multiround/plan_a_12_spo_dnm_svckpt_dynamic_b0.12_l0.1_bs64_0920_1139/round_01/checkpoints/step_9050_epoch_9.pt
+    # - name: "exp01_sft_best"  
       # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
       # path: runs/offline_dpo/dpo_rna_v5/best.pt
-      path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
+      # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
 
 
 # python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml
@@ -55,8 +55,8 @@ eval:
   out_dir: runs/benchmark_full
   
   # Sampling parameters
-  n_samples: 8                  # number of sequences to sample per structure
-  temperature: 0.5              # sampling temperature (low for consistent sampling)
+  n_samples: 1                  # number of sequences to sample per structure
+  temperature: 0.1              # sampling temperature (low for consistent sampling)
   
   # Structure optimization options
   # use_relax: true               # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
