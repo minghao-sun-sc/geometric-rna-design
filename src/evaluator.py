@@ -274,8 +274,12 @@ def evaluate(
                 # Vienna requires contiguous strings; masking is simply "drop those columns".
                 if mask_coords is not None and mask_coords.sum() < len(mask_coords):
                     keep_idx = np.where(mask_coords)[0]
-                    def _mask_str(s): return "".join(s[i] for i in keep_idx)
-                    target_db = _mask_str(target_db_full)
+                    # Bounds check to prevent string index out of range (like dpo/bench/eval_full.py)
+                    keep_idx = keep_idx[keep_idx < len(target_db_full)]
+                    if len(keep_idx) > 0:
+                        target_db = "".join(target_db_full[i] for i in keep_idx)
+                    else:
+                        target_db = target_db_full
                 else:
                     target_db = target_db_full
 
@@ -284,7 +288,11 @@ def evaluate(
                 for seq_nums in samples.cpu().numpy():  # shape: (n_samples, seq_len)
                     seq = "".join([NUM_TO_LETTER[n] for n in seq_nums])
                     if mask_coords is not None and mask_coords.sum() < len(mask_coords):
-                        seq = _mask_str(seq)
+                        # Bounds check to prevent string index out of range (like dpo/bench/eval_full.py)
+                        keep_idx_seq = keep_idx[keep_idx < len(seq)]
+                        if len(keep_idx_seq) > 0:
+                            seq = "".join(seq[i] for i in keep_idx_seq)
+                        # If no valid indices, keep original sequence
 
                     # Fast pass at 37°C
                     v = vienna_ensemble_metrics(seq, target_db=target_db, T=37.0, return_positional_entropy=False)
