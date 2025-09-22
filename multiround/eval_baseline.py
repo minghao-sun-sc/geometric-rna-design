@@ -162,6 +162,11 @@ class BaselineEvaluator:
                 if structure_id not in self.native_sequences:
                     self.native_sequences[structure_id] = str(record.seq)
         
+        # Final fallback: extract sequences directly from PDB files for still missing structures
+        missing_before_pdb = len(self.test_structure_ids) - len(self.native_sequences)
+        if missing_before_pdb > 0:
+            self._extract_sequences_from_pdb_files()
+        
         print(f"   Loaded {len(self.native_sequences)} native sequences")
         
         # Map structure IDs to raw data information
@@ -195,6 +200,62 @@ class BaselineEvaluator:
         
         print(f"   Extracted {len(self.native_sequences)} native sequences from ridiff")
         
+    def _extract_sequences_from_pdb_files(self):
+        """Extract sequences directly from PDB files for missing structures."""
+        print(f"   📂 Extracting missing sequences from PDB files...")
+        
+        missing_count = 0
+        extracted_count = 0
+        
+        for structure_id in self.test_structure_ids:
+            if structure_id not in self.native_sequences:
+                missing_count += 1
+                
+                # Get the correct PDB filename using our mapping
+                pdb_filename = self._get_das_pdb_filename(structure_id)
+                if pdb_filename is None:
+                    continue
+                
+                pdb_path = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb", f"{pdb_filename}.pdb")
+                
+                if not os.path.exists(pdb_path):
+                    continue
+                
+                try:
+                    # Extract sequence from PDB using BioPython
+                    from Bio import PDB
+                    parser = PDB.PDBParser(QUIET=True)
+                    structure = parser.get_structure(structure_id, pdb_path)
+                    
+                    # Get all nucleotide sequences from all chains
+                    sequences = []
+                    for model in structure:
+                        for chain in model:
+                            chain_seq = ""
+                            for residue in chain:
+                                if residue.get_resname().strip() in ['A', 'U', 'G', 'C', 'T']:
+                                    # Map RNA/DNA residue names to single letters
+                                    res_name = residue.get_resname().strip()
+                                    if res_name == 'T':
+                                        res_name = 'U'  # Convert DNA T to RNA U
+                                    chain_seq += res_name
+                            
+                            if chain_seq:  # Only add non-empty sequences
+                                sequences.append(chain_seq)
+                    
+                    if sequences:
+                        # Concatenate all chain sequences
+                        full_sequence = ''.join(sequences)
+                        self.native_sequences[structure_id] = full_sequence
+                        extracted_count += 1
+                        
+                except Exception as e:
+                    print(f"   ⚠️ Failed to extract sequence from {pdb_path}: {e}")
+                    continue
+        
+        if missing_count > 0:
+            print(f"   📂 Extracted {extracted_count}/{missing_count} missing sequences from PDB files")
+    
     def _build_structure_mapping(self):
         """Build mapping from structure IDs to raw data paths using DAS mapping."""
         self.structure_data = {}

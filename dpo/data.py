@@ -99,13 +99,13 @@ class DPOPairDataset(Dataset):
             return None
 
     def __getitem__(self, idx: int) -> PairBatch:
-        max_attempts = 25  # Increased attempts for better robustness
+        max_attempts = 100  # Significantly increased attempts for robustness
         attempts = 0
         original_idx = idx
         failed_indices = []
         
         # Use different skip strategies to avoid clustered bad data
-        skip_patterns = [1, 7, 23, 101, 503]  # Prime numbers to avoid patterns
+        skip_patterns = [1, 7, 23, 101, 503, 1009, 2003]  # More prime numbers to avoid patterns
         current_pattern = 0
         
         while attempts < max_attempts:
@@ -161,13 +161,47 @@ class DPOPairDataset(Dataset):
                 attempts += 1
                 current_pattern += 1
         
-        # If we can't find a valid pair after max_attempts, provide detailed error
-        print(f"\nERROR: Could not find a valid pair after {max_attempts} attempts")
-        print(f"Original index: {original_idx}")
+        # If we can't find a valid pair after max_attempts, try a fallback strategy
+        print(f"\nWARNING: Could not find a valid pair after {max_attempts} attempts starting from index {original_idx}")
         print(f"Failed indices and reasons:")
-        for fidx, fcid, reason in failed_indices:
+        for fidx, fcid, reason in failed_indices[-10:]:  # Show last 10 failures
             print(f"  - Index {fidx} ({fcid}): {reason}")
-        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {original_idx}. This may indicate clustered problematic data or systematic data corruption. Check logs above for details.")
+        
+        # Fallback strategy: try to find any valid pair by sampling randomly
+        print(f"Attempting fallback strategy: random sampling...")
+        import random
+        fallback_attempts = 50
+        for _ in range(fallback_attempts):
+            random_idx = random.randint(0, len(self.pairs) - 1)
+            try:
+                pair = self.pairs[random_idx]
+                cid = canonical_id_from_path(pair["pdb_file"])
+                gi = self.id_index[cid]
+                graph = self._build_graph_from_entry(gi)
+                
+                if graph is None:
+                    continue
+                
+                # Check sequence length compatibility
+                if len(pair["winner_seq"]) != len(graph.seq) or len(pair["loser_seq"]) != len(graph.seq):
+                    continue
+                
+                def to_int_seq(seq: str):
+                    return torch.as_tensor([self.letter_to_num[ch] for ch in seq], dtype=torch.long, device="cpu")
+                
+                w = to_int_seq(pair["winner_seq"])
+                l = to_int_seq(pair["loser_seq"])
+                
+                print(f"SUCCESS: Fallback found valid pair at index {random_idx} ({cid})")
+                return PairBatch(graph=graph.to(self.device), winner_seq=w.to(self.device), loser_seq=l.to(self.device), cid=cid, split=self.split_name)
+                
+            except Exception as e:
+                continue
+        
+        # If even fallback fails, raise error with more context
+        print(f"CRITICAL: Even fallback strategy failed after {fallback_attempts} random attempts")
+        print(f"Dataset may be severely corrupted. Total pairs: {len(self.pairs)}")
+        raise RuntimeError(f"Could not find a valid pair after {max_attempts} systematic attempts and {fallback_attempts} fallback attempts starting from index {original_idx}. Dataset may be corrupted.")
 
 
 def _collate_identity(x):

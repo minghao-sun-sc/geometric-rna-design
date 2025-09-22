@@ -354,7 +354,7 @@ def evaluate_ribodiffusion_model(model_dir: str, output_dir: str, config):
 def evaluate_r3design_model(model_dir: str, output_dir: str, config):
     """
     Evaluate r3design model from CSV format with separate chain entries.
-    Evaluate each chain individually to match the test dataset organization.
+    Concatenate chains per structure to match multi-chain native structures.
     
     Args:
         model_dir: Directory containing r3design.csv file
@@ -365,7 +365,7 @@ def evaluate_r3design_model(model_dir: str, output_dir: str, config):
     print(f"\n🧬 Evaluating {model_name} model...")
     print(f"   Model directory: {model_dir}")
     print(f"   Output directory: {output_dir}")
-    print(f"   Evaluating each chain individually")
+    print(f"   Concatenating chains per structure for multi-chain evaluation")
     
     csv_file = os.path.join(model_dir, "r3design.csv")
     if not os.path.exists(csv_file):
@@ -393,31 +393,63 @@ def evaluate_r3design_model(model_dir: str, output_dir: str, config):
     else:
         print(f"⚠️ Test dataset not found at {test_ids_file}, will process all r3design structures")
     
-    # Create consolidated FASTA file - one sequence per individual chain
+    # Group chains by PDB file path, not by PDB ID
+    # This correctly handles multi-chain structures vs separate single-chain structures
+    structure_sequences = {}
+    
+    for _, row in df.iterrows():
+        pdb_id = row['pdb_id']
+        chain = row['chain']
+        generated_seq = row['generate_seq']
+        pdb_path = row['pdb_path']
+        
+        # Extract the actual PDB filename from the path
+        # e.g., "/content/das_split_raw_data/das_split_raw_pdb/1CSL_1_B-A.pdb" -> "1CSL_1_B-A"
+        pdb_filename = os.path.basename(pdb_path).replace('.pdb', '')
+        
+        # Map PDB filename to test structure ID format
+        # e.g., "1CSL_1_B-A" -> "1CSL_1_B" (since 1CSL_1_B is in test set)
+        if '-' in pdb_filename:
+            structure_id = pdb_filename.split('-')[0]  # Take base part before first hyphen
+        else:
+            structure_id = pdb_filename
+        
+        if structure_id not in structure_sequences:
+            structure_sequences[structure_id] = {}
+        
+        structure_sequences[structure_id][chain] = generated_seq
+    
+    # Create consolidated FASTA file with concatenated sequences
     consolidated_fasta = os.path.join(output_dir, f"{model_name}_consolidated_sequences.fasta")
     os.makedirs(output_dir, exist_ok=True)
     
     processed_count = 0
     with open(consolidated_fasta, 'w') as outfile:
-        for _, row in df.iterrows():
+        for structure_id, chains in sorted(structure_sequences.items()):
             # Apply limit if specified
             if config.limit and processed_count >= config.limit:
                 print(f"   Limiting to first {config.limit} structures for testing")
                 break
             
-            pdb_id = row['pdb_id']
-            chain = row['chain']
-            generated_seq = row['generate_seq']
-            
-            # Create structure ID in our format (e.g., 1CSL_1_A, 1CSL_1_B)
-            structure_chain_id = f"{pdb_id}_1_{chain}"
-            
-            # Skip if not in test dataset
-            if test_structures and structure_chain_id not in test_structures:
+            # Check if this structure is in the test dataset
+            if test_structures and structure_id not in test_structures:
                 continue
             
-            # Write individual chain sequence
-            outfile.write(f">{structure_chain_id}\n{generated_seq}\n")
+            # For multi-chain structures (multiple chains for same structure_id), concatenate
+            # For single-chain structures, just use the single chain
+            if len(chains) > 1:
+                # Multi-chain: concatenate in alphabetical order (A, B, C, D, ...)
+                sorted_chains = sorted(chains.keys())
+                concatenated_sequence = ''.join(chains[chain] for chain in sorted_chains)
+                print(f"   Multi-chain {structure_id}: chains {sorted_chains} -> {len(concatenated_sequence)} nt")
+            else:
+                # Single-chain: use the single sequence
+                chain_letter = list(chains.keys())[0]
+                concatenated_sequence = chains[chain_letter]
+                print(f"   Single-chain {structure_id}: chain {chain_letter} -> {len(concatenated_sequence)} nt")
+            
+            # Write sequence
+            outfile.write(f">{structure_id}\n{concatenated_sequence}\n")
             processed_count += 1
     
     print(f"   Created consolidated FASTA: {consolidated_fasta}")
