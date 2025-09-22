@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple, Optional
+from typing import Dict, List, Sequence, Tuple, Optional, Any
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import json
 
 # ------------------------------
 # Success flag construction
@@ -215,6 +219,304 @@ def pass_at_k_from_metrics(
 
     else:
         raise ValueError("selection must be 'unbiased' or 'topk'.")
+
+
+# ------------------------------
+# High-level pass@k analysis functions for eval_full.py integration
+# ------------------------------
+
+def calculate_passk_metrics(
+    metrics_by_structure: Dict[str, List[Dict[str, Any]]],
+    k_values: List[int] = [1, 2, 4, 8, 16, 32, 64],
+    thresholds: Dict[str, List[float]] = None
+) -> Dict[str, Any]:
+    """
+    Calculate pass@k metrics for multiple k values and thresholds.
+    
+    Args:
+        metrics_by_structure: Dict mapping structure_id -> list of sample metrics
+        k_values: List of k values for pass@k analysis
+        thresholds: Dict mapping metric names to threshold lists
+        
+    Returns:
+        Dict containing pass@k results for all combinations
+    """
+    if thresholds is None:
+        thresholds = {
+            "tm_score": [0.4, 0.45, 0.5, 0.55],
+            "rmsd": [8.0, 6.0, 4.0, 2.0],
+            "mfe": [-10.0, -15.0, -20.0]
+        }
+    
+    # Convert structure-based metrics to format needed by pass@k functions
+    metric_dict_list = []
+    structure_ids = []
+    
+    for struct_id, samples in metrics_by_structure.items():
+        if not samples:
+            continue
+            
+        structure_ids.append(struct_id)
+        
+        # Organize metrics for this structure
+        struct_metrics = {}
+        metric_names = set()
+        for sample in samples:
+            for key in sample.keys():
+                if key not in ["structure_id", "sample_idx"]:
+                    metric_names.add(key)
+        
+        # Extract arrays for each metric
+        for metric_name in metric_names:
+            values = []
+            valid_count = 0
+            for sample in samples:
+                val = sample.get(metric_name, np.nan)
+                # For Vienna MFE: exclude failed samples (0.0 or NaN) from analysis
+                if metric_name == "vienna_mfe":
+                    if not np.isnan(val) and val != 0.0:  # Valid Vienna MFE values
+                        values.append(val)
+                        valid_count += 1
+                    # Skip failed samples entirely (don't add to values)
+                else:
+                    # For other metrics: exclude NaN but keep 0.0 as valid
+                    if not np.isnan(val):
+                        values.append(val)
+                        valid_count += 1
+                    # Skip NaN samples entirely
+            
+            # Only include metrics that have valid samples
+            if valid_count > 0:
+                struct_metrics[metric_name] = np.array(values)
+            else:
+                # No valid samples for this metric - exclude from analysis
+                print(f"⚠️ Warning: No valid samples for {metric_name} in structure {struct_id}, skipping metric")
+                # Don't add this metric to struct_metrics
+        
+        metric_dict_list.append(struct_metrics)
+    
+    if not metric_dict_list:
+        return {"error": "No valid metrics found"}
+    
+    # Calculate pass@k for all combinations
+    results = {
+        "n_structures": len(structure_ids),
+        "structure_ids": structure_ids,
+        "k_values": k_values,
+        "thresholds": thresholds,
+        "passk_results": {}
+    }
+    
+    # Map config threshold names to actual metric names
+    metric_mapping = {
+        "tm_score": "sc_tm",
+        "rmsd": "sc_rmsd", 
+        "mfe": "vienna_mfe"
+    }
+    
+    for threshold_name, threshold_list in thresholds.items():
+        actual_metric_name = metric_mapping.get(threshold_name, threshold_name)
+        
+        # Check if this metric is available and count structures with it
+        structures_with_metric = [i for i, md in enumerate(metric_dict_list) if actual_metric_name in md]
+        if not structures_with_metric:
+            print(f"⚠️ Warning: Metric '{actual_metric_name}' not found in any structure, skipping {threshold_name}")
+            continue
+        
+        print(f"🔍 Debug: Found {len(structures_with_metric)} structures with '{actual_metric_name}' out of {len(metric_dict_list)} total")
+        print(f"   Structures with metric: {[structure_ids[i] for i in structures_with_metric[:3]]}{'...' if len(structures_with_metric) > 3 else ''}")
+            
+        results["passk_results"][threshold_name] = {}
+        
+        for threshold in threshold_list:
+            # Create appropriate rule
+            if threshold_name in ["tm_score"]:
+                # Higher is better for TM-score
+                rule = Rule(actual_metric_name, ">=", threshold)
+            elif threshold_name in ["rmsd"]:
+                # Lower is better for RMSD
+                rule = Rule(actual_metric_name, "<=", threshold)
+            elif threshold_name in ["mfe"]:
+                # Lower is better for MFE (more negative)
+                rule = Rule(actual_metric_name, "<=", threshold)
+            else:
+                # Default: higher is better
+                rule = Rule(actual_metric_name, ">=", threshold)
+            
+            # Filter to only structures that have this metric
+            filtered_metric_dict_list = [metric_dict_list[i] for i in structures_with_metric]
+            
+            threshold_results = {}
+            for k in k_values:
+                try:
+                    passk_value = pass_at_k_from_metrics(
+                        filtered_metric_dict_list,
+                        rules=[rule],
+                        k=k,
+                        combine_mode="all",
+                        selection="unbiased"
+                    )
+                    threshold_results[f"pass@{k}"] = float(passk_value)
+                    print(f"✅ Pass@{k} for {threshold_name}={threshold}: {passk_value:.3f} (based on {len(filtered_metric_dict_list)} structures)")
+                except Exception as e:
+                    print(f"⚠️ Warning: Pass@{k} calculation failed for {threshold_name}={threshold}: {e}")
+                    threshold_results[f"pass@{k}"] = float('nan')
+            
+            results["passk_results"][threshold_name][str(threshold)] = threshold_results
+    
+    return results
+
+
+def plot_metric_distributions(
+    individual_metrics: List[Dict[str, Any]],
+    output_dir: str,
+    metrics_to_plot: List[str] = ["sc_plddt", "sc_rmsd", "sc_tm", "vienna_mfe", "inf_all"],
+    checkpoint_name: str = "checkpoint"
+) -> None:
+    """
+    Create distribution plots for key metrics.
+    
+    Args:
+        individual_metrics: List of individual sample metrics
+        output_dir: Directory to save plots
+        metrics_to_plot: List of metric names to plot (supports both config and actual names)
+        checkpoint_name: Name for plot titles and filenames
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend
+        import matplotlib.pyplot as plt
+        plt.style.use('default')
+    except Exception as e:
+        print(f"⚠️ Warning: Could not set matplotlib backend: {e}")
+        return
+    
+    # Create metric name mapping for backward compatibility with config files
+    metric_name_mapping = {
+        "plddt": "sc_plddt",
+        "rmsd": "sc_rmsd", 
+        "tm_score": "sc_tm",
+        "mfe": "vienna_mfe",
+        "inf_all": "inf_all",  # no change
+        "gdt": "sc_gdt",
+        "eternafold": "sc_eternafold",
+        "diversity_3mer": "diversity_3mer",  # no change
+        "clashscore_pre": "clashscore_pre",  # no change
+        "lddt": "lddt",  # no change
+        "mcq_abs_deg": "mcq_abs_deg",  # no change
+    }
+    
+    # Organize data by metric
+    metric_data = {}
+    for metric_name in metrics_to_plot:
+        # Map config metric names to actual metric names
+        actual_metric_name = metric_name_mapping.get(metric_name, metric_name)
+        
+        values = []
+        for sample in individual_metrics:
+            if actual_metric_name in sample:
+                val = sample[actual_metric_name]
+                if val is not None and not np.isnan(val):
+                    values.append(val)
+        
+        if values:
+            # Use the original name for display purposes
+            display_name = metric_name if metric_name != actual_metric_name else actual_metric_name
+            metric_data[display_name] = np.array(values)
+    
+    if not metric_data:
+        print("⚠️ Warning: No valid metric data found for plotting")
+        # Debug: show what metrics are actually available
+        if individual_metrics:
+            available_metrics = set()
+            for sample in individual_metrics[:5]:  # Check first 5 samples
+                available_metrics.update(sample.keys())
+            print(f"📋 Available metrics in data: {sorted(available_metrics)}")
+            print(f"📋 Requested metrics: {metrics_to_plot}")
+        return
+    
+    print(f"📊 Plotting distributions for metrics: {list(metric_data.keys())}")
+    
+    # Create plots
+    n_metrics = len(metric_data)
+    if n_metrics == 0:
+        return
+    
+    # Determine plot layout
+    ncols = min(3, n_metrics)
+    nrows = (n_metrics + ncols - 1) // ncols
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
+    if n_metrics == 1:
+        axes = [axes]
+    elif nrows == 1:
+        axes = axes if ncols > 1 else [axes]
+    else:
+        axes = axes.flatten()
+    
+    plot_idx = 0
+    for metric_name, values in metric_data.items():
+        if plot_idx >= len(axes):
+            break
+            
+        ax = axes[plot_idx]
+        
+        # Create histogram with KDE
+        try:
+            ax.hist(values, bins=30, alpha=0.7, density=True, color='skyblue', edgecolor='black')
+            
+            # Add KDE if we have enough points
+            if len(values) > 5:
+                from scipy import stats
+                kde = stats.gaussian_kde(values)
+                x_range = np.linspace(values.min(), values.max(), 100)
+                ax.plot(x_range, kde(x_range), 'r-', linewidth=2, label='KDE')
+                ax.legend()
+        except Exception:
+            # Fallback to simple histogram
+            ax.hist(values, bins=30, alpha=0.7, color='skyblue', edgecolor='black')
+        
+        # Formatting
+        ax.set_title(f'{metric_name}\n(n={len(values)}, μ={np.mean(values):.3f})')
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Density' if 'kde' in locals() else 'Count')
+        ax.grid(True, alpha=0.3)
+        
+        plot_idx += 1
+    
+    # Hide empty subplots
+    for i in range(plot_idx, len(axes)):
+        axes[i].set_visible(False)
+    
+    plt.tight_layout()
+    plt.suptitle(f'Metric Distributions - {checkpoint_name}', fontsize=16, y=1.02)
+    
+    # Save plot
+    plot_path = os.path.join(output_dir, f'{checkpoint_name}_metric_distributions.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"📊 Distribution plot saved: {plot_path}")
+    
+    # Also save summary statistics
+    stats_data = {}
+    for metric_name, values in metric_data.items():
+        stats_data[metric_name] = {
+            "count": len(values),
+            "mean": float(np.mean(values)),
+            "std": float(np.std(values)),
+            "min": float(np.min(values)),
+            "max": float(np.max(values)),
+            "median": float(np.median(values)),
+            "q25": float(np.percentile(values, 25)),
+            "q75": float(np.percentile(values, 75))
+        }
+    
+    stats_path = os.path.join(output_dir, f'{checkpoint_name}_metric_statistics.json')
+    with open(stats_path, 'w') as f:
+        json.dump(stats_data, f, indent=2)
+    
+    print(f"📊 Statistics saved: {stats_path}")
 
 
 # ------------------------------

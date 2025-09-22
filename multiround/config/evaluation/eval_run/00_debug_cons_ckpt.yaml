@@ -1,0 +1,110 @@
+# Full evaluation config with all gRNAde metrics for DPO-RNA
+# Evaluates: sequence recovery, perplexity, 2D/3D self-consistency
+
+seed: 42 # 0 
+device: cuda
+
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt    # can swap to structsim_v2_split.pt
+  split_name: test               # Options: train | val | test
+  small_dataset: true             # Use small dataset ~17 for faster testing (false = full dataset)
+  
+  # Checkpoints to evaluate
+  checkpoints:
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
+    # Add DPO checkpoints once training completes:
+    # - name: "exp12_spo_dnm_rd1_ep10"
+      # path: runs/multiround/plan_a_12_spo_dnm_svckpt_dynamic_b0.12_l0.1_bs64_0920_1139/round_01/checkpoints/step_9050_epoch_9.pt
+    # - name: "exp01_sft_best"  
+      # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
+      # path: runs/offline_dpo/dpo_rna_v5/best.pt
+      # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
+
+
+# python -m dpo.bench.eval_full --config multiround/config/evaluation/eval_run/01_cons_ckpt.yaml
+
+
+featurizer:
+  split: test
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.0
+  distance_eps: 0.001
+  device: cpu                   # use CPU for featurizer to avoid device mismatch
+
+model:
+  # EXACT shapes used by gRNAde checkpoints
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim:  [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim:  [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+eval:
+  batch_size: 24
+  num_workers: 6                # avoid CUDA multiprocessing issues
+  pin_memory: true
+  
+  # Output directory for results and designs
+  out_dir: multiround/eval_multiround/00_debug_cons_ckpt_full/
+  
+  # Sampling parameters
+  n_samples: 1                  # number of sequences to sample per structure
+  temperature: 0.1              # sampling temperature (low for consistent sampling)
+  
+  # Structure optimization options
+  # use_relax: true               # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
+  use_relax: false                # Enable Amber relaxation (affects: clash scores, RMSD, TM, GDT, lDDT, MCQ)
+  use_lddt: true                 # Enable lDDT calculation (expensive and may return nan for mismatched sequences)
+
+
+  # Metrics to compute (comprehensive set including 3D metrics)
+  metrics:
+    - recovery                  # sequence recovery (teacher-forced) 
+    - perplexity               # model confidence
+    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT, pLDDT) - REQUIRED for pass@k
+    - vienna_mfe               # Vienna thermodynamics - MFE - REQUIRED for pass@k
+    - vienna_ED                # Vienna thermodynamics - Ensemble Defect (+ Shannon entropy)
+    # Optional for comprehensive evaluation:
+    - sc_eternafold            # 2D self-consistency with EternaFold  
+    - diversity_3mer           # 3-mer correlation diversity
+  
+  # Save designed sequences and structures
+  save_designs: true          # set to true to save all designs as FASTA files
+  
+  # Pass@k analysis configuration
+  passk:
+    enable: true               # Enable/disable pass@k analysis (adds significant computation time)
+    k_values: [1, 2, 4, 8]      # k values for pass@k analysis 
+    n_samples_passk: 8          # number of samples to generate for pass@k (optimized for small dataset)
+    
+    # Success thresholds for different metrics
+    thresholds:
+      tm_score: [0.4, 0.45, 0.5, 0.55]   # TM-score thresholds (higher is better)
+      rmsd: [8.0, 6.0, 4.0, 2.0]         # RMSD thresholds in Angstroms (lower is better)
+      mfe: [-10.0, -15.0, -20.0]         # MFE thresholds in kcal/mol (lower is better)
+    
+    # Distribution analysis and visualization
+    collect_individual_metrics: true     # Save individual metrics for each sample (enables distribution plots)
+    plot_distributions: true            # Generate PDF plots for key metrics
+    plot_metrics: ["plddt", "rmsd", "tm_score", "mfe", "inf_all"]  # Metrics to plot
+    
+    # Output settings
+    save_passk_results: true            # Save detailed pass@k results to JSON
+    passk_output_dir: "passk_analysis"  # Subdirectory for pass@k outputs
+  
+  # W&B logging (optional)
+  wandb:
+    enable: true
+    project: DPO-RNA
+    entity: minghao-sun-soc
+    # run_name: null              # defaults to "full_eval_<split>_<timestamp>"
+    # tags: ["bench", "gRNAde", "full_eval", "self_consistency"]

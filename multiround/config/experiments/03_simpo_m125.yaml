@@ -20,12 +20,12 @@ wandb:
 multiround:
   num_rounds: 5
   epochs_per_round: 20
-  update_reference: true       # Enable reference model updates
-  eval_temperature: 0.5
+  update_reference: false       # Enable reference model updates
+  eval_temperature: 0.1
   final_eval_temperature: 0.1
   n_samples_eval: 8
-  n_samples_final_eval: 64
-  save_eval_data: true
+  n_samples_final_eval: 8
+  save_eval_data: false
 
 # Experiment-specific paths
 paths:
@@ -49,3 +49,6 @@ training:
 # Override optimizer learning rate for SimPO
 optimizer:
   lr: 0.0004  # Higher learning rate for SimPO (4e-4)
+
+
+# python -m multiround.train --config multiround/config/experiments/03_simpo_m125.yaml

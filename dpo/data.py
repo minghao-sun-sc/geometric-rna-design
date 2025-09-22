@@ -99,10 +99,14 @@ class DPOPairDataset(Dataset):
             return None
 
     def __getitem__(self, idx: int) -> PairBatch:
-        max_attempts = 10  # Avoid infinite loops
+        max_attempts = 25  # Increased attempts for better robustness
         attempts = 0
         original_idx = idx
         failed_indices = []
+        
+        # Use different skip strategies to avoid clustered bad data
+        skip_patterns = [1, 7, 23, 101, 503]  # Prime numbers to avoid patterns
+        current_pattern = 0
         
         while attempts < max_attempts:
             try:
@@ -116,9 +120,11 @@ class DPOPairDataset(Dataset):
                 if graph is None:
                     print(f"Warning: Skipping index {idx} ({cid}) due to featurization failure (attempt {attempts+1}/{max_attempts})")
                     failed_indices.append((idx, cid, "featurization_failure"))
-                    # Try next index (with wraparound)
-                    idx = (idx + 1) % len(self.pairs)
+                    # Use variable skip pattern to avoid clusters
+                    skip = skip_patterns[current_pattern % len(skip_patterns)]
+                    idx = (idx + skip) % len(self.pairs)
                     attempts += 1
+                    current_pattern += 1
                     continue
 
                 # winner/loser sequences -> int tensors (ensure same length as graph.seq)
@@ -138,18 +144,22 @@ class DPOPairDataset(Dataset):
                 if "Sequence length mismatch" in str(e):
                     print(f"Warning: Skipping index {idx} ({cid}) due to length mismatch: {e} (attempt {attempts+1}/{max_attempts})")
                     failed_indices.append((idx, cid, f"length_mismatch: {e}"))
-                    # Try next index (with wraparound)
-                    idx = (idx + 1) % len(self.pairs)
+                    # Use variable skip pattern to avoid clusters of same problematic structure
+                    skip = skip_patterns[current_pattern % len(skip_patterns)]
+                    idx = (idx + skip) % len(self.pairs)
                     attempts += 1
+                    current_pattern += 1
                 else:
                     print(f"Error: Unexpected ValueError at index {idx} ({cid}): {e}")
                     raise e
             except Exception as e:
                 print(f"Error: Unexpected exception at index {idx}: {e}")
                 failed_indices.append((idx, "unknown", f"unexpected: {e}"))
-                # Try next index (with wraparound)
-                idx = (idx + 1) % len(self.pairs)
+                # Use variable skip pattern to avoid clusters
+                skip = skip_patterns[current_pattern % len(skip_patterns)]
+                idx = (idx + skip) % len(self.pairs)
                 attempts += 1
+                current_pattern += 1
         
         # If we can't find a valid pair after max_attempts, provide detailed error
         print(f"\nERROR: Could not find a valid pair after {max_attempts} attempts")
@@ -157,7 +167,7 @@ class DPOPairDataset(Dataset):
         print(f"Failed indices and reasons:")
         for fidx, fcid, reason in failed_indices:
             print(f"  - Index {fidx} ({fcid}): {reason}")
-        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {original_idx}. Check logs above for details.")
+        raise RuntimeError(f"Could not find a valid pair after {max_attempts} attempts starting from index {original_idx}. This may indicate clustered problematic data or systematic data corruption. Check logs above for details.")
 
 
 def _collate_identity(x):

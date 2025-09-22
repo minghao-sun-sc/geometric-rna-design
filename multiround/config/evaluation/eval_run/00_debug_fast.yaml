@@ -1,0 +1,82 @@
+# Ultra-fast evaluation config for development testing
+# Uses only fast metrics but still demonstrates pass@k functionality
+
+seed: 42
+device: cuda
+
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  split_name: test
+  small_dataset: false           # Use only 4 structures for fast testing
+
+  checkpoints:
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
+
+featurizer:
+  split: test
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.0
+  distance_eps: 0.001
+  device: cpu
+
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim: [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim: [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+eval:
+  batch_size: 24
+  num_workers: 6
+  pin_memory: true
+  
+  out_dir: multiround/eval_multiround/00_debug_fast/
+  
+  n_samples: 1
+  temperature: 0.1
+  use_relax: false
+  use_lddt: false              # Disable for speed
+
+  # Fast metrics only (no RhoFold structure prediction)
+  metrics:
+    - recovery                  # sequence recovery
+    - perplexity               # model confidence  
+    - vienna_mfe               # thermodynamics (fast)
+    # Disabled for ultra-fast testing:
+    # - sc_rhofold               # 3D structure prediction (SLOW)
+    # - sc_eternafold            # 2D structure prediction  
+    # - vienna_ED                # ensemble analysis
+    # - diversity_3mer           # sequence analysis
+
+  save_designs: true
+
+  # Simplified pass@k analysis (demonstrates functionality without slow metrics)
+  passk:
+    enable: true
+    k_values: [1, 2, 4]          # Minimal k values for demo
+    n_samples_passk: 8           # Small sample size for speed
+    
+    thresholds:
+      tm_score: [0.4, 0.45]      # (will be skipped without sc_rhofold)
+      rmsd: [8.0, 4.0]           # (will be skipped without sc_rhofold)
+      mfe: [-15.0, -20.0]        # MFE thresholds (this will work)
+    
+    collect_individual_metrics: true
+    plot_distributions: true
+    save_passk_results: true
+    passk_output_dir: "passk_analysis"
+
+  wandb:
+    enable: true
+    project: DPO-RNA
+    entity: minghao-sun-soc

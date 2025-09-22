@@ -1,0 +1,167 @@
+Residue conformations -------------------------------------------
+'0'1 : U C1p_endo anti
+'0'2 : G C2p_exo anti
+'0'3 : G C2p_exo anti
+'0'4 : U C2p_exo anti
+'0'5 : G C2p_exo anti
+'0'6 : A C1p_endo anti
+'0'7 : G C2p_exo anti
+'0'8 : C C1p_endo anti
+'0'9 : C C1p_endo anti
+'0'10 : C C1p_endo anti
+'0'11 : C C1p_endo anti
+'0'12 : C C1p_endo anti
+'0'13 : G C1p_endo anti
+'0'14 : G C1p_endo anti
+'0'15 : G C2p_exo anti
+'0'16 : G C1p_endo anti
+'0'17 : U C1p_endo anti
+'0'18 : G C1p_endo anti
+'0'19 : A C3p_endo anti
+'0'20 : A C2p_exo anti
+'0'21 : C C1p_endo anti
+'0'22 : C C1p_endo anti
+'0'23 : A O4p_exo anti
+'0'24 : G C2p_exo anti
+'0'25 : C C1p_endo anti
+'0'26 : A C2p_exo anti
+'0'27 : G C2p_exo anti
+'0'28 : G C2p_exo anti
+'0'29 : U C1p_endo anti
+'0'30 : G C1p_endo anti
+'0'31 : A C4p_endo anti
+'0'32 : A C4p_endo anti
+'0'33 : A C3p_endo anti
+'0'34 : G C1p_endo anti
+'0'35 : G C2p_exo anti
+'0'36 : C C1p_endo anti
+'0'37 : A C1p_endo anti
+'0'38 : C C2p_exo anti
+'0'39 : C C1p_endo anti
+'0'40 : C C1p_endo anti
+'0'41 : G C2p_exo anti
+'0'42 : G C1p_endo anti
+'0'43 : U C1p_endo anti
+'0'44 : G C1p_endo anti
+'0'45 : A C2p_exo anti
+'0'46 : U C1p_endo anti
+'0'47 : C C1p_endo anti
+'0'48 : G C2p_exo anti
+'0'49 : G C1p_endo anti
+'0'50 : U C1p_endo anti
+'0'51 : U C1p_endo anti
+'0'52 : A C1p_endo anti
+'0'53 : G C2p_exo anti
+'0'54 : C C1p_endo anti
+'0'55 : C C1p_endo anti
+'0'56 : U C1p_endo anti
+'0'57 : G C2p_exo anti
+'0'58 : C C1p_endo anti
+Adjacent stackings ----------------------------------------------
+'0'1-'0'2 : adjacent_5p upward 
+'0'2-'0'3 : adjacent_5p upward 
+'0'3-'0'4 : adjacent_5p upward 
+'0'4-'0'5 : adjacent_5p upward pairing 
+'0'5-'0'6 : adjacent_5p upward pairing 
+'0'9-'0'10 : adjacent_5p upward 
+'0'11-'0'12 : adjacent_5p upward 
+'0'12-'0'13 : adjacent_5p upward 
+'0'13-'0'14 : adjacent_5p upward 
+'0'14-'0'15 : adjacent_5p upward 
+'0'15-'0'16 : adjacent_5p upward 
+'0'16-'0'17 : adjacent_5p upward 
+'0'17-'0'18 : adjacent_5p upward 
+'0'19-'0'20 : adjacent_5p upward pairing 
+'0'20-'0'21 : adjacent_5p upward 
+'0'22-'0'23 : adjacent_5p upward 
+'0'24-'0'25 : adjacent_5p upward 
+'0'25-'0'26 : adjacent_5p upward 
+'0'26-'0'27 : adjacent_5p upward 
+'0'27-'0'28 : adjacent_5p upward 
+'0'28-'0'29 : adjacent_5p upward 
+'0'29-'0'30 : adjacent_5p upward 
+'0'32-'0'33 : adjacent_5p upward 
+'0'33-'0'34 : adjacent_5p upward 
+'0'34-'0'35 : adjacent_5p upward 
+'0'35-'0'36 : adjacent_5p upward 
+'0'36-'0'37 : adjacent_5p upward 
+'0'37-'0'38 : adjacent_5p upward pairing 
+'0'40-'0'41 : adjacent_5p upward pairing parallel cis one_hbond 
+'0'41-'0'42 : adjacent_5p upward 
+'0'45-'0'46 : adjacent_5p upward 
+'0'46-'0'47 : adjacent_5p upward 
+'0'47-'0'48 : adjacent_5p upward 
+'0'48-'0'49 : adjacent_5p upward 
+'0'49-'0'50 : adjacent_5p upward 
+'0'50-'0'51 : adjacent_5p upward 
+'0'51-'0'52 : adjacent_5p upward pairing 
+'0'52-'0'53 : adjacent_5p upward 
+'0'53-'0'54 : adjacent_5p upward 
+'0'54-'0'55 : adjacent_5p upward 
+'0'55-'0'56 : adjacent_5p upward 
+'0'56-'0'57 : adjacent_5p upward 
+'0'57-'0'58 : adjacent_5p upward 
+Non-Adjacent stackings ------------------------------------------
+'0'5-'0'20 : outward 
+'0'15-'0'45 : downward pairing 
+'0'18-'0'48 : upward 
+Number of stackings = 46
+Number of adjacent stackings = 43
+Number of non adjacent stackings = 3
+Base-pairs ------------------------------------------------------
+'0'1-'0'34 : U-G Hh/O2' pairing 
+'0'2-'0'21 : G-C Ss/O2' pairing 
+'0'2-'0'22 : G-C Ss/O2' Ss/O2' pairing 
+'0'2-'0'34 : G-G Bh/Ww pairing parallel cis one_hbond 
+'0'2-'0'50 : G-U Ww/Ws pairing antiparallel cis one_hbond 
+'0'3-'0'20 : G-A Ww/Ww pairing antiparallel cis one_hbond 
+'0'3-'0'21 : G-C Ss/O2' pairing 
+'0'3-'0'35 : G-G Hh/Ss pairing parallel cis one_hbond 
+'0'4-'0'5 : U-G O2'/C8 adjacent_5p upward pairing 
+'0'4-'0'19 : U-A Ww/Ww pairing antiparallel cis 
+'0'4-'0'20 : U-A O2'/Ss O2'/C8 pairing 
+'0'4-'0'48 : U-G Ws/Sw pairing antiparallel cis one_hbond 
+'0'5-'0'6 : G-A O2'/C8 adjacent_5p upward pairing 
+'0'5-'0'19 : G-A O2'/Ss O2'/C8 pairing 
+'0'5-'0'47 : G-C Bs/Ww pairing antiparallel cis one_hbond 
+'0'6-'0'7 : A-G Hh/O2P pairing 
+'0'6-'0'18 : A-G Bs/Ss C8/O2' pairing antiparallel cis 55 
+'0'8-'0'9 : C-C Ww/Hh adjacent_5p pairing parallel cis one_hbond 
+'0'8-'0'39 : C-C Ww/O2P Ww/O2P Hh/O2' pairing 
+'0'9-'0'39 : C-C Hh/O2P Ww/O2P Ww/O2P Hh/O2P pairing 
+'0'10-'0'11 : C-C Ww/Hh adjacent_5p pairing parallel cis one_hbond 
+'0'10-'0'42 : C-G Ww/Ww pairing antiparallel trans one_hbond 
+'0'11-'0'42 : C-G Ww/Sw pairing antiparallel trans one_hbond 
+'0'11-'0'43 : C-U Ww/O2' pairing 
+'0'12-'0'43 : C-U Hh/O2' pairing 
+'0'12-'0'44 : C-G Hh/Hh Hh/O2P Hh/O2P Ww/O2P pairing parallel trans one_hbond 
+'0'13-'0'44 : G-G Ss/O2' Hh/O2P C8/O2P C8/O2P pairing 
+'0'14-'0'44 : G-G Ww/O2' Hh/O2' C8/O2' pairing 
+'0'14-'0'45 : G-A Ww/O2' Ss/O2' C8/O2P pairing 
+'0'15-'0'45 : G-A Ww/O2' Ss/O2' Ss/O2' Hh/O2P downward pairing 
+'0'15-'0'46 : G-U C8/O2P C8/O2P pairing 
+'0'16-'0'46 : G-U Ww/Ss Ss/O2' Ss/O2' Hh/O2' Hh/O2P C8/O2' pairing parallel cis 
+'0'17-'0'46 : U-U Hh/O2' Ww/O2' pairing 
+'0'17-'0'47 : U-C Hh/O2' pairing 
+'0'18-'0'19 : G-A O2'/C8 adjacent_5p pairing 
+'0'19-'0'20 : A-A O2'/C8 adjacent_5p upward pairing 
+'0'19-'0'48 : A-G Hh/Ss Hh/O2' pairing parallel trans 
+'0'20-'0'49 : A-G Ww/Ss pairing parallel trans one_hbond 
+'0'21-'0'49 : C-G Hh/Ss Hh/O2' pairing parallel trans one_hbond 
+'0'22-'0'50 : C-U Ww/O2' Hh/O2' pairing 
+'0'23-'0'51 : A-U Ww/O2' Hh/O2' Hh/O2P Hh/O2' Hh/O2P C8/O2' pairing 
+'0'23-'0'52 : A-A Ww/O2P Ss/O2P Ss/O2P pairing 
+'0'24-'0'58 : G-C Ww/Ww pairing antiparallel cis one_hbond 
+'0'25-'0'57 : C-G Ww/Ww pairing antiparallel cis XIX 
+'0'26-'0'56 : A-U Ww/Bh pairing antiparallel cis XX 
+'0'30-'0'32 : G-A O2'/Hh pairing 
+'0'30-'0'49 : G-G Hh/O2P pairing 
+'0'30-'0'50 : G-U Bh/Hh pairing antiparallel trans one_hbond 
+'0'30-'0'51 : G-U Ww/Hh pairing antiparallel trans one_hbond 
+'0'37-'0'38 : A-C O2'/Hh adjacent_5p upward pairing 
+'0'37-'0'46 : A-U Hh/Hh pairing antiparallel cis one_hbond 
+'0'38-'0'39 : C-C O2'/Hh adjacent_5p pairing 
+'0'38-'0'45 : C-A Ww/Hh pairing antiparallel trans one_hbond 
+'0'40-'0'41 : C-G Hh/Bh adjacent_5p upward pairing parallel cis one_hbond 
+'0'44-'0'45 : G-A O2'/C8 pairing 
+'0'51-'0'52 : U-A O2'/C8 adjacent_5p upward pairing 

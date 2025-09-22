@@ -56,6 +56,13 @@ from src.constants import (
     GDT_THRESHOLD, PLDDT_THRESHOLD
 )
 
+# Pass@k analysis imports (optional, only loaded when pass@k is enabled)
+try:
+    from multiround.passk import calculate_passk_metrics, plot_metric_distributions
+    PASSK_AVAILABLE = True
+except ImportError:
+    PASSK_AVAILABLE = False
+
 
 def _to_sn(o):
     if isinstance(o, dict):
@@ -63,6 +70,21 @@ def _to_sn(o):
     if isinstance(o, list):
         return [_to_sn(x) for x in o]
     return o
+
+def _convert_for_json(obj):
+    """Convert numpy types to JSON-serializable Python types."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: _convert_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_for_json(v) for v in obj]
+    else:
+        return obj
 
 
 def load_cfg(path: str) -> SN:
@@ -86,7 +108,7 @@ class GraphItem:
 class FullEvalDataset(Dataset):
     """Dataset for full evaluation including self-consistency metrics."""
     
-    def __init__(self, processed_pt: str, split_pt: str, split_name: str, feat_cfg: SN, device="cpu"):
+    def __init__(self, processed_pt: str, split_pt: str, split_name: str, feat_cfg: SN, device="cpu", small_dataset: bool = False):
         super().__init__()
         self.device = device
         all_items = load_processed_pt(processed_pt)
@@ -98,6 +120,17 @@ class FullEvalDataset(Dataset):
             idxs = va
         else:
             idxs = te
+        
+        # Apply small dataset option for fast testing
+        if small_dataset:
+            # Use indices 3-20 instead of 0-3 to avoid length mismatch issues in first few structures
+            small_end = min(20, len(idxs))
+            small_start = min(3, len(idxs) - 1)
+            small_count = small_end - small_start
+            print(f"🔬 Small dataset mode: Using structures {small_start}-{small_end-1} ({small_count} structures) from {len(idxs)} available")
+            idxs = idxs[small_start:small_end]
+        else:
+            print(f"📊 Full dataset mode: Using all {len(idxs)} structures")
 
         self.items: List[GraphItem] = []
         
@@ -186,8 +219,9 @@ def eval_full_metrics(
     temperature: float = 1.0,
     metrics: List[str] = ['recovery', 'perplexity', 'sc_eternafold', 'sc_rhofold'],
     save_designs: bool = False,
-    output_dir: Optional[str] = None
-) -> Dict[str, float]:
+    output_dir: Optional[str] = None,
+    passk_cfg: Optional[SN] = None  # Pass@k configuration
+) -> Dict[str, Any]:
     """
     Full evaluation with all gRNAde metrics including sampling and self-consistency.
     
@@ -235,6 +269,22 @@ def eval_full_metrics(
             print("Skipping 3D self-consistency metrics")
             rhofold = None
     
+    # Pass@k configuration handling
+    passk_enabled = passk_cfg is not None and getattr(passk_cfg, 'enable', False) and PASSK_AVAILABLE
+    passk_n_samples = getattr(passk_cfg, 'n_samples_passk', 64) if passk_cfg else n_samples
+    collect_individual = getattr(passk_cfg, 'collect_individual_metrics', False) if passk_cfg else False
+    
+    if passk_enabled and not PASSK_AVAILABLE:
+        print("⚠️ Warning: Pass@k analysis requested but multiround.passk module not available. Skipping pass@k.")
+        passk_enabled = False
+    
+    if passk_enabled:
+        print(f"🎯 Pass@k analysis enabled: k_values={getattr(passk_cfg, 'k_values', [])}, n_samples={passk_n_samples}")
+        # Override n_samples for pass@k if specified
+        if passk_n_samples > n_samples:
+            n_samples = passk_n_samples
+            print(f"📈 Increased n_samples to {n_samples} for pass@k analysis")
+    
     # Metrics storage
     recovery_list = []
     perplexity_list = []
@@ -248,6 +298,9 @@ def eval_full_metrics(
     tm_within_thresh_list = []
     gdt_within_thresh_list = []
     plddt_within_thresh_list = []  # pLDDT >= 0.70
+    
+    # Individual metrics collection for pass@k analysis (when enabled)
+    individual_metrics = [] if (passk_enabled and collect_individual) else None
     
     # Vienna metrics storage
     vienna_mfe_list = []
@@ -326,6 +379,7 @@ def eval_full_metrics(
         
         # Vienna thermodynamic metrics
         vienna_requested = any(m.startswith('vienna') for m in metrics) or 'sc_vienna' in metrics
+        vienna_success = False  # Track if Vienna calculation succeeded for this structure
         if vienna_requested:
             try:
                 from src.evaluator import vienna_ensemble_metrics, vienna_mfe, _sanitize_db_for_vienna
@@ -393,17 +447,12 @@ def eval_full_metrics(
                 vienna_entropy_list.extend(v_entropy_scores)
                 vienna_diversity_list.extend(v_diversity_scores)
                 vienna_tm_list.extend([x for x in v_tm_scores if not np.isnan(x)])  # Store Tm values
+                vienna_success = True  # Mark Vienna calculation as successful
                 
             except Exception as e:
                 print(f"Vienna metrics failed for {item.gid}: {e}")
-                # Add dummy values for failed computation
-                vienna_mfe_list.extend([0.0] * n_samples)
-                vienna_ed_list.extend([0.0] * n_samples)
-                vienna_ednt_list.extend([0.0] * n_samples)
-                vienna_pS0_list.extend([0.0] * n_samples)
-                vienna_entropy_list.extend([0.0] * n_samples)
-                vienna_diversity_list.extend([0.0] * n_samples)
-                vienna_tm_list.extend([0.0] * n_samples)  # Add Tm fallback
+                # Do NOT add dummy values - this allows proper exclusion from pass@k analysis
+                # The individual_metrics collection will automatically skip missing Vienna metrics
         
         # Diversity metrics (3-mer correlation)
         if 'diversity_3mer' in metrics:
@@ -551,6 +600,49 @@ def eval_full_metrics(
                 mcq_abs_list.extend([np.nan] * n_samples)
                 mcq_R_list.extend([np.nan] * n_samples)
                 mcq_sd_list.extend([np.nan] * n_samples)
+        
+        # Collect individual metrics for pass@k analysis (if enabled)
+        if individual_metrics is not None:
+            for sample_idx in range(n_samples):
+                sample_metrics = {
+                    "structure_id": item.gid,
+                    "sample_idx": sample_idx,
+                    "recovery": recovery[sample_idx].mean() if len(recovery) > sample_idx else 0.0,
+                    "perplexity": perplexity_list[-(n_samples-sample_idx)] if len(perplexity_list) >= n_samples else 0.0,
+                }
+                
+                # Add 2D metrics if available
+                if 'sc_eternafold' in metrics and len(sc_eternafold_list) >= sample_idx + 1:
+                    sample_metrics["sc_eternafold"] = sc_eternafold_list[-(n_samples-sample_idx)]
+                
+                # Add 3D metrics if available
+                if 'sc_rhofold' in metrics and len(sc_rmsd_list) >= sample_idx + 1:
+                    sample_metrics.update({
+                        "sc_rmsd": sc_rmsd_list[-(n_samples-sample_idx)],
+                        "sc_tm": sc_tm_list[-(n_samples-sample_idx)],
+                        "sc_gdt": sc_gdt_list[-(n_samples-sample_idx)],
+                        "sc_plddt": sc_plddt_list[-(n_samples-sample_idx)],
+                    })
+                    
+                    # Add extended metrics if available
+                    if len(inf_all_list) >= sample_idx + 1:
+                        sample_metrics["inf_all"] = inf_all_list[-(n_samples-sample_idx)]
+                    if len(clashscore_pre_list) >= sample_idx + 1:
+                        sample_metrics["clashscore_pre"] = clashscore_pre_list[-(n_samples-sample_idx)]
+                    if len(lddt_list) >= sample_idx + 1:
+                        sample_metrics["lddt"] = lddt_list[-(n_samples-sample_idx)]
+                    if len(mcq_abs_list) >= sample_idx + 1:
+                        sample_metrics["mcq_abs_deg"] = mcq_abs_list[-(n_samples-sample_idx)]
+                
+                # Add Vienna metrics if calculation succeeded for this structure
+                if vienna_success and len(vienna_mfe_list) >= sample_idx + 1:
+                    sample_metrics["vienna_mfe"] = vienna_mfe_list[-(n_samples-sample_idx)]
+                
+                # Add diversity metrics if available
+                if len(diversity_3mer_list) >= sample_idx + 1:
+                    sample_metrics["diversity_3mer"] = diversity_3mer_list[-(n_samples-sample_idx)]
+                
+                individual_metrics.append(sample_metrics)
     
     # Aggregate metrics
     n_processed = len(items_to_process)
@@ -624,6 +716,88 @@ def eval_full_metrics(
     if 'novelty_tpn' in metrics:
         results["novelty_tpn"] = np.mean(novelty_tpn_list) if novelty_tpn_list else 0.0
     
+    # Pass@k analysis (if enabled)
+    passk_results = None
+    if passk_enabled and individual_metrics:
+        try:
+            print(f"\n🎯 Computing pass@k analysis...")
+            
+            # Organize individual metrics by structure
+            metrics_by_structure = {}
+            for sample_data in individual_metrics:
+                struct_id = sample_data["structure_id"]
+                if struct_id not in metrics_by_structure:
+                    metrics_by_structure[struct_id] = []
+                metrics_by_structure[struct_id].append(sample_data)
+            
+            # Get thresholds from config and convert SimpleNamespace to dict if needed
+            thresholds_sn = getattr(passk_cfg, 'thresholds', {})
+            if hasattr(thresholds_sn, '__dict__'):
+                # Convert SimpleNamespace to dict
+                thresholds = thresholds_sn.__dict__
+            else:
+                thresholds = thresholds_sn
+            k_values = getattr(passk_cfg, 'k_values', [1, 2, 4, 8, 16, 32, 64])
+            
+            # Calculate pass@k metrics
+            passk_results = calculate_passk_metrics(
+                metrics_by_structure,
+                k_values=k_values,
+                thresholds=thresholds
+            )
+            
+            # Add pass@k results to main results
+            if passk_results:
+                results["passk_analysis"] = passk_results
+                print(f"✅ Pass@k analysis completed: {len(k_values)} k-values, {len(metrics_by_structure)} structures")
+            
+            # Generate distribution plots if enabled
+            plot_distributions = getattr(passk_cfg, 'plot_distributions', False)
+            if plot_distributions and output_dir:
+                try:
+                    plot_metrics = getattr(passk_cfg, 'plot_metrics', ["plddt", "rmsd", "tm_score", "mfe", "inf_all"])
+                    passk_output_dir = os.path.join(output_dir, getattr(passk_cfg, 'passk_output_dir', 'passk_analysis'))
+                    os.makedirs(passk_output_dir, exist_ok=True)
+                    
+                    plot_metric_distributions(
+                        individual_metrics,
+                        output_dir=passk_output_dir,
+                        metrics_to_plot=plot_metrics,
+                        checkpoint_name=ckpt_name
+                    )
+                    print(f"📊 Distribution plots saved to {passk_output_dir}")
+                except Exception as e:
+                    print(f"⚠️ Warning: Distribution plotting failed: {e}")
+            
+            # Save detailed pass@k results if enabled
+            save_passk = getattr(passk_cfg, 'save_passk_results', True)
+            if save_passk and output_dir and passk_results:
+                try:
+                    passk_output_dir = os.path.join(output_dir, getattr(passk_cfg, 'passk_output_dir', 'passk_analysis'))
+                    os.makedirs(passk_output_dir, exist_ok=True)
+                    
+                    # Save detailed results
+                    passk_detailed_path = os.path.join(passk_output_dir, f"{ckpt_name}_passk_detailed.json")
+                    detailed_data = {
+                        "checkpoint_name": ckpt_name,
+                        "k_values": k_values,
+                        "thresholds": thresholds,
+                        "passk_results": passk_results,
+                        "individual_metrics": individual_metrics
+                    }
+                    # Convert numpy types to JSON-serializable types
+                    detailed_data_clean = _convert_for_json(detailed_data)
+                    
+                    with open(passk_detailed_path, 'w') as f:
+                        json.dump(detailed_data_clean, f, indent=2)
+                    print(f"💾 Detailed pass@k results saved to {passk_detailed_path}")
+                except Exception as e:
+                    print(f"⚠️ Warning: Failed to save detailed pass@k results: {e}")
+            
+        except Exception as e:
+            print(f"❌ Pass@k analysis failed: {e}")
+            results["passk_analysis"] = {"error": str(e)}
+    
     return results
 
 
@@ -650,13 +824,15 @@ def main():
     
     # Load dataset
     split_name = getattr(cfg.paths, 'split_name', 'test')
+    small_dataset = getattr(cfg.paths, 'small_dataset', False)
     print(f"Loading {split_name} split...")
     ds = FullEvalDataset(
         cfg.paths.processed_pt, 
         cfg.paths.split_pt, 
         split_name, 
         cfg.featurizer, 
-        device="cpu"
+        device="cpu",
+        small_dataset=small_dataset
     )
     print(f"Loaded {len(ds)} structures")
     
@@ -680,21 +856,41 @@ def main():
         n_samples = args.n_samples if args.n_samples is not None else getattr(cfg.eval, 'n_samples', 8)
         temperature = args.temperature if args.temperature is not None else getattr(cfg.eval, 'temperature', 0.5)
         
+        # Get pass@k configuration from config file
+        passk_cfg = getattr(cfg.eval, 'passk', None) if hasattr(cfg, 'eval') else None
+        
         stats = eval_full_metrics(
             cfg, ds, name, path, device,
             n_samples=n_samples,
             temperature=temperature,
             metrics=args.metrics,
             save_designs=args.save_designs,
-            output_dir=out_dir
+            output_dir=out_dir,
+            passk_cfg=passk_cfg
         )
+        
+        # Filter out non-numeric values (like pass@k analysis dict) before converting to float
+        numeric_stats = {}
+        for k, v in stats.items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                numeric_stats[k] = float(v)
+            elif k == "passk_analysis":
+                # Store pass@k analysis separately, don't convert to float
+                continue
+            else:
+                # For other non-numeric values, store as-is
+                numeric_stats[k] = v
         
         row = {
             "ckpt_name": name,
             "ckpt_path": path,
             "split": cfg.paths.split_name,
-            **{k: float(v) for k, v in stats.items()}
+            **numeric_stats
         }
+        
+        # Add pass@k analysis to row if available (for JSON output)
+        if "passk_analysis" in stats:
+            row["passk_analysis"] = stats["passk_analysis"]
         rows.append(row)
         
         # Print summary
@@ -826,12 +1022,21 @@ def main():
         for metric in metric_keys:
             values = [r[metric] for r in rows if metric in r]
             if values:
-                json_output["summary"][metric] = {
-                    "mean": float(np.mean(values)),
-                    "std": float(np.std(values)),
-                    "min": float(np.min(values)),
-                    "max": float(np.max(values))
-                }
+                # Only compute statistics for numeric values
+                numeric_values = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+                if numeric_values:
+                    json_output["summary"][metric] = {
+                        "mean": float(np.mean(numeric_values)),
+                        "std": float(np.std(numeric_values)),
+                        "min": float(np.min(numeric_values)),
+                        "max": float(np.max(numeric_values))
+                    }
+                elif metric == "passk_analysis":
+                    # For pass@k analysis, just note it's available
+                    json_output["summary"][metric] = {"note": "Pass@k analysis results available in per_checkpoint_results"}
+                else:
+                    # For other non-numeric metrics, note their type
+                    json_output["summary"][metric] = {"note": f"Non-numeric data ({type(values[0]).__name__})"}
         
         # Add checkpoint names for reference
         json_output["checkpoints_evaluated"] = [r["ckpt_name"] for r in rows]
@@ -843,8 +1048,11 @@ def main():
     json_filename = f"eval_{cfg.paths.split_name}_{ckpt_names_str}_{timestamp}.json"
     json_path = os.path.join(eval_results_dir, json_filename)
     
+    # Convert numpy types to JSON-serializable types
+    json_output_clean = _convert_for_json(json_output)
+    
     with open(json_path, "w") as f:
-        json.dump(json_output, f, indent=2)
+        json.dump(json_output_clean, f, indent=2)
     print(f"[Saved JSON results to] {json_path}")
     
     # Also save a "latest" symlink for easy access
