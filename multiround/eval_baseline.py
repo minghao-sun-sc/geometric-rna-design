@@ -43,6 +43,7 @@ from src.evaluator import (
     edit_distance,
     get_three_mer_corr
 )
+import glob
 from src.constants import (
     NUM_TO_LETTER, LETTER_TO_NUM,
     RMSD_THRESHOLD, RMSD_THRESHOLD_2, TM_THRESHOLD, 
@@ -66,6 +67,12 @@ class BaselineEvaluator:
         self.config = config
         self.device = torch.device(getattr(config, 'device', 'cuda') if torch.cuda.is_available() else 'cpu')
         
+        # Patch get_inf function to use correct path for DAS dataset
+        self._original_get_inf = get_inf
+        
+        # Build structure ID to PDB filename mapping for DAS dataset
+        self._build_das_id_mapping()
+        
         # Load test dataset structure information
         self._load_test_structures()
         
@@ -74,6 +81,55 @@ class BaselineEvaluator:
         
         # Setup evaluation tools paths
         self.phenix_wrapper_path = os.path.join(PROJECT_PATH, "tools", "run_phenix.sh")
+    
+    def _build_das_id_mapping(self):
+        """
+        Build mapping from structure IDs (like '1CSL_1_B') to actual PDB filenames (like '1CSL_1_B-A.pdb').
+        
+        This handles the multi-chain naming convention in the DAS dataset where:
+        - Structure ID: 1CSL_1_B maps to PDB file: 1CSL_1_B-A.pdb
+        - Structure ID: 3B58_1_B maps to PDB file: 3B58_1_B-C-A.pdb
+        - Structure ID: 1DDY_1_A maps to PDB file: 1DDY_1_A.pdb (direct match)
+        """
+        print("🔗 Building structure ID to PDB filename mapping...")
+        
+        das_pdb_dir = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb")
+        
+        # Get all PDB files in DAS directory
+        pdb_files = glob.glob(os.path.join(das_pdb_dir, "*.pdb"))
+        pdb_basenames = [os.path.basename(f)[:-4] for f in pdb_files]  # Remove .pdb extension
+        
+        self.das_id_mapping = {}
+        
+        # For each PDB file, try to map it to potential structure IDs
+        for pdb_basename in pdb_basenames:
+            # Direct match (e.g., '1DDY_1_A' -> '1DDY_1_A.pdb')
+            self.das_id_mapping[pdb_basename] = pdb_basename
+            
+            # For multi-chain files, also map the base structure ID
+            # e.g., '1CSL_1_B-A' -> also map '1CSL_1_B' 
+            if '-' in pdb_basename:
+                base_id = pdb_basename.split('-')[0]  # Take part before first '-'
+                if base_id not in self.das_id_mapping:
+                    self.das_id_mapping[base_id] = pdb_basename
+        
+        print(f"    ✅ Built mapping for {len(self.das_id_mapping)} structure IDs")
+        
+        # Log a few examples for debugging
+        examples = list(self.das_id_mapping.items())[:5]
+        print(f"    📝 Example mappings: {examples}")
+        
+    def _get_das_pdb_filename(self, structure_id):
+        """
+        Get the actual PDB filename for a structure ID.
+        
+        Args:
+            structure_id: Structure ID like '1CSL_1_B'
+            
+        Returns:
+            PDB filename like '1CSL_1_B-A.pdb' or None if not found
+        """
+        return self.das_id_mapping.get(structure_id, None)
         
     def _load_test_structures(self):
         """Load test dataset structure information."""
@@ -140,17 +196,15 @@ class BaselineEvaluator:
         print(f"   Extracted {len(self.native_sequences)} native sequences from ridiff")
         
     def _build_structure_mapping(self):
-        """Build mapping from structure IDs to raw data paths."""
+        """Build mapping from structure IDs to raw data paths using DAS mapping."""
         self.structure_data = {}
         
         for structure_id in self.test_structure_ids:
-            # The file naming convention from the data shows:
-            # Structure ID: "1CSL_1_B" but file name: "1CSL_1_B-A.pdb"
-            # Let's handle this mapping
-            base_pdb_name = self._find_pdb_file(structure_id)
+            # Use the new DAS mapping to get the correct PDB filename
+            pdb_filename = self._get_das_pdb_filename(structure_id)
             
-            if base_pdb_name:
-                native_pdb_path = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb", base_pdb_name)
+            if pdb_filename:
+                native_pdb_path = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb", f"{pdb_filename}.pdb")
                 native_sequence = self.native_sequences.get(structure_id, '')
                 
                 # Only include structures that have both PDB file AND native sequence
@@ -159,7 +213,7 @@ class BaselineEvaluator:
                         'native_pdb_path': native_pdb_path,
                         'native_sequence': native_sequence,
                         'structure_id': structure_id,
-                        'base_pdb_name': base_pdb_name
+                        'base_pdb_name': pdb_filename
                     }
         
         print(f"   Mapped {len(self.structure_data)} structures to PDB files")
@@ -459,21 +513,8 @@ class BaselineEvaluator:
                 print(f"        ⚠️ Clash score calculation failed: {e}")
                 metrics['clash_score'] = np.nan
             
-            # INF score
-            try:
-                inf_scores = get_inf(predicted_pdb_path, mock_raw_data, DATA_PATH)
-                metrics.update({
-                    'inf_all': inf_scores['all'],
-                    'inf_wc': inf_scores['wc'], 
-                    'inf_nwc': inf_scores['nwc'],
-                    'inf_stack': inf_scores['stack']
-                })
-            except Exception as e:
-                print(f"        ⚠️ INF score calculation failed: {e}")
-                metrics.update({
-                    'inf_all': np.nan, 'inf_wc': np.nan, 
-                    'inf_nwc': np.nan, 'inf_stack': np.nan
-                })
+            # INF score - handled by RhoFold evaluation now
+            # (using inf_dict results from self_consistency_score_rhofold_extended)
             
             # lDDT score
             try:
@@ -483,19 +524,8 @@ class BaselineEvaluator:
                 print(f"        ⚠️ lDDT calculation failed: {e}")
                 metrics['lddt'] = np.nan
             
-            # MCQ metrics
-            try:
-                mcq_metrics = mcq_avg_vs_natives(predicted_pdb_path, mock_raw_data, DATA_PATH)
-                metrics.update({
-                    'mcq_abs_deg': mcq_metrics['mcq_abs_deg'],
-                    'mcq_R': mcq_metrics['R'],
-                    'mcq_circ_sd_deg': mcq_metrics['circ_sd_deg']
-                })
-            except Exception as e:
-                print(f"        ⚠️ MCQ calculation failed: {e}")
-                metrics.update({
-                    'mcq_abs_deg': np.nan, 'mcq_R': np.nan, 'mcq_circ_sd_deg': np.nan
-                })
+            # MCQ metrics - handled by RhoFold evaluation now  
+            # (using mcq_dict results from self_consistency_score_rhofold_extended)
             
         except Exception as e:
             print(f"        ⚠️ Metric calculation error: {e}")
@@ -696,19 +726,28 @@ class BaselineEvaluator:
                 try:
                     struct_output_dir = os.path.join(output_dir, "structures", structure_id)
                     
-                    (sc_rmsd, sc_tm, sc_gdt, sc_plddt, 
-                     inf_dict, clash_dict, lddt_scores, mcq_dict) = self_consistency_score_rhofold_extended(
-                        samples, raw_data, 
-                        mask_coords=np.ones(len(native_sequence), dtype=bool),
-                        rhofold=self.rhofold,
-                        output_dir=struct_output_dir,
-                        save_designs=False,
-                        use_inf=True,
-                        use_clash=True,
-                        use_lddt=True,
-                        use_mcq=True,
-                        phenix_wrapper_path=self.phenix_wrapper_path
-                    )
+                    # Temporarily patch get_inf to use DAS paths
+                    import src.evaluator
+                    original_get_inf = src.evaluator.get_inf
+                    src.evaluator.get_inf = self._patch_get_inf_for_das
+                    
+                    try:
+                        (sc_rmsd, sc_tm, sc_gdt, sc_plddt, 
+                         inf_dict, clash_dict, lddt_scores, mcq_dict) = self_consistency_score_rhofold_extended(
+                            samples, raw_data, 
+                            mask_coords=np.ones(len(native_sequence), dtype=bool),
+                            rhofold=self.rhofold,
+                            output_dir=struct_output_dir,
+                            save_designs=False,
+                            use_inf=True,
+                            use_clash=True,
+                            use_lddt=True,
+                            use_mcq=True,
+                            phenix_wrapper_path=self.phenix_wrapper_path
+                        )
+                    finally:
+                        # Restore original function
+                        src.evaluator.get_inf = original_get_inf
                     
                     # Add 3D structure metrics
                     sc_rmsd_list.extend(sc_rmsd.tolist())
@@ -958,3 +997,122 @@ class BaselineEvaluator:
         except Exception as e:
             print(f"   ⚠️ Warning: Could not load coordinates from {pdb_path}: {e}")
             return []  # Return empty list if loading fails
+    
+    def _get_inf_baseline(self, predicted_pdb_path: str, structure_id: str) -> Dict:
+        """Calculate INF scores using correct DAS dataset paths with proper structure ID mapping."""
+        try:
+            from tools.RNA_assessment import RNA_normalizer
+            
+            predicted_struct = RNA_normalizer.PDBStruct()
+            predicted_struct.load(predicted_pdb_path)
+            
+            # Map structure ID to actual PDB filename
+            pdb_filename = self._get_das_pdb_filename(structure_id)
+            if pdb_filename is None:
+                print(f"        ⚠️ No PDB filename mapping found for structure ID: {structure_id}")
+                return {"all": np.nan, "wc": np.nan, "nwc": np.nan, "stack": np.nan}
+            
+            # Use DAS dataset path with correct filename
+            native_pdb_path = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb", f"{pdb_filename}.pdb")
+            
+            if not os.path.exists(native_pdb_path):
+                print(f"        ⚠️ Native PDB not found: {native_pdb_path}")
+                return {"all": np.nan, "wc": np.nan, "nwc": np.nan, "stack": np.nan}
+            
+            native_struct = RNA_normalizer.PDBStruct()
+            native_struct.load(native_pdb_path)
+            
+            comparer = RNA_normalizer.PDBComparer()
+            val_all = comparer.INF(predicted_struct, native_struct, type="ALL")
+            val_wc = comparer.INF(predicted_struct, native_struct, type="PAIR_2D")
+            val_nwc = comparer.INF(predicted_struct, native_struct, type="PAIR_3D")
+            val_stack = comparer.INF(predicted_struct, native_struct, type="STACK")
+            
+            return {
+                "all": val_all if val_all != -1 else np.nan,
+                "wc": val_wc if val_wc != -1 else np.nan,
+                "nwc": val_nwc if val_nwc != -1 else np.nan,
+                "stack": val_stack if val_stack != -1 else np.nan,
+            }
+            
+        except Exception as e:
+            print(f"        ⚠️ INF calculation failed: {e}")
+            return {"all": np.nan, "wc": np.nan, "nwc": np.nan, "stack": np.nan}
+    
+    def _get_mcq_baseline(self, predicted_pdb_path: str, structure_id: str) -> Dict:
+        """Calculate MCQ metrics using correct DAS dataset paths with proper structure ID mapping."""
+        try:
+            # Map structure ID to actual PDB filename
+            pdb_filename = self._get_das_pdb_filename(structure_id)
+            if pdb_filename is None:
+                print(f"        ⚠️ No PDB filename mapping found for structure ID: {structure_id}")
+                return {"mcq_abs_deg": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+            
+            # Use DAS dataset path with correct filename
+            native_pdb_path = os.path.join(DATA_PATH, "das_split_raw_data", "das_split_raw_pdb", f"{pdb_filename}.pdb")
+            
+            if not os.path.exists(native_pdb_path):
+                print(f"        ⚠️ Native PDB not found: {native_pdb_path}")
+                return {"mcq_abs_deg": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+            
+            mcq_stats = mcq_pseudotorsion_stats(predicted_pdb_path, native_pdb_path)
+            return {
+                "mcq_abs_deg": mcq_stats["mcq_abs_deg"],
+                "R": mcq_stats["R"],
+                "circ_sd_deg": mcq_stats["circ_sd_deg"],
+            }
+            
+        except Exception as e:
+            print(f"        ⚠️ MCQ calculation failed: {e}")
+            return {"mcq_abs_deg": np.nan, "R": np.nan, "circ_sd_deg": np.nan}
+    
+    def _patch_get_inf_for_das(self, predicted_pdb_path, true_raw_data, data_path=DATA_PATH):
+        """
+        Patched version of get_inf that uses DAS dataset paths with proper structure ID mapping.
+        """
+        try:
+            from tools.RNA_assessment import RNA_normalizer
+            
+            predicted_struct = RNA_normalizer.PDBStruct()
+            predicted_struct.load(predicted_pdb_path)
+            
+            inf_all, inf_wc, inf_nwc, inf_stack = [], [], [], []
+            
+            for structure_id in true_raw_data["id_list"]:
+                # Map structure ID to actual PDB filename
+                pdb_filename = self._get_das_pdb_filename(structure_id)
+                if pdb_filename is None:
+                    print(f"        ⚠️ No PDB filename mapping found for structure ID: {structure_id}")
+                    continue
+                
+                # Use DAS dataset path with correct filename
+                native_pdb_path = os.path.join(data_path, "das_split_raw_data", "das_split_raw_pdb", f"{pdb_filename}.pdb")
+                
+                if not os.path.exists(native_pdb_path):
+                    print(f"        ⚠️ Native PDB not found: {native_pdb_path}")
+                    continue
+                    
+                native_struct = RNA_normalizer.PDBStruct()
+                native_struct.load(native_pdb_path)
+                
+                comparer = RNA_normalizer.PDBComparer()
+                val_all = comparer.INF(predicted_struct, native_struct, type="ALL")
+                val_wc = comparer.INF(predicted_struct, native_struct, type="PAIR_2D")
+                val_nwc = comparer.INF(predicted_struct, native_struct, type="PAIR_3D")
+                val_stack = comparer.INF(predicted_struct, native_struct, type="STACK")
+                
+                if val_all != -1: inf_all.append(val_all)
+                if val_wc != -1: inf_wc.append(val_wc)
+                if val_nwc != -1: inf_nwc.append(val_nwc)
+                if val_stack != -1: inf_stack.append(val_stack)
+            
+            return {
+                "all": np.mean(inf_all) if inf_all else -1,
+                "wc": np.mean(inf_wc) if inf_wc else -1,
+                "nwc": np.mean(inf_nwc) if inf_nwc else -1,
+                "stack": np.mean(inf_stack) if inf_stack else -1,
+            }
+            
+        except Exception as e:
+            print(f"        ⚠️ Patched INF calculation failed: {e}")
+            return {"all": -1, "wc": -1, "nwc": -1, "stack": -1}

@@ -10,6 +10,7 @@ import os
 import sys
 import argparse
 import glob
+import pandas as pd
 from pathlib import Path
 
 # Add project root to path
@@ -243,9 +244,212 @@ def evaluate_ridiff_model(model_dir: str, output_dir: str, config, n_samples_per
         return None
 
 
+def evaluate_ribodiffusion_model(model_dir: str, output_dir: str, config):
+    """
+    Evaluate RiboDiffusion model with individual FASTA files containing multiple predictions per structure.
+    Extract only the first designed sequence (seq 1) for evaluation.
+    
+    Args:
+        model_dir: Directory containing RiboDiffusion individual FASTA files
+        output_dir: Output directory for results
+        config: Evaluation configuration
+    """
+    model_name = "ribodiffusion"
+    print(f"\n🧬 Evaluating {model_name} model...")
+    print(f"   Model directory: {model_dir}")
+    print(f"   Output directory: {output_dir}")
+    print(f"   Using first designed sequence only")
+    
+    # Find all FASTA files
+    fasta_files = glob.glob(os.path.join(model_dir, "*.fasta"))
+    print(f"   Found {len(fasta_files)} FASTA files")
+    
+    if not fasta_files:
+        print(f"❌ No FASTA files found in {model_dir}")
+        return None
+    
+    # Load test dataset structure IDs for filtering
+    test_structures = set()
+    test_ids_file = "data/das_split_raw_data/test_set_structure_ids.txt"
+    if os.path.exists(test_ids_file):
+        with open(test_ids_file, 'r') as f:
+            for line in f:
+                structure_id = line.strip()
+                if structure_id:
+                    test_structures.add(structure_id)
+        print(f"   Found {len(test_structures)} structures in test dataset")
+    else:
+        print(f"⚠️ Test dataset not found at {test_ids_file}, will process all ribodiffusion structures")
+    
+    # Create a consolidated FASTA file for evaluation
+    consolidated_fasta = os.path.join(output_dir, f"{model_name}_consolidated_sequences.fasta")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    processed_count = 0
+    with open(consolidated_fasta, 'w') as outfile:
+        for fasta_file in sorted(fasta_files):
+            # Apply limit if specified
+            if config.limit and processed_count >= config.limit:
+                print(f"   Limiting to first {config.limit} structures for testing")
+                break
+            
+            # Extract structure ID from filename (e.g., 1CSL_1_B-A.fasta -> 1CSL_1_B)
+            filename = os.path.basename(fasta_file).replace('.fasta', '')
+            # Handle multi-chain structures: 1CSL_1_B-A -> 1CSL_1_B
+            structure_id = filename.split('-')[0] if '-' in filename else filename
+            
+            # Skip if not in test dataset
+            if test_structures and structure_id not in test_structures:
+                continue
+            
+            with open(fasta_file, 'r') as infile:
+                lines = infile.readlines()
+                
+                # Find the first designed sequence (seq 1)
+                found_seq1 = False
+                seq1_sequence = None
+                
+                for i, line in enumerate(lines):
+                    if line.startswith('>') and 'seq 1' in line:
+                        # Found seq 1, get the sequence on next line
+                        if i + 1 < len(lines):
+                            seq1_sequence = lines[i + 1].strip()
+                            found_seq1 = True
+                            break
+                
+                if found_seq1 and seq1_sequence:
+                    # Write with standardized header
+                    outfile.write(f">{structure_id}\n{seq1_sequence}\n")
+                    processed_count += 1
+                else:
+                    print(f"   ⚠️ No 'seq 1' found in {fasta_file}")
+    
+    print(f"   Created consolidated FASTA: {consolidated_fasta}")
+    print(f"   Processed {processed_count} structures")
+    
+    # Run evaluation
+    try:
+        evaluator = BaselineEvaluator(config)
+        results = evaluator.evaluate_baseline_sequences(
+            sequences_file=consolidated_fasta,
+            model_name=model_name,
+            output_dir=output_dir
+        )
+        
+        print(f"✅ {model_name} evaluation completed successfully")
+        print(f"   Evaluated {results.get('n_structures', 0)} structures")
+        print(f"   Mean TM-score: {results.get('sc_tm', 0):.3f}")
+        print(f"   Mean sequence recovery: {results.get('recovery', 0):.3f}")
+        print(f"   Mean RMSD: {results.get('sc_rmsd', 0):.3f}")
+        
+        return results
+        
+    except Exception as e:
+        print(f"❌ {model_name} evaluation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def evaluate_r3design_model(model_dir: str, output_dir: str, config):
+    """
+    Evaluate r3design model from CSV format with separate chain entries.
+    Evaluate each chain individually to match the test dataset organization.
+    
+    Args:
+        model_dir: Directory containing r3design.csv file
+        output_dir: Output directory for results
+        config: Evaluation configuration
+    """
+    model_name = "r3design"
+    print(f"\n🧬 Evaluating {model_name} model...")
+    print(f"   Model directory: {model_dir}")
+    print(f"   Output directory: {output_dir}")
+    print(f"   Evaluating each chain individually")
+    
+    csv_file = os.path.join(model_dir, "r3design.csv")
+    if not os.path.exists(csv_file):
+        print(f"❌ r3design.csv not found in {model_dir}")
+        return None
+    
+    # Load CSV data
+    try:
+        df = pd.read_csv(csv_file)
+        print(f"   Loaded CSV with {len(df)} entries")
+    except Exception as e:
+        print(f"❌ Failed to load CSV: {e}")
+        return None
+    
+    # Load test dataset structure IDs for filtering
+    test_structures = set()
+    test_ids_file = "data/das_split_raw_data/test_set_structure_ids.txt"
+    if os.path.exists(test_ids_file):
+        with open(test_ids_file, 'r') as f:
+            for line in f:
+                structure_id = line.strip()
+                if structure_id:
+                    test_structures.add(structure_id)
+        print(f"   Found {len(test_structures)} structures in test dataset")
+    else:
+        print(f"⚠️ Test dataset not found at {test_ids_file}, will process all r3design structures")
+    
+    # Create consolidated FASTA file - one sequence per individual chain
+    consolidated_fasta = os.path.join(output_dir, f"{model_name}_consolidated_sequences.fasta")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    processed_count = 0
+    with open(consolidated_fasta, 'w') as outfile:
+        for _, row in df.iterrows():
+            # Apply limit if specified
+            if config.limit and processed_count >= config.limit:
+                print(f"   Limiting to first {config.limit} structures for testing")
+                break
+            
+            pdb_id = row['pdb_id']
+            chain = row['chain']
+            generated_seq = row['generate_seq']
+            
+            # Create structure ID in our format (e.g., 1CSL_1_A, 1CSL_1_B)
+            structure_chain_id = f"{pdb_id}_1_{chain}"
+            
+            # Skip if not in test dataset
+            if test_structures and structure_chain_id not in test_structures:
+                continue
+            
+            # Write individual chain sequence
+            outfile.write(f">{structure_chain_id}\n{generated_seq}\n")
+            processed_count += 1
+    
+    print(f"   Created consolidated FASTA: {consolidated_fasta}")
+    print(f"   Processed {processed_count} individual chain sequences")
+    
+    # Run evaluation
+    try:
+        evaluator = BaselineEvaluator(config)
+        results = evaluator.evaluate_baseline_sequences(
+            sequences_file=consolidated_fasta,
+            model_name=model_name,
+            output_dir=output_dir
+        )
+        
+        print(f"✅ {model_name} evaluation completed successfully")
+        print(f"   Evaluated {results.get('n_structures', 0)} structures")
+        print(f"   Mean TM-score: {results.get('sc_tm', 0):.3f}")
+        print(f"   Mean sequence recovery: {results.get('recovery', 0):.3f}")
+        print(f"   Mean RMSD: {results.get('sc_rmsd', 0):.3f}")
+        
+        return results
+        
+    except Exception as e:
+        print(f"❌ {model_name} evaluation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Evaluate baseline RNA design models")
-    parser.add_argument("--models", nargs="+", default=["rdesign", "rifold", "ridiff"],
+    parser.add_argument("--models", nargs="+", default=["rdesign", "rifold", "ridiff", "ribodiffusion", "r3design"],
                        help="Models to evaluate (default: all)")
     parser.add_argument("--config", default="multiround/config/evaluation/baseline_eval.yaml",
                        help="Evaluation configuration file")
@@ -293,6 +497,10 @@ def main():
         if model_name == "ridiff":
             result = evaluate_ridiff_model(model_dir, model_output_dir, config, 
                                           n_samples_per_structure=args.ridiff_samples)
+        elif model_name == "ribodiffusion":
+            result = evaluate_ribodiffusion_model(model_dir, model_output_dir, config)
+        elif model_name == "r3design":
+            result = evaluate_r3design_model(model_dir, model_output_dir, config)
         elif model_name in ["rdesign", "rifold"]:
             result = evaluate_individual_fasta_model(model_name, model_dir, model_output_dir, config)
         else:
@@ -311,9 +519,9 @@ def main():
         
         for model_name, result in results.items():
             n_struct = result.get('n_structures', 0)
-            recovery = result.get('sequence_recovery_mean', 0)
-            tm_score = result.get('tm_score_mean', 0)
-            rmsd = result.get('rmsd_mean', 0)
+            recovery = result.get('recovery', 0)
+            tm_score = result.get('sc_tm', 0)
+            rmsd = result.get('sc_rmsd', 0)
             
             print(f"{model_name:<10} {n_struct:<10} {recovery:<10.3f} {tm_score:<10.3f} {rmsd:<10.3f}")
         

@@ -17,6 +17,7 @@ exit/
 
 # DPO-RNA
 multiround/runs/*
+multiround/eval_multiround/*
 dpo/runs/*
 dpo/__pycache__/
 dpo/debug/__pycache__/
