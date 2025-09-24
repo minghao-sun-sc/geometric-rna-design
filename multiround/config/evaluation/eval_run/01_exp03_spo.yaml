@@ -11,11 +11,11 @@ paths:
   small_dataset: false            # Use only ~15 structures for testing (change to false for full 98 structures)
 
   checkpoints:
-    # - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
-      # path: checkpoints/gRNAde_ARv1_1state_das.h5
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
+      path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
-    - name: "exp03_spo_s7000_ep5"
-      path: runs/multiround/plan_a_03_simpo_m125_b20_g065_m125_b0.13_l0.01_bs64_0922_0129/round_01/checkpoints/step_7000_epoch_5.pt
+    # - name: "exp03_spo_s7000_ep5"
+      # path: runs/multiround/plan_a_03_simpo_m125_b20_g065_m125_b0.13_l0.01_bs64_0922_0129/round_01/checkpoints/step_7000_epoch_5.pt
     # - name: "exp03_spo_stp6700_ep5"  
       # path: runs/multiround/plan_a_03_simpo_m125_b20_g065_m125_b0.13_l0.01_bs64_0922_0129/round_01/checkpoints/step_6700_epoch_5.pt
       # path: runs/offline_dpo/dpo_rna_v5/best.pt
@@ -48,7 +48,7 @@ eval:
   num_workers: 6
   pin_memory: true
   
-  out_dir: multiround/eval_multiround/exp03_spo_ep5/
+  out_dir: multiround/eval_multiround/base_grnade_temp0.1/
   
   n_samples: 8
   temperature: 0.1

@@ -8,12 +8,11 @@ wandb:
   enable: true
   project: DPO-RNA
   entity: minghao-sun-soc     
-  # run_name: simpo_v2_beta1.5_gamma0.3_lambda0.10_batch4 
-  run_name: dpo_b0.12_l0.12_lr1.8e-4     
+  run_name: add_dpo_beta1.0      
   mode: online                    # "offline" for no internet, "online" for live sync
-  # tags: ["dpo", "rna", "offline", "das", "batch_4", "optimized"]
-  # notes: "DPO training with batch_size=4, optimized GPU utilization"
-  # group: "dpo_optimization"       # Group related runs together
+
+
+# python -m dpo.train --config dpo/configs/defaults.yaml
 
 paths:
   processed_pt: data/processed.pt
@@ -92,10 +91,10 @@ scheduler:
   min_lr_ratio: 0.1         # final lr = min_lr_ratio * base lr
 
 training:
-  epochs: 20
-  batch_size: 16             # Increased from 1 to 4 for better GPU utilization
-  grad_accum_steps: 4       # Reduced from 8 to maintain effective batch size
-  num_workers: 8            
+  epochs: 40
+  batch_size: 32             # Increased from 1 to 4 for better GPU utilization
+  grad_accum_steps: 2       # Reduced from 8 to maintain effective batch size
+  num_workers: 6            
   pin_memory: false         # Disabled to avoid multiprocessing issues with complex graph data
   drop_last: false
   compile: false
@@ -106,7 +105,7 @@ training:
   keep_last_n: 5
 
 dpo:
-  beta: 0.12                 # DPO beta
+  beta: 1.00                 # DPO beta
   sft_lambda: 0.10           # mix-in SFT loss on winners
   label_smoothing: 0.0
   max_len: null             # optional truncate length

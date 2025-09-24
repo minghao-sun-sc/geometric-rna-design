@@ -9,13 +9,13 @@ paths:
   small_dataset: false            # Use only ~15 structures for testing (change to false for full 98 structures)
 
   checkpoints:
-    - name: "dpo_v5_38200_sgr"
-      path: runs/offline_dpo/dpo_rna_v5/steps/step_0038200.pt
+    # - name: "dpo_v5_38200_sgr"
+      # path: runs/offline_dpo/dpo_rna_v5/steps/step_0038200.pt
     # Add DPO checkpoints once training completes:
-    - name: "dpo_v5_37800_sgr"
-      path: runs/offline_dpo/dpo_rna_v5/steps/step_0037800.pt
-    - name: "dpo_v5_38100_sgr"  
-      path: runs/offline_dpo/dpo_rna_v5/steps/step_0038100.pt
+    # - name: "dpo_v5_37800_sgr"
+      # path: runs/offline_dpo/dpo_rna_v5/steps/step_0037800.pt
+    - name: "dpo_v5_bst_temp0.1_evalagain"  
+      path: runs/offline_dpo/dpo_rna_v5/best.pt
       # path: runs/offline_dpo/dpo_rna_v5/best.pt
       # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
     # - name: "exp11_rd2_1200_ep2"
@@ -48,7 +48,7 @@ eval:
   num_workers: 6
   pin_memory: true
   
-  out_dir: multiround/eval_multiround/config_06_dpo_v5_more_eval/
+  out_dir: multiround/eval_multiround/config_06_dpo_v5_eval_again/
   
   n_samples: 8
   temperature: 0.1
@@ -91,4 +91,6 @@ eval:
 
 # multiround/config/evaluation/eval_run/04_exp11_dpo_eval_add_v1.yaml
 # python -m dpo.bench.eval_full --config multiround/config/evaluation/eval_run/06_dpo_v5_more_eval2.yaml
+
+
 
