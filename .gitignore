@@ -9,6 +9,19 @@ data/*
 /docs
 arnie_file.txt
 .DS_Store
+docs/RiboPO_ICLR2026.pdf
+
+ribopo_v2/cache/
+ribopo_v2/data_clean
+ribopo_v2/data_clean_filtered
+ribopo_v2/output
+ribopo_v2/results
+ribopo_v2/runs
+
+
+
+
+
 # *.ipynb
 checkpoints/
 backup_checkpoints/*
@@ -26,6 +39,20 @@ CLAUDE.md
 dpo/eval_results/*
 dpo/hpo/optuna_results/*
 designs_round_1/*
+
+# Additional cleanup patterns
+*.bak
+*.backup
+*~
+*.tmp
+*.temp
+*.mcout
+dpo/debug/archive/*
+dpo/debug/out/*
+dpo/debug/out_len/*
+dpo/debug/*test_output/
+dpo/debug/*debug/
+dpo/eval_results/archive/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

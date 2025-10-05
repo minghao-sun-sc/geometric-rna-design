@@ -1,0 +1,5653 @@
+{
+  "analysis_date": "1757164737.0",
+  "statistics": {
+    "total_pdbs": 235,
+    "pdbs_with_gaps": 53,
+    "pdbs_without_gaps": 182,
+    "pdbs_with_chain_breaks": 53,
+    "total_missing_residues": 143,
+    "gap_size_distribution": {
+      "1": 50,
+      "4": 7,
+      "3": 8,
+      "2": 4,
+      "11": 2,
+      "6": 1,
+      "5": 1
+    },
+    "clean_pdbs": [
+      "1CSL_1_B-A",
+      "1DDY_1_A",
+      "1DDY_1_C",
+      "1DDY_1_E",
+      "1DDY_1_G",
+      "1ET4_1_A",
+      "1ET4_1_B",
+      "1ET4_1_C",
+      "1ET4_1_D",
+      "1ET4_1_E",
+      "1F27_1_A",
+      "1GID_1_A",
+      "1GID_1_B",
+      "1L2X_1_A",
+      "1L3D_1_A",
+      "1MSY_1_A",
+      "1Q9A_1_A",
+      "1XPE_1_A-B",
+      "1Y26_1_X",
+      "1Y27_1_X",
+      "1ZFV_1_D-C-A-B",
+      "1ZFX_1_D-C-A-B",
+      "2A43_1_A",
+      "2B57_1_A",
+      "2B8R_1_A-B",
+      "2BCZ_1_D-C-A-B",
+      "2CKY_1_A",
+      "2CKY_1_B",
+      "2EES_1_A",
+      "2EET_1_A",
+      "2EEU_1_A",
+      "2EEV_1_A",
+      "2EEW_1_A",
+      "2G9C_1_A",
+      "2GCS_1_B",
+      "2GCV_1_B",
+      "2GDI_1_X",
+      "2GDI_1_Y",
+      "2H0S_1_B",
+      "2H0W_1_B",
+      "2H0X_1_B",
+      "2HO6_1_B",
+      "2HO7_1_B",
+      "2HOO_1_A",
+      "2NPZ_1_D-C-A-B",
+      "2NZ4_1_P",
+      "2NZ4_1_Q",
+      "2NZ4_1_R",
+      "2NZ4_1_S",
+      "2OEU_1_A",
+      "2OIJ_1_A-B",
+      "2OIY_1_A-B",
+      "2OJ0_1_A-B",
+      "2P7D_1_D-C-P",
+      "2P7E_1_D-C-P",
+      "2XNW_1_A",
+      "2XNZ_1_A",
+      "2XO1_1_A",
+      "2Z74_1_B",
+      "2Z75_1_B",
+      "3B4B_1_B",
+      "3D2G_1_A",
+      "3D2G_1_B",
+      "3D2V_1_A",
+      "3D2V_1_B",
+      "3D2X_1_A",
+      "3D2X_1_B",
+      "3DS7_1_A",
+      "3DS7_1_B",
+      "3DVZ_1_A",
+      "3FAR_1_A-B",
+      "3FO4_1_A",
+      "3FO6_1_A",
+      "3G4M_1_A",
+      "3G8S_1_P",
+      "3G8S_1_Q",
+      "3G8S_1_R",
+      "3G8S_1_S",
+      "3G8T_1_P",
+      "3G8T_1_Q",
+      "3G8T_1_R",
+      "3G8T_1_S",
+      "3G96_1_P",
+      "3G96_1_Q",
+      "3G96_1_R",
+      "3G96_1_S",
+      "3G9C_1_P",
+      "3G9C_1_Q",
+      "3G9C_1_R",
+      "3G9C_1_S",
+      "3GAO_1_A",
+      "3GER_1_A",
+      "3GES_1_A",
+      "3GOG_1_A",
+      "3GOT_1_A",
+      "3GS5_1_C",
+      "3GS8_1_D-C-A-B",
+      "3IVN_1_A",
+      "3IVN_1_B",
+      "3K0J_1_E",
+      "3K0J_1_F",
+      "3L3C_1_P",
+      "3LA5_1_A",
+      "3RKF_1_A",
+      "3RKF_1_B",
+      "3RKF_1_C",
+      "3RKF_1_D",
+      "3SKI_1_A",
+      "3SKI_1_B",
+      "3SKL_1_A",
+      "3SKL_1_B",
+      "3SKR_1_A",
+      "3SKR_1_B",
+      "3SKT_1_A",
+      "3SKT_1_B",
+      "3SKW_1_A",
+      "3SKW_1_B",
+      "3SKZ_1_A",
+      "3SKZ_1_B",
+      "3SLM_1_A",
+      "3SLM_1_B",
+      "3SLQ_1_A",
+      "3SLQ_1_B",
+      "437D_1_A",
+      "480D_1_A",
+      "483D_1_A",
+      "4FE5_1_B",
+      "4FEJ_1_B",
+      "4FEL_1_B",
+      "4FEN_1_B",
+      "4FEO_1_B",
+      "4FEP_1_B",
+      "4LX5_1_A",
+      "4LX6_1_A",
+      "4MEG_1_B",
+      "4NYA_1_A",
+      "4NYA_1_B",
+      "4TZX_1_X",
+      "4TZY_1_X",
+      "4XNR_1_X",
+      "5C7U_1_B",
+      "5E54_1_A",
+      "5E54_1_B",
+      "5KPY_1_A",
+      "5SWD_1_A",
+      "5SWD_1_B",
+      "5SWE_1_X",
+      "6BJX_1_A",
+      "6BJX_1_B",
+      "6D8L_1_A",
+      "6D8L_1_B",
+      "6D8M_1_A",
+      "6D8M_1_B",
+      "6D8N_1_A",
+      "6D8N_1_B",
+      "6D8O_1_A",
+      "6D8O_1_B",
+      "6P2H_1_A",
+      "6TB7_1_A",
+      "6TF1_1_A",
+      "6TF2_1_A",
+      "6TF3_1_A",
+      "6TFE_1_A",
+      "6TFF_1_A",
+      "6TFG_1_A",
+      "6UBU_1_B",
+      "6UC7_1_B",
+      "6UC8_1_B",
+      "6UC9_1_B",
+      "6VWT_1_A",
+      "6VWT_1_B",
+      "6VWV_1_A",
+      "6VWV_1_B",
+      "7D7V_1_A",
+      "7D7W_1_A",
+      "7D7X_1_A",
+      "7D7Y_1_A",
+      "7D7Z_1_A",
+      "7TZR_1_X",
+      "7TZR_1_Y",
+      "7TZS_1_X",
+      "7TZS_1_Y"
+    ]
+  },
+  "pdb_details": {
+    "1CSL_1_B-A": {
+      "file": "1CSL_1_B-A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 15,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "1DDY_1_A": {
+      "file": "1DDY_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1DDY_1_C": {
+      "file": "1DDY_1_C.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "C"
+        ]
+      },
+      "clean": true
+    },
+    "1DDY_1_E": {
+      "file": "1DDY_1_E.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "E"
+        ]
+      },
+      "clean": true
+    },
+    "1DDY_1_G": {
+      "file": "1DDY_1_G.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "G"
+        ]
+      },
+      "clean": true
+    },
+    "1ET4_1_A": {
+      "file": "1ET4_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1ET4_1_B": {
+      "file": "1ET4_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "1ET4_1_C": {
+      "file": "1ET4_1_C.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "C"
+        ]
+      },
+      "clean": true
+    },
+    "1ET4_1_D": {
+      "file": "1ET4_1_D.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "1ET4_1_E": {
+      "file": "1ET4_1_E.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 35,
+        "chains": [
+          "E"
+        ]
+      },
+      "clean": true
+    },
+    "1F27_1_A": {
+      "file": "1F27_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1GID_1_A": {
+      "file": "1GID_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1GID_1_B": {
+      "file": "1GID_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "1HR2_1_A": {
+      "file": "1HR2_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            209
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 209,
+            "end": 209,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 208,
+            "after": 210,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 157,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "1HR2_1_B": {
+      "file": "1HR2_1_B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            209
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 209,
+            "end": 209,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 208,
+            "after": 210,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "1L2X_1_A": {
+      "file": "1L2X_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1L3D_1_A": {
+      "file": "1L3D_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1L8V_1_A": {
+      "file": "1L8V_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            210
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 210,
+            "end": 210,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 209,
+            "after": 211,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 157,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "1L8V_1_B": {
+      "file": "1L8V_1_B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            210
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 210,
+            "end": 210,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 209,
+            "after": 211,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 157,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "1LNT_1_A-B": {
+      "file": "1LNT_1_A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            11
+          ],
+          [
+            "B",
+            22
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 11,
+            "end": 11,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 22,
+            "end": 22,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 10,
+            "after": 12,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 21,
+            "after": 23,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 11,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "1MSY_1_A": {
+      "file": "1MSY_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1Q9A_1_A": {
+      "file": "1Q9A_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "1X9C_1_D-C-A-B": {
+      "file": "1X9C_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "1XPE_1_A-B": {
+      "file": "1XPE_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "1Y26_1_X": {
+      "file": "1Y26_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "1Y27_1_X": {
+      "file": "1Y27_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "1ZFT_1_D-C-A-B": {
+      "file": "1ZFT_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "1ZFV_1_D-C-A-B": {
+      "file": "1ZFV_1_D-C-A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "1ZFX_1_D-C-A-B": {
+      "file": "1ZFX_1_D-C-A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "2A43_1_A": {
+      "file": "2A43_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 26,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2B57_1_A": {
+      "file": "2B57_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2B8R_1_A-B": {
+      "file": "2B8R_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2BCY_1_D-C-A-B": {
+      "file": "2BCY_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            8
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 8,
+            "end": 8,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 7,
+            "after": 9,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2BCZ_1_D-C-A-B": {
+      "file": "2BCZ_1_D-C-A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "2CKY_1_A": {
+      "file": "2CKY_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2CKY_1_B": {
+      "file": "2CKY_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2D2K_1_D-C-A-B": {
+      "file": "2D2K_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2D2L_1_D-C-A-B": {
+      "file": "2D2L_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "D",
+            39
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "D",
+            "start": 39,
+            "end": 39,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "D",
+            "before": 38,
+            "after": 40,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2EES_1_A": {
+      "file": "2EES_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2EET_1_A": {
+      "file": "2EET_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2EEU_1_A": {
+      "file": "2EEU_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2EEV_1_A": {
+      "file": "2EEV_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2EEW_1_A": {
+      "file": "2EEW_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2FGP_1_D-C-A-B": {
+      "file": "2FGP_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            8
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 8,
+            "end": 8,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 7,
+            "after": 9,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2G9C_1_A": {
+      "file": "2G9C_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2GCS_1_B": {
+      "file": "2GCS_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2GCV_1_B": {
+      "file": "2GCV_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2GDI_1_X": {
+      "file": "2GDI_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "2GDI_1_Y": {
+      "file": "2GDI_1_Y.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "Y"
+        ]
+      },
+      "clean": true
+    },
+    "2H0S_1_B": {
+      "file": "2H0S_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2H0W_1_B": {
+      "file": "2H0W_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2H0X_1_B": {
+      "file": "2H0X_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2HO6_1_B": {
+      "file": "2HO6_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2HO7_1_B": {
+      "file": "2HO7_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2HOJ_1_A": {
+      "file": "2HOJ_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 29,
+            "length": 4
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 30,
+            "gap_size": 4
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "2HOK_1_A": {
+      "file": "2HOK_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            54
+          ],
+          [
+            "A",
+            55
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 28,
+            "length": 3
+          },
+          {
+            "chain": "A",
+            "start": 54,
+            "end": 55,
+            "length": 2
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 29,
+            "gap_size": 3
+          },
+          {
+            "chain": "A",
+            "before": 53,
+            "after": 56,
+            "gap_size": 2
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "2HOL_1_A": {
+      "file": "2HOL_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 29,
+            "length": 4
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 30,
+            "gap_size": 4
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "2HOM_1_A": {
+      "file": "2HOM_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 28,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 29,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 80,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "2HOO_1_A": {
+      "file": "2HOO_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 83,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2HOP_1_A": {
+      "file": "2HOP_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            25
+          ],
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            62
+          ],
+          [
+            "A",
+            78
+          ],
+          [
+            "A",
+            79
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 25,
+            "end": 28,
+            "length": 4
+          },
+          {
+            "chain": "A",
+            "start": 62,
+            "end": 62,
+            "length": 1
+          },
+          {
+            "chain": "A",
+            "start": 78,
+            "end": 79,
+            "length": 2
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 24,
+            "after": 29,
+            "gap_size": 4
+          },
+          {
+            "chain": "A",
+            "before": 61,
+            "after": 63,
+            "gap_size": 1
+          },
+          {
+            "chain": "A",
+            "before": 77,
+            "after": 80,
+            "gap_size": 2
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 76,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "2NPY_1_D-C-A-B": {
+      "file": "2NPY_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2NPZ_1_D-C-A-B": {
+      "file": "2NPZ_1_D-C-A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "2NZ4_1_P": {
+      "file": "2NZ4_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "2NZ4_1_Q": {
+      "file": "2NZ4_1_Q.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": true
+    },
+    "2NZ4_1_R": {
+      "file": "2NZ4_1_R.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": true
+    },
+    "2NZ4_1_S": {
+      "file": "2NZ4_1_S.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": true
+    },
+    "2OEU_1_A": {
+      "file": "2OEU_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 42,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2OIJ_1_A-B": {
+      "file": "2OIJ_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2OIY_1_A-B": {
+      "file": "2OIY_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2OJ0_1_A-B": {
+      "file": "2OJ0_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2OUE_1_D-C-A-B": {
+      "file": "2OUE_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            -1
+          ],
+          [
+            "A",
+            0
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": -1,
+            "end": 0,
+            "length": 2
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": -2,
+            "after": 1,
+            "gap_size": 2
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2P7D_1_D-C-P": {
+      "file": "2P7D_1_D-C-P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 8,
+        "chains": [
+          "C",
+          "D",
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "2P7E_1_D-C-P": {
+      "file": "2P7E_1_D-C-P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 8,
+        "chains": [
+          "C",
+          "D",
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "2P7F_1_D-C-A-B": {
+      "file": "2P7F_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "2R8S_1_R": {
+      "file": "2R8S_1_R.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "R",
+            209
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "R",
+            "start": 209,
+            "end": 209,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "R",
+            "before": 208,
+            "after": 210,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 159,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": false
+    },
+    "2XNW_1_A": {
+      "file": "2XNW_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2XNZ_1_A": {
+      "file": "2XNZ_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2XO1_1_A": {
+      "file": "2XO1_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "2Z74_1_B": {
+      "file": "2Z74_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 123,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "2Z75_1_B": {
+      "file": "2Z75_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 123,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "354D_1_A-B": {
+      "file": "354D_1_A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            106
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 106,
+            "end": 106,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 105,
+            "after": 107,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 11,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "3B4A_1_B": {
+      "file": "3B4A_1_B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            79
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 79,
+            "end": 79,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 78,
+            "after": 80,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 121,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "3B4B_1_B": {
+      "file": "3B4B_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 123,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3B4C_1_B": {
+      "file": "3B4C_1_B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            79
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 79,
+            "end": 79,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 78,
+            "after": 80,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 121,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "3B58_1_B-C-A": {
+      "file": "3B58_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            14
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3B5A_1_B-C-A": {
+      "file": "3B5A_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            14
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3B5F_1_B-C-A": {
+      "file": "3B5F_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3B5S_1_B-C-A": {
+      "file": "3B5S_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3B91_1_B-C-A": {
+      "file": "3B91_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3BBI_1_B-C-A": {
+      "file": "3BBI_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3BBK_1_B-C-A": {
+      "file": "3BBK_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            14
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3BBM_1_B-C-A": {
+      "file": "3BBM_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            14
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "3D2G_1_A": {
+      "file": "3D2G_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3D2G_1_B": {
+      "file": "3D2G_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3D2V_1_A": {
+      "file": "3D2V_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3D2V_1_B": {
+      "file": "3D2V_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3D2X_1_A": {
+      "file": "3D2X_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3D2X_1_B": {
+      "file": "3D2X_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 77,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3DS7_1_A": {
+      "file": "3DS7_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3DS7_1_B": {
+      "file": "3DS7_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3DVZ_1_A": {
+      "file": "3DVZ_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3FAR_1_A-B": {
+      "file": "3FAR_1_A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 23,
+        "chains": [
+          "A",
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3FO4_1_A": {
+      "file": "3FO4_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 63,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3FO6_1_A": {
+      "file": "3FO6_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3G4M_1_A": {
+      "file": "3G4M_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3G8S_1_P": {
+      "file": "3G8S_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "3G8S_1_Q": {
+      "file": "3G8S_1_Q.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": true
+    },
+    "3G8S_1_R": {
+      "file": "3G8S_1_R.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": true
+    },
+    "3G8S_1_S": {
+      "file": "3G8S_1_S.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": true
+    },
+    "3G8T_1_P": {
+      "file": "3G8T_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "3G8T_1_Q": {
+      "file": "3G8T_1_Q.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": true
+    },
+    "3G8T_1_R": {
+      "file": "3G8T_1_R.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": true
+    },
+    "3G8T_1_S": {
+      "file": "3G8T_1_S.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": true
+    },
+    "3G96_1_P": {
+      "file": "3G96_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "3G96_1_Q": {
+      "file": "3G96_1_Q.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": true
+    },
+    "3G96_1_R": {
+      "file": "3G96_1_R.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": true
+    },
+    "3G96_1_S": {
+      "file": "3G96_1_S.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": true
+    },
+    "3G9C_1_P": {
+      "file": "3G9C_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 139,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "3G9C_1_Q": {
+      "file": "3G9C_1_Q.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": true
+    },
+    "3G9C_1_R": {
+      "file": "3G9C_1_R.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": true
+    },
+    "3G9C_1_S": {
+      "file": "3G9C_1_S.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 139,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": true
+    },
+    "3GAO_1_A": {
+      "file": "3GAO_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3GER_1_A": {
+      "file": "3GER_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3GES_1_A": {
+      "file": "3GES_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3GOG_1_A": {
+      "file": "3GOG_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3GOT_1_A": {
+      "file": "3GOT_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3GS1_1_D-C-A-B": {
+      "file": "3GS1_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            0
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 0,
+            "end": 0,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": -1,
+            "after": 1,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "3GS5_1_C": {
+      "file": "3GS5_1_C.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 36,
+        "chains": [
+          "C"
+        ]
+      },
+      "clean": true
+    },
+    "3GS8_1_D-C-A-B": {
+      "file": "3GS8_1_D-C-A-B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "3IVN_1_A": {
+      "file": "3IVN_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 69,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3IVN_1_B": {
+      "file": "3IVN_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 69,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3K0J_1_E": {
+      "file": "3K0J_1_E.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 87,
+        "chains": [
+          "E"
+        ]
+      },
+      "clean": true
+    },
+    "3K0J_1_F": {
+      "file": "3K0J_1_F.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 87,
+        "chains": [
+          "F"
+        ]
+      },
+      "clean": true
+    },
+    "3L3C_1_P": {
+      "file": "3L3C_1_P.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "P"
+        ]
+      },
+      "clean": true
+    },
+    "3L3C_1_Q": {
+      "file": "3L3C_1_Q.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "Q",
+            6
+          ],
+          [
+            "Q",
+            7
+          ],
+          [
+            "Q",
+            8
+          ],
+          [
+            "Q",
+            9
+          ],
+          [
+            "Q",
+            10
+          ],
+          [
+            "Q",
+            11
+          ],
+          [
+            "Q",
+            12
+          ],
+          [
+            "Q",
+            13
+          ],
+          [
+            "Q",
+            14
+          ],
+          [
+            "Q",
+            15
+          ],
+          [
+            "Q",
+            16
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "Q",
+            "start": 6,
+            "end": 16,
+            "length": 11
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "Q",
+            "before": 5,
+            "after": 17,
+            "gap_size": 11
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "Q"
+        ]
+      },
+      "clean": false
+    },
+    "3L3C_1_R": {
+      "file": "3L3C_1_R.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "R",
+            6
+          ],
+          [
+            "R",
+            7
+          ],
+          [
+            "R",
+            8
+          ],
+          [
+            "R",
+            9
+          ],
+          [
+            "R",
+            10
+          ],
+          [
+            "R",
+            11
+          ],
+          [
+            "R",
+            12
+          ],
+          [
+            "R",
+            13
+          ],
+          [
+            "R",
+            14
+          ],
+          [
+            "R",
+            15
+          ],
+          [
+            "R",
+            16
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "R",
+            "start": 6,
+            "end": 16,
+            "length": 11
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "R",
+            "before": 5,
+            "after": 17,
+            "gap_size": 11
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "R"
+        ]
+      },
+      "clean": false
+    },
+    "3L3C_1_S": {
+      "file": "3L3C_1_S.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "S",
+            6
+          ],
+          [
+            "S",
+            7
+          ],
+          [
+            "S",
+            8
+          ],
+          [
+            "S",
+            9
+          ],
+          [
+            "S",
+            11
+          ],
+          [
+            "S",
+            12
+          ],
+          [
+            "S",
+            13
+          ],
+          [
+            "S",
+            14
+          ],
+          [
+            "S",
+            15
+          ],
+          [
+            "S",
+            16
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "S",
+            "start": 6,
+            "end": 9,
+            "length": 4
+          },
+          {
+            "chain": "S",
+            "start": 11,
+            "end": 16,
+            "length": 6
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "S",
+            "before": 5,
+            "after": 10,
+            "gap_size": 4
+          },
+          {
+            "chain": "S",
+            "before": 10,
+            "after": 17,
+            "gap_size": 6
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 140,
+        "chains": [
+          "S"
+        ]
+      },
+      "clean": false
+    },
+    "3LA5_1_A": {
+      "file": "3LA5_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3RKF_1_A": {
+      "file": "3RKF_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3RKF_1_B": {
+      "file": "3RKF_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3RKF_1_C": {
+      "file": "3RKF_1_C.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "C"
+        ]
+      },
+      "clean": true
+    },
+    "3RKF_1_D": {
+      "file": "3RKF_1_D.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "D"
+        ]
+      },
+      "clean": true
+    },
+    "3SKI_1_A": {
+      "file": "3SKI_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKI_1_B": {
+      "file": "3SKI_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SKL_1_A": {
+      "file": "3SKL_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKL_1_B": {
+      "file": "3SKL_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SKR_1_A": {
+      "file": "3SKR_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKR_1_B": {
+      "file": "3SKR_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SKT_1_A": {
+      "file": "3SKT_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKT_1_B": {
+      "file": "3SKT_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SKW_1_A": {
+      "file": "3SKW_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKW_1_B": {
+      "file": "3SKW_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 64,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SKZ_1_A": {
+      "file": "3SKZ_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SKZ_1_B": {
+      "file": "3SKZ_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SLM_1_A": {
+      "file": "3SLM_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SLM_1_B": {
+      "file": "3SLM_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "3SLQ_1_A": {
+      "file": "3SLQ_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "3SLQ_1_B": {
+      "file": "3SLQ_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 66,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "437D_1_A": {
+      "file": "437D_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "480D_1_A": {
+      "file": "480D_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "483D_1_A": {
+      "file": "483D_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 27,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "4FE5_1_B": {
+      "file": "4FE5_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4FEJ_1_B": {
+      "file": "4FEJ_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4FEL_1_B": {
+      "file": "4FEL_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4FEN_1_B": {
+      "file": "4FEN_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4FEO_1_B": {
+      "file": "4FEO_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4FEP_1_B": {
+      "file": "4FEP_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4G6P_1_B-C-A": {
+      "file": "4G6P_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            -1
+          ],
+          [
+            "A",
+            0
+          ],
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": -1,
+            "end": 0,
+            "length": 2
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": -2,
+            "after": 1,
+            "gap_size": 2
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "4G6R_1_D-C-A-B": {
+      "file": "4G6R_1_D-C-A-B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 19,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "clean": false
+    },
+    "4G6S_1_B-C-A": {
+      "file": "4G6S_1_B-C-A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            5
+          ],
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            38
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 5,
+            "end": 5,
+            "length": 1
+          },
+          {
+            "chain": "B",
+            "start": 14,
+            "end": 14,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 38,
+            "end": 38,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 4,
+            "after": 6,
+            "gap_size": 1
+          },
+          {
+            "chain": "B",
+            "before": 13,
+            "after": 15,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 37,
+            "after": 39,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 18,
+        "chains": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "4LX5_1_A": {
+      "file": "4LX5_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "4LX6_1_A": {
+      "file": "4LX6_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "4MEG_1_B": {
+      "file": "4MEG_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 121,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4MEH_1_B": {
+      "file": "4MEH_1_B.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "B",
+            60
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "B",
+            "start": 60,
+            "end": 60,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "B",
+            "before": 59,
+            "after": 61,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 122,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": false
+    },
+    "4NYA_1_A": {
+      "file": "4NYA_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "4NYA_1_B": {
+      "file": "4NYA_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "4NYB_1_A": {
+      "file": "4NYB_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "4NYC_1_A": {
+      "file": "4NYC_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "4NYD_1_A": {
+      "file": "4NYD_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "4NYG_1_A": {
+      "file": "4NYG_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 29,
+            "length": 4
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 30,
+            "gap_size": 4
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "4TZX_1_X": {
+      "file": "4TZX_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "4TZY_1_X": {
+      "file": "4TZY_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "4XNR_1_X": {
+      "file": "4XNR_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "5C7U_1_B": {
+      "file": "5C7U_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "5C7W_1_C": {
+      "file": "5C7W_1_C.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "C",
+            18
+          ],
+          [
+            "C",
+            78
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "C",
+            "start": 18,
+            "end": 18,
+            "length": 1
+          },
+          {
+            "chain": "C",
+            "start": 78,
+            "end": 78,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "C",
+            "before": 17,
+            "after": 19,
+            "gap_size": 1
+          },
+          {
+            "chain": "C",
+            "before": 77,
+            "after": 79,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "C"
+        ]
+      },
+      "clean": false
+    },
+    "5E54_1_A": {
+      "file": "5E54_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "5E54_1_B": {
+      "file": "5E54_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 68,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "5KPY_1_A": {
+      "file": "5KPY_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "5SWD_1_A": {
+      "file": "5SWD_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 65,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "5SWD_1_B": {
+      "file": "5SWD_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 68,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "5SWE_1_X": {
+      "file": "5SWE_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "5UZA_1_X": {
+      "file": "5UZA_1_X.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "X",
+            28
+          ],
+          [
+            "X",
+            31
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "X",
+            "start": 28,
+            "end": 28,
+            "length": 1
+          },
+          {
+            "chain": "X",
+            "start": 31,
+            "end": 31,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "X",
+            "before": 27,
+            "after": 29,
+            "gap_size": 1
+          },
+          {
+            "chain": "X",
+            "before": 30,
+            "after": 32,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 69,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": false
+    },
+    "6BJX_1_A": {
+      "file": "6BJX_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6BJX_1_B": {
+      "file": "6BJX_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6D8L_1_A": {
+      "file": "6D8L_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6D8L_1_B": {
+      "file": "6D8L_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6D8M_1_A": {
+      "file": "6D8M_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6D8M_1_B": {
+      "file": "6D8M_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 159,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6D8N_1_A": {
+      "file": "6D8N_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 159,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6D8N_1_B": {
+      "file": "6D8N_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 159,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6D8O_1_A": {
+      "file": "6D8O_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6D8O_1_B": {
+      "file": "6D8O_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 158,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6P2H_1_A": {
+      "file": "6P2H_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 68,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TB7_1_A": {
+      "file": "6TB7_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TF0_1_A": {
+      "file": "6TF0_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            3
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 3,
+            "end": 3,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 2,
+            "after": 4,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "6TF1_1_A": {
+      "file": "6TF1_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TF2_1_A": {
+      "file": "6TF2_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TF3_1_A": {
+      "file": "6TF3_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TFE_1_A": {
+      "file": "6TFE_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TFF_1_A": {
+      "file": "6TFF_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TFG_1_A": {
+      "file": "6TFG_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 52,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6TFH_1_A": {
+      "file": "6TFH_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            3
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 3,
+            "end": 3,
+            "length": 1
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 2,
+            "after": 4,
+            "gap_size": 1
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "6UBU_1_B": {
+      "file": "6UBU_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6UC7_1_B": {
+      "file": "6UC7_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6UC8_1_B": {
+      "file": "6UC8_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6UC9_1_B": {
+      "file": "6UC9_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 67,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6VWT_1_A": {
+      "file": "6VWT_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6VWT_1_B": {
+      "file": "6VWT_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "6VWV_1_A": {
+      "file": "6VWV_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "6VWV_1_B": {
+      "file": "6VWV_1_B.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 71,
+        "chains": [
+          "B"
+        ]
+      },
+      "clean": true
+    },
+    "7D7V_1_A": {
+      "file": "7D7V_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 57,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "7D7W_1_A": {
+      "file": "7D7W_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "7D7X_1_A": {
+      "file": "7D7X_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "7D7Y_1_A": {
+      "file": "7D7Y_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "7D7Z_1_A": {
+      "file": "7D7Z_1_A.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 51,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": true
+    },
+    "7TD7_1_A": {
+      "file": "7TD7_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            25
+          ],
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 25,
+            "end": 29,
+            "length": 5
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 24,
+            "after": 30,
+            "gap_size": 5
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "7TDA_1_A": {
+      "file": "7TDA_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "7TDB_1_A": {
+      "file": "7TDB_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "7TDC_1_A": {
+      "file": "7TDC_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 27,
+            "end": 29,
+            "length": 3
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 26,
+            "after": 30,
+            "gap_size": 3
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "7TZR_1_X": {
+      "file": "7TZR_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "7TZR_1_Y": {
+      "file": "7TZR_1_Y.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "Y"
+        ]
+      },
+      "clean": true
+    },
+    "7TZS_1_X": {
+      "file": "7TZS_1_X.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "X"
+        ]
+      },
+      "clean": true
+    },
+    "7TZS_1_Y": {
+      "file": "7TZS_1_Y.pdb",
+      "has_gaps": false,
+      "gap_info": {
+        "has_gaps": false,
+        "missing_residues": [],
+        "gap_regions": [],
+        "chain_breaks": [],
+        "sequence_length": 0,
+        "structure_length": 78,
+        "chains": [
+          "Y"
+        ]
+      },
+      "clean": true
+    },
+    "7TZT_1_A": {
+      "file": "7TZT_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 29,
+            "length": 4
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 30,
+            "gap_size": 4
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    },
+    "7TZU_1_A": {
+      "file": "7TZU_1_A.pdb",
+      "has_gaps": true,
+      "gap_info": {
+        "has_gaps": true,
+        "missing_residues": [
+          [
+            "A",
+            26
+          ],
+          [
+            "A",
+            27
+          ],
+          [
+            "A",
+            28
+          ],
+          [
+            "A",
+            29
+          ]
+        ],
+        "gap_regions": [
+          {
+            "chain": "A",
+            "start": 26,
+            "end": 29,
+            "length": 4
+          }
+        ],
+        "chain_breaks": [
+          {
+            "chain": "A",
+            "before": 25,
+            "after": 30,
+            "gap_size": 4
+          }
+        ],
+        "sequence_length": 0,
+        "structure_length": 79,
+        "chains": [
+          "A"
+        ]
+      },
+      "clean": false
+    }
+  }
+}

@@ -1,0 +1,133 @@
+# 00. DEBUG - DPO with Dynamic Margins - 2 Epochs, 2 Rounds
+# Debug configuration: minimal epochs and rounds for fast testing with reference updates
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 00_debug_dpo_dnm_no_ref_mlt
+  mode: online
+  tags: ["00_debug", "dpo", "dynamic_margins", "2epochs", "2rounds"]
+  notes: "DEBUG: DPO with dynamic margins, 2 epochs per round, 2 rounds total"
+  group: "debug_experiments"
+
+multiround:
+  num_rounds: 2                 # Minimal rounds for debugging
+  epochs_per_round: 2           # Minimal epochs for debugging
+  update_reference: true        # Enable reference model updates for debugging
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  n_samples_eval: 8
+  n_samples_final_eval: 64
+  save_eval_data: true
+  
+  # Dynamic preference pair switching (only 2 rounds, both use margin25)
+  dynamic_pairs: true
+  pair_configs:
+    # Round 1: use margin25
+    rounds_1_2: 
+      margin_type: "25"
+      description: "Margin 25 for debug rounds"
+      pairs:
+        train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+        val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+        test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+paths:
+  pair_margin: "25"  # Starting margin
+  save_dir: multiround/runs/00_debug_dpo_dynamic
+  processed_pt: data/processed.pt  # Required for data loading
+  split_pt: data/das_split.pt      # Required for data splits
+  base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5  # Base model checkpoint
+  
+  # Default pairs for initial loading (will be overridden by dynamic switching)
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+  
+  # Both margin datasets available for switching
+  pairs_margin25:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin25/by_das/clean/test.clean.jsonl
+  pairs_margin125:
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val: data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test: data/pairs_margin125/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.13                    # Optimized DPO beta
+  sft_lambda: 0.10              # Optimized SFT regularization
+  label_smoothing: 0.0
+  max_len: 512                  # Maximum sequence length
+
+# python -m multiround.train --config multiround/config/experiments/00_debug_dpo_dynamic.yaml
+
+
+# Featurizer configuration (required for data loading)
+featurizer:
+  split: train
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1         # matches the checkpoint family (1-state)
+  noise_scale: 0.1
+  distance_eps: 0.001
+  device: cpu                   # use CPU for featurizer to avoid device mismatch
+
+# Model configuration (required for loading gRNAde)
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim: [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim: [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+optimizer:
+  lr: 0.00018                   # Optimized learning rate (1.8e-4)
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  grad_clip_norm: 1.0
+
+scheduler:
+  name: cosine
+  warmup_steps: 100             # Reduced for debug
+  min_lr_ratio: 0.1             # final lr = min_lr_ratio * base lr
+
+training:
+  epochs: 2                     # Matched to epochs_per_round
+  batch_size: 16
+  grad_accum_steps: 4
+  num_workers: 8                # Number of data loading workers
+  precision: bf16               # Use bfloat16 for faster training
+  pin_memory: false             # Disabled to avoid multiprocessing issues
+  drop_last: false              # Use all data
+  log_every: 1                  # Log WandB metrics every step
+  save_every: 50                # Save checkpoints every 50 steps
+  val_every: 50                 # Run validation every 50 steps
+  keep_last_n: 5                # Keep last 5 checkpoints
+  compile: false                # Don't compile model for debug
+
+evaluation:
+  metrics: ['recovery', 'perplexity', 'sc_eternafold', 'sc_vienna', 'sc_rhofold']
+  save_designs: true
+  compute_passk_final: true
+
+# Data validation and fallback settings
+validation:
+  check_pair_files: true
+  fallback_to_static: true
+  static_fallback_margin: "125"
+  enable_data_validation: true

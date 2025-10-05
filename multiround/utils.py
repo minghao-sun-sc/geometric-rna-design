@@ -293,22 +293,35 @@ def load_config_with_inheritance(config_path: str) -> Dict:
     
     # Handle inheritance
     if 'inherit_from' in config:
-        base_path = config['inherit_from']
-        # Resolve relative paths from project root (current working directory)
-        if not os.path.isabs(base_path):
-            # If path doesn't exist relative to config file, try from current working directory
-            config_relative_path = os.path.join(os.path.dirname(config_path), base_path)
-            if os.path.exists(config_relative_path):
-                base_path = config_relative_path
-            else:
-                # Try from current working directory (project root)
-                base_path = base_path
+        base_paths = config['inherit_from']
         
-        # Load base config recursively
-        base_config = load_config_with_inheritance(base_path)
+        # Handle both single path (string) and multiple paths (list)
+        if isinstance(base_paths, str):
+            base_paths = [base_paths]
+        
+        # Start with empty base config
+        merged_base_config = {}
+        
+        # Process each base config in order
+        for base_path in base_paths:
+            # Resolve relative paths from project root (current working directory)
+            if not os.path.isabs(base_path):
+                # If path doesn't exist relative to config file, try from current working directory
+                config_relative_path = os.path.join(os.path.dirname(config_path), base_path)
+                if os.path.exists(config_relative_path):
+                    base_path = config_relative_path
+                else:
+                    # Try from current working directory (project root)
+                    base_path = base_path
+            
+            # Load base config recursively
+            base_config = load_config_with_inheritance(base_path)
+            
+            # Merge with accumulated base configs
+            merged_base_config = deep_merge_dicts(merged_base_config, base_config)
         
         # Merge configs (current overrides base)
-        merged_config = deep_merge_dicts(base_config, config)
+        merged_config = deep_merge_dicts(merged_base_config, config)
         
         # Remove inheritance key from final config
         merged_config.pop('inherit_from', None)

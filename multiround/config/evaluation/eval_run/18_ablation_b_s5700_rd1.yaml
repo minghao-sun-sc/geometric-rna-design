@@ -1,0 +1,95 @@
+# Comprehensive evaluation config with all metrics (slower but complete)
+# Use this for final results when you need all metrics
+
+seed: 42
+device: cuda
+
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  split_name: test
+  small_dataset: false           
+
+  checkpoints:
+    # - name: "exp_ablation_b0.01_s5700"
+      # path: runs/offline_dpo/add_dpo_beta0.01/steps/step_0005700.pt
+    # Add DPO checkpoints once training completes:
+    - name: "exp_ablation_b0.5_s5700"
+      path: runs/offline_dpo/add_dpo_beta0.50/steps/step_0005700.pt
+    # - name: "exp_ablation_b1.0_s5700"
+      # path: runs/offline_dpo/add_dpo_beta1.0/steps/step_0005700.pt
+      # path: runs/offline_dpo/dpo_rna_v5/best.pt
+      # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
+    # - name: "exp11_rd2_1200_ep2"
+      # path: runs/multiround/plan_a_11_no_ref_dpo_dynamic_10e_dynamic_b0.12_l0.1_bs64_0921_2245/round_02/checkpoints/step_1200_epoch_2.pt
+
+
+featurizer:
+  split: test
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.0
+  distance_eps: 0.001
+  device: cpu
+
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim: [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim: [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+eval:
+  batch_size: 24
+  num_workers: 6
+  pin_memory: true
+  
+  out_dir: multiround/eval_multiround/exp_ablation_dpo_beta/
+  
+  n_samples: 8
+  temperature: 0.1
+  use_relax: false               # Set to true for clash scores analysis
+  use_lddt: true                 # Enable lDDT calculation
+
+  # Complete metrics set (SLOW but comprehensive)
+  metrics:
+    - recovery                  # sequence recovery (teacher-forced)
+    - perplexity               # model confidence
+    - sc_eternafold            # 2D self-consistency with EternaFold
+    - sc_rhofold               # 3D self-consistency with RhoFold (RMSD, TM, GDT, pLDDT, INF, clash, lDDT, MCQ)
+    - vienna_mfe               # Vienna thermodynamics - Minimum Free Energy
+    - vienna_ED                # Vienna thermodynamics - Ensemble Defect (+ Shannon entropy)
+    - diversity_3mer           # 3-mer correlation diversity
+
+  save_designs: true
+
+  # Full pass@k analysis configuration
+  passk:
+    enable: false
+    k_values: [1, 2, 4, 8, 16, 32, 64]  # Full k values for comprehensive analysis
+    n_samples_passk: 64                  # Full sample size (takes longer)
+    
+    thresholds:
+      tm_score: [0.4, 0.45, 0.5, 0.55]   # TM-score thresholds (higher is better)
+      rmsd: [8.0, 6.0, 4.0, 2.0]         # RMSD thresholds in Angstroms (lower is better)
+      mfe: [-10.0, -15.0, -20.0]         # MFE thresholds in kcal/mol (lower is better)
+    
+    collect_individual_metrics: true     # Save individual metrics for each sample
+    plot_distributions: true            # Generate PDF plots for key metrics
+    plot_metrics: ["plddt", "rmsd", "tm_score", "mfe", "inf_all"]
+    save_passk_results: true
+    passk_output_dir: "passk_analysis"
+
+  wandb:
+    enable: true
+    project: DPO-RNA
+    entity: minghao-sun-soc
+
+# multiround/config/evaluation/eval_run/04_exp11_dpo_eval_add_v1.yaml
+# python -m dpo.bench.eval_full --config multiround/config/evaluation/eval_run/18_ablation_b_s5700_rd1.yaml

@@ -1,0 +1,190 @@
+# ribopo_v2/config/multiround_training.yaml
+# RiboPO v2 Multi-Round Training Configuration
+# Integrates winner-focused DPO with existing multiround infrastructure
+
+# Inherit from both multiround and RiboPO v2 defaults
+inherit_from: 
+  - multiround/config/multiround_defaults.yaml
+  - ribopo_v2/config/ribopo_v2_defaults.yaml
+
+# Experiment identification
+experiment:
+  name: "ribopo_v2_multiround_training"
+  description: "RiboPO v2 winner-focused multi-round DPO training"
+  version: "2.0"
+
+# Multi-round training configuration
+multiround:
+  num_rounds: 5                           # 5 rounds as specified
+  epochs_per_round: 20                    # 20 epochs per round
+  current_round: 1                        # Starting round
+  
+  # Reference model update strategy
+  update_reference: true                  # Update reference model each round
+  reference_update_method: "best_model"   # Use best model from previous round
+  
+  # Dynamic preference pair switching
+  dynamic_pairs: true                     # Enable dynamic pair switching
+  pair_schedule:
+    rounds_1_2: "0.25std"                # Use 0.25*std pairs for rounds 1-2
+    rounds_3_5: "0.125std"               # Use 0.125*std pairs for rounds 3-5
+  
+  # Evaluation schedule
+  eval_samples: 8                         # Quick evaluation per round
+  final_eval_samples: 200                 # Full candidate evaluation final round
+  eval_rounds_full: [1, 3, 5]           # Rounds with pass@k=64 evaluation
+  eval_rounds_quick: [2, 4]              # Rounds with pass@k=8 evaluation
+  
+  # Output organization
+  output_root: ribopo_v2/runs/multiround
+  save_round_checkpoints: true
+  save_best_only: false
+
+# RiboPO v2 specific training settings
+ribopo_v2_training:
+  # Winner pool configuration
+  candidate_pool_size: 200                # Generate 200 candidates per backbone
+  winner_pool_size: 10                    # Select top 10 winners per backbone
+  
+  # Pair generation settings
+  pairs_per_backbone: 30                  # Generate 30 preference pairs per backbone
+  margin_strategy: "dynamic"              # Use dynamic margin scheduling
+  
+  # Training data refresh
+  refresh_pairs_every: 2                  # Regenerate pairs every 2 rounds
+  refresh_winners_every: 1                # Refresh winners every round
+  
+  # Quality control
+  min_winners_per_backbone: 3             # Minimum winners required per backbone
+  backup_generation: true                 # Generate backup candidates if needed
+
+# Training configuration
+training:
+  epochs: 20                              # Epochs per round
+  batch_size: 16                          # Training batch size
+  grad_accum_steps: 4                     # Gradient accumulation steps
+  
+  # Learning rate schedule
+  lr_per_round:
+    round_1: 1.8e-4                       # Initial learning rate
+    round_2: 1.5e-4                       # Slightly reduced
+    round_3: 1.2e-4                       # Continue reduction
+    round_4: 1.0e-4                       # Lower for fine-tuning
+    round_5: 8.0e-5                       # Lowest for final round
+  
+  # Checkpointing
+  save_every: 50                          # Save every 50 steps
+  val_every: 50                           # Validate every 50 steps
+  keep_last_n: 5                          # Keep last 5 checkpoints
+
+# DPO configuration
+dpo:
+  beta: 0.13                              # DPO beta parameter
+  sft_lambda: 0.10                        # SFT regularization weight
+  label_smoothing: 0.0
+  max_len: 512
+
+# Path configuration for RiboPO v2
+paths:
+  # Use RiboPO v2 processed data
+  processed_pt: ribopo_v2/data_clean_filtered/processed.pt
+  split_pt: ribopo_v2/data_clean_filtered/das_split.pt
+  base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
+  
+  # Data root paths
+  project_root: /mnt/rna01/smh/projects/ribopo
+  data_root: /mnt/rna01/smh/projects/ribopo/ribopo_v2/data_clean_filtered
+  
+  # Output paths
+  results_dir: ribopo_v2/runs/multiround
+  pairs_dir: ribopo_v2/output/pairs
+  winners_dir: ribopo_v2/output/winners
+  
+  # Reference model paths (updated each round)
+  reference_model: null                   # Will be set during training
+  current_model: null                     # Will be set during training
+
+# Evaluation configuration
+eval:
+  # Sampling parameters
+  n_samples: 8                            # Quick evaluation samples per round
+  temperature: 0.5                        # Sampling temperature
+  
+  # Final round evaluation
+  final_n_samples: 200                    # Comprehensive final evaluation
+  final_temperatures: [0.5, 0.1]         # Multiple temperatures for final eval
+  
+  # Metrics for round-by-round tracking
+  round_metrics:
+    - recovery
+    - perplexity
+    - sc_rhofold                          # TM, RMSD, GDT, pLDDT
+    - vienna_mfe                          # MFE
+    - vienna_ED                           # Ensemble defect
+    - diversity_3mer                      # Sequence diversity
+  
+  # Pass@K evaluation settings
+  pass_k:
+    k_values: [1, 2, 4, 8, 16, 32, 64]
+    primary_thresholds:
+      tm_score: 0.45                      # Primary TM threshold for best model selection
+      rmsd: 8.0                           # Backup RMSD threshold
+      mfe: -15.0                          # Backup MFE threshold
+    
+    full_thresholds:
+      tm_score: [0.4, 0.45, 0.5, 0.55]
+      rmsd: [8.0, 6.0, 4.0, 2.0]
+      mfe: [-10.0, -15.0, -20.0]
+
+# Model selection configuration
+model_selection:
+  # Criteria for selecting best model from each round
+  primary_metric: "pass_8_tm_045"         # pass@8 with TM >= 0.45
+  tie_breaker: "mfe_mean"                 # Tie-break with lower (better) MFE
+  
+  # Candidate pool for model selection
+  max_candidates: 4                       # Consider top-4 models per round
+  candidate_criteria:
+    - "top_2_train_pref_acc"              # Top 2 by training preference accuracy
+    - "top_2_val_pref_acc_last_5"        # Top 2 by validation pref acc (last 5 epochs)
+  
+  # Validation settings
+  validation_samples: 24                  # Sample 24 backbones for dev-test
+  validation_seeds: [42, 123, 456]       # Fixed seeds for reproducibility
+
+# WandB logging configuration
+wandb:
+  enable: true
+  project: RiboPO-v2-Multiround
+  entity: minghao-sun-soc
+  run_name: ribopo_v2_multiround_${experiment.name}
+  tags: ["ribopo_v2", "multiround", "winner_focused", "dpo"]
+  notes: "RiboPO v2 multi-round training with winner-focused approach and dynamic pair switching"
+  group: "ribopo_v2_multiround"
+  
+  # Logging frequency
+  log_every: 1                            # Log every training step
+  log_round_summary: true                 # Log round summaries
+  log_model_selection: true               # Log model selection process
+
+# Debug and monitoring settings
+debug:
+  validate_pairs: true                    # Validate preference pairs each round
+  save_intermediate: true                 # Save intermediate results
+  profile_performance: true               # Profile training performance
+  log_winner_stats: true                  # Log winner selection statistics
+  
+  # Memory management
+  clear_cache_every_round: true           # Clear metrics cache between rounds
+  force_gc_every_epoch: false             # Force garbage collection (disable for speed)
+
+# Quality gates and validation
+validation:
+  # Minimum requirements for continuing to next round
+  min_winners_total: 50                   # Minimum total winners across all backbones
+  min_pairs_total: 150                    # Minimum total pairs for training
+  max_failed_generations: 3               # Maximum failed candidate generations before abort
+  
+  # Performance monitoring
+  max_training_time_hours: 24             # Maximum training time per round
+  min_improvement_threshold: 0.01         # Minimum improvement to continue

@@ -63,9 +63,75 @@ class DPOPairDataset(Dataset):
 
         # map to processed entry + pre-featurize or keep raw and featurize on the fly
         self.letter_to_num = self.featurizer.letter_to_num
+        
+        # ID mapping for handling dataset migration from original to clean filtered
+        self.id_mapping = {
+            '5HCQ_1_2x': '5HCQ_1_2B',  # Chain naming standardization
+            '8AGW_1_x': '8AGW_1_h',   # Chain naming standardization
+        }
+        
+        # Initialize statistics for missing IDs
+        self.missing_ids = set()
+        self.mapped_ids = {}
+        self.completely_missing = set()
 
     def __len__(self):
         return len(self.pairs)
+    
+    def _resolve_missing_id(self, cid: str) -> Optional[str]:
+        """
+        Resolve missing structure IDs using mapping and fallback strategies.
+        
+        Args:
+            cid: Original canonical ID that's missing from the dataset
+            
+        Returns:
+            Mapped ID if found, None if completely missing
+        """
+        # First check direct mapping
+        if cid in self.id_mapping:
+            mapped_id = self.id_mapping[cid]
+            if mapped_id in self.id_index:
+                self.mapped_ids[cid] = mapped_id
+                return mapped_id
+            else:
+                # Mapped ID also doesn't exist
+                self.completely_missing.add(cid)
+                return None
+        
+        # Try to find similar IDs by PDB code (first 4 characters)
+        if len(cid) >= 4:
+            pdb_code = cid[:4]
+            similar_ids = [id for id in self.id_index.keys() if id.startswith(pdb_code)]
+            if similar_ids:
+                # Use the first similar ID as fallback
+                fallback_id = similar_ids[0]
+                self.mapped_ids[cid] = fallback_id
+                print(f"Info: Mapping missing ID {cid} to similar ID {fallback_id}")
+                return fallback_id
+        
+        # No mapping found - this ID is completely missing
+        self.completely_missing.add(cid)
+        return None
+    
+    def print_id_mapping_stats(self):
+        """Print statistics about missing ID resolution."""
+        if self.missing_ids:
+            print(f"\n=== ID Mapping Statistics ===")
+            print(f"Total missing IDs encountered: {len(self.missing_ids)}")
+            print(f"Successfully mapped IDs: {len(self.mapped_ids)}")
+            print(f"Completely missing IDs: {len(self.completely_missing)}")
+            
+            if self.mapped_ids:
+                print(f"\nSuccessfully mapped:")
+                for orig, mapped in self.mapped_ids.items():
+                    print(f"  {orig} -> {mapped}")
+            
+            if self.completely_missing:
+                print(f"\nCompletely missing (filtered out):")
+                for missing_id in sorted(self.completely_missing):
+                    print(f"  {missing_id}")
+            print("=" * 30)
 
     def _build_graph_from_entry(self, entry_idx: int):
         entry = self.processed[entry_idx]
@@ -109,9 +175,28 @@ class DPOPairDataset(Dataset):
         current_pattern = 0
         
         while attempts < max_attempts:
+            cid = "unknown"  # Initialize cid for error handling
             try:
                 pair = self.pairs[idx]
                 cid = canonical_id_from_path(pair["pdb_file"])
+                
+                # Handle missing IDs with mapping and fallback strategies
+                if cid not in self.id_index:
+                    self.missing_ids.add(cid)
+                    resolved_cid = self._resolve_missing_id(cid)
+                    if resolved_cid is None:
+                        # ID completely missing - skip this pair
+                        print(f"Warning: Skipping index {idx} ({cid}) - structure completely missing from dataset (attempt {attempts+1}/{max_attempts})")
+                        failed_indices.append((idx, cid, "missing_structure"))
+                        skip = skip_patterns[current_pattern % len(skip_patterns)]
+                        idx = (idx + skip) % len(self.pairs)
+                        attempts += 1
+                        current_pattern += 1
+                        continue
+                    else:
+                        # Use the resolved ID
+                        cid = resolved_cid
+                
                 gi = self.id_index[cid]
 
                 graph = self._build_graph_from_entry(gi)
@@ -153,8 +238,8 @@ class DPOPairDataset(Dataset):
                     print(f"Error: Unexpected ValueError at index {idx} ({cid}): {e}")
                     raise e
             except Exception as e:
-                print(f"Error: Unexpected exception at index {idx}: {e}")
-                failed_indices.append((idx, "unknown", f"unexpected: {e}"))
+                print(f"Warning: Skipping index {idx} ({cid}) due to unexpected exception: {type(e).__name__}: {e} (attempt {attempts+1}/{max_attempts})")
+                failed_indices.append((idx, cid, f"unexpected: {type(e).__name__}: {e}"))
                 # Use variable skip pattern to avoid clusters
                 skip = skip_patterns[current_pattern % len(skip_patterns)]
                 idx = (idx + skip) % len(self.pairs)

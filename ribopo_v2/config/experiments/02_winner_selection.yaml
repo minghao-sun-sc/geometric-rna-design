@@ -1,0 +1,161 @@
+# 02_winner_selection.yaml
+# RiboPO v2 Phase 2: Test winner selection with S_total reward formula
+# Validates reward calculation, normalization, and winner selection pipeline
+
+inherit_from: ribopo_v2/config/ribopo_v2_defaults.yaml
+
+# Experiment identification
+experiment:
+  name: "winner_selection_test"
+  phase: 2
+  description: "Test S_total reward calculation, per-backbone normalization, and winner selection"
+
+# Device and reproducibility
+seed: 42
+device: cuda
+
+# Winner selection testing configuration
+ribopo_v2:
+  candidate_pool_size: 100              # Smaller pool for testing winner selection
+  winner_pool_size: 10                  # Select top 10 winners per backbone
+  
+  # Test reward formula: S_total = 0.50*TM + 0.30*INF + 0.20*ED
+  reward_formula:
+    tm_weight: 0.50                     # Structure fidelity weight
+    inf_weight: 0.30                    # Interaction fidelity weight  
+    ed_weight: 0.20                     # Ensemble defect weight
+    normalize_per_backbone: true        # Enable per-backbone normalization
+  
+  # Winner gates testing
+  winner_gates:
+    tm_min: 0.20                        # Loose TM-score threshold
+    rmsd_max: 12.0                      # Loose RMSD threshold
+    plddt_downweight: 0.6               # pLDDT down-weighting threshold
+    apply_gates: true                   # Enable gate filtering
+  
+  # Normalization testing
+  normalization:
+    method: "percentile_rank"           # Percentile ranking method
+    target_std: [0.25, 0.35]          # Target std deviation range
+    winsorize: [0.05, 0.95]           # Outlier winsorization
+    validate_distributions: true        # Validate normalized distributions
+
+# Evaluation-only mode for winner selection testing
+mode: "evaluation_only"
+
+# Evaluation configuration for winner testing
+eval:
+  n_samples: 100                        # 100 candidates for winner selection
+  temperature: 0.5                      # Standard sampling temperature
+  
+  # Full metrics needed for S_total calculation
+  metrics:
+    - recovery                          # For baseline comparison
+    - sc_rhofold                       # TM, RMSD, pLDDT, INF required
+    - vienna_ED                        # Ensemble defect required
+    - vienna_mfe                       # Additional context
+    - diversity_3mer                   # Diversity analysis
+  
+  # Winner selection specific settings
+  winner_selection:
+    enable: true                        # Enable winner selection mode
+    save_all_metrics: true             # Save comprehensive metrics
+    save_reward_breakdown: true        # Save S_total component breakdown
+    validate_normalization: true       # Validate per-backbone normalization
+
+# Paths for winner selection testing
+paths:
+  save_dir: ribopo_v2/runs/02_winner_selection
+  candidates_dir: ribopo_v2/output/candidates/phase2
+  cache_dir: ribopo_v2/cache/metrics/phase2
+  
+  # Winner selection outputs
+  candidates_file: ribopo_v2/output/candidates_phase2.jsonl
+  winners_file: ribopo_v2/output/winners_phase2.csv
+  metrics_file: ribopo_v2/output/metrics_phase2.json
+  reward_breakdown_file: ribopo_v2/output/reward_breakdown_phase2.json
+  normalization_stats_file: ribopo_v2/output/normalization_stats_phase2.json
+
+# Testing configuration for winner selection
+testing:
+  limit_backbones: 20                   # Test on 20 backbones
+  use_test_set: true                    # Use test set
+  
+  # Success criteria for phase 2
+  success_criteria:
+    winners_per_backbone_min: 1         # ≥1 winner per backbone
+    winners_per_backbone_target: 10     # Target 10 winners per backbone
+    s_total_range: [0.0, 1.0]          # S_total should be in [0,1]
+    normalization_std: [0.25, 0.35]    # Normalized metrics std in target range
+    coverage_pct: 100                   # 100% backbone coverage with winners
+    
+  # Quality criteria
+  quality_criteria:
+    winner_tm_mean_min: 0.25           # Winners should have TM > 0.25 on average
+    winner_s_total_min: 0.5            # Winners should have S_total > 0.5
+    reward_correlation_min: 0.7        # S_total should correlate with TM
+    
+  # Distribution validation
+  distribution_validation:
+    check_tm_distribution: true        # Validate TM score distributions
+    check_inf_distribution: true       # Validate INF score distributions  
+    check_ed_distribution: true        # Validate ED score distributions
+    check_s_total_distribution: true   # Validate S_total distributions
+
+# Winner selection algorithm configuration
+winner_selection:
+  algorithm: "top_k_per_backbone"       # Top-K selection per backbone
+  ranking_metric: "s_total"            # Primary ranking metric
+  tie_breaker: "tm_score"              # Tie-breaking metric
+  
+  # Selection strategy
+  strategy:
+    ensure_coverage: true               # Ensure every backbone has winners
+    expand_k_if_needed: true           # Expand K if no winners meet gates
+    fallback_k: 20                     # Fallback to top 20 if gates too strict
+    
+  # Quality control
+  quality_control:
+    remove_duplicates: true            # Remove duplicate sequences
+    validate_sequences: true           # Validate sequence validity
+    check_length_consistency: true     # Check sequence-structure length match
+
+# Normalization algorithm details  
+normalization:
+  per_backbone: true                    # Enable per-backbone normalization
+  method: "percentile_rank"            # Use percentile ranking
+  handle_outliers: "winsorize"         # Winsorize extreme outliers
+  
+  # Percentile ranking details
+  percentile_method: "average"          # Handle ties with average
+  bounds: [0.0, 1.0]                   # Normalize to [0,1] range
+  
+  # Validation metrics
+  validate_std: true                   # Check standard deviation in target range
+  validate_distribution: true         # Check for reasonable distributions
+  save_before_after: true             # Save pre/post normalization distributions
+
+# Logging and monitoring
+wandb:
+  enable: true
+  project: RiboPO-v2-Testing
+  entity: minghao-sun-soc
+  run_name: 02_winner_selection_test
+  tags: ["phase2", "winner_selection", "reward_formula", "normalization"]
+  notes: "Phase 2: Test S_total reward calculation and winner selection with normalization"
+  group: "ribopo_v2_phase2"
+
+# Debug settings for winner selection
+debug:
+  save_reward_components: true         # Save TM, INF, ED components separately
+  save_normalization_details: true    # Save normalization transformation details
+  save_selection_process: true        # Save step-by-step selection process
+  plot_distributions: true            # Generate distribution plots
+  validate_each_step: true            # Validate each processing step
+
+# Expected outputs for validation
+expected_outputs:
+  winners_per_backbone: 10             # Target winners per backbone
+  s_total_mean_range: [0.5, 0.8]      # Expected S_total range for winners
+  normalization_success_rate: 1.0     # All backbones should normalize successfully
+  coverage_rate: 1.0                  # All backbones should have winners

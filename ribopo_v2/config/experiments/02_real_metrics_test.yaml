@@ -1,0 +1,35 @@
+# Test configuration for real metrics evaluation
+# Uses actual structure prediction and comprehensive metric calculation
+
+inherit_from: ribopo_v2/config/ribopo_v2_defaults.yaml
+
+experiment_name: real_metrics_test
+description: Test RiboPO v2 with real metrics evaluation using RhoFold+, ViennaRNA, and INF
+
+ribopo_v2:
+  # Enable real metrics
+  use_real_metrics: true
+  metrics_cache_dir: ribopo_v2/cache/metrics_test
+  use_metrics_cache: true
+  
+  # Use smaller pool for testing with expensive metrics
+  candidate_pool_size: 10            # Reduced for testing (normally 200)
+  winner_pool_size: 3                # Reduced for testing (normally 10)
+  temperature_diversity: [0.5]       # Single temperature for quick test
+  
+  # Adjust quality gates for real metrics
+  winner_gates:
+    tm_min: 0.10                    # Lower threshold for real predictions
+    rmsd_max: 20.0                  # Higher threshold for real predictions
+    plddt_downweight: 0.5           # More lenient pLDDT threshold
+
+# Override evaluation settings for quick testing
+evaluation:
+  limit_test_structures: 1          # Test with just 1 structure
+  save_designs: false               # Don't save for speed
+  use_relax: false                  # No relaxation for speed
+  
+# Logging
+logging:
+  level: INFO
+  log_metrics_details: true         # Log detailed metrics for debugging

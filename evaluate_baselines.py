@@ -76,6 +76,10 @@ def evaluate_individual_fasta_model(model_name: str, model_dir: str, output_dir:
             # Extract structure ID from filename
             structure_id = os.path.basename(fasta_file).replace('.fasta', '')
             
+            # Handle RhoDesign's _without2d suffix
+            if structure_id.endswith('_without2d'):
+                structure_id = structure_id.replace('_without2d', '')
+            
             with open(fasta_file, 'r') as infile:
                 lines = infile.readlines()
                 if len(lines) >= 2:
@@ -481,7 +485,7 @@ def evaluate_r3design_model(model_dir: str, output_dir: str, config):
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate baseline RNA design models")
-    parser.add_argument("--models", nargs="+", default=["rdesign", "rifold", "ridiff", "ribodiffusion", "r3design"],
+    parser.add_argument("--models", nargs="+", default=["rdesign", "rifold", "ridiff", "ribodiffusion", "r3design", "rhodesign"],
                        help="Models to evaluate (default: all)")
     parser.add_argument("--config", default="multiround/config/evaluation/baseline_eval.yaml",
                        help="Evaluation configuration file")
@@ -533,7 +537,7 @@ def main():
             result = evaluate_ribodiffusion_model(model_dir, model_output_dir, config)
         elif model_name == "r3design":
             result = evaluate_r3design_model(model_dir, model_output_dir, config)
-        elif model_name in ["rdesign", "rifold"]:
+        elif model_name in ["rdesign", "rifold", "rhodesign"]:
             result = evaluate_individual_fasta_model(model_name, model_dir, model_output_dir, config)
         else:
             print(f"⚠️ Unknown model type: {model_name}, skipping...")

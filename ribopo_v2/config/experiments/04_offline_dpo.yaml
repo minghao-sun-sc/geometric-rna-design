@@ -1,0 +1,195 @@
+# 04_offline_dpo.yaml  
+# RiboPO v2 Phase 4: Offline DPO training on best-vs-random pairs
+# Core DPO training using pre-generated preference pairs with best-vs-random strategy
+
+inherit_from: ribopo_v2/config/ribopo_v2_defaults.yaml
+
+# Experiment identification
+experiment:
+  name: "offline_dpo_training"
+  phase: 4
+  description: "Offline DPO training on best-vs-random preference pairs with SFT regularization"
+
+# Device and reproducibility
+seed: 42
+device: cuda
+loss_type: dpo                          # DPO + SFT combined loss
+
+# DPO configuration for offline training
+dpo:
+  beta: 0.13                           # DPO temperature parameter
+  sft_lambda: 0.10                     # SFT regularization weight
+  label_smoothing: 0.0                 # No label smoothing
+  max_len: 512                         # Maximum sequence length
+
+# Multiround DPO configuration  
+multiround:
+  num_rounds: 3                        # 3 rounds for offline DPO
+  epochs_per_round: 20                 # 20 epochs per round
+  update_reference: true               # Update reference model each round
+  
+  # Evaluation settings
+  eval_samples: 64                     # Evaluation samples per round
+  final_eval_samples: 200              # Final evaluation samples
+  eval_temperature: 0.5                # Evaluation temperature
+
+# Preference pair configuration
+preference_pairs:
+  # Best-vs-random pairing strategy
+  pairing_strategy: "best_vs_random"   # Core RiboPO v2 strategy
+  negatives_per_winner: 3              # 3 random negatives per winner
+  margin_calculation: "mad"            # Use MAD for margin calculation
+  margin_factor: 0.8                   # Margin = 0.8 * MAD(ΔS_total)
+  
+  # Pair validation and filtering
+  validation:
+    enable_veto: true                  # Enable light veto rules
+    veto_threshold: 0.75               # Drop if winner >0.75σ worse on TM/INF
+    min_margin: 0.1                    # Minimum required margin
+    max_pairs_per_backbone: 30         # Limit pairs per backbone
+  
+  # Data paths
+  pairs_file: ribopo_v2/output/pairs_offline.jsonl
+  winners_file: ribopo_v2/output/winners_only.jsonl
+
+# Training configuration for offline DPO
+training:
+  epochs: 20                           # Epochs per round (matches multiround)
+  batch_size: 16                       # DPO batch size
+  grad_accum_steps: 4                  # Gradient accumulation
+  precision: bf16                      # Mixed precision training
+  
+  # Optimizer for DPO
+  optimizer:
+    name: adamw
+    lr: 1.8e-4                        # Standard DPO learning rate
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    grad_clip_norm: 1.0
+  
+  # Scheduler
+  scheduler:
+    name: cosine
+    warmup_steps: 1000                 # Warmup steps
+    min_lr_ratio: 0.1
+
+# Reference model configuration
+reference_model:
+  update_strategy: "clone_best"        # Clone best model from previous round
+  selection_metric: "tm_mean"          # Metric for selecting best model
+  tie_breaker: "mfe_mean"             # Tie-breaking metric
+  
+  # Reference selection validation
+  validation:
+    use_dev_test: true                 # Use dev-test for selection
+    dev_test_size: 24                  # 24 backbones for dev-test
+    pass_k_threshold: 8                # Pass@8 evaluation
+    tm_threshold: 0.45                 # TM threshold for pass@k
+
+# Evaluation configuration for DPO
+eval:
+  n_samples: 64                        # Standard evaluation samples
+  temperature: 0.5                     # Evaluation temperature
+  
+  # DPO-specific evaluation
+  dpo_eval:
+    compute_preference_accuracy: true   # Compute preference accuracy
+    eval_margin_quality: true          # Evaluate margin quality
+    compare_to_sft: true               # Compare to SFT baseline
+    track_winner_likelihood: true      # Track winner likelihood changes
+  
+  # Comprehensive metrics
+  metrics:
+    - recovery                          # Sequence recovery
+    - perplexity                       # Model confidence
+    - sc_rhofold                       # 3D structure metrics (TM, RMSD, pLDDT, INF)
+    - vienna_mfe                       # Thermodynamic metrics
+    - vienna_ED                        # Ensemble metrics
+    - diversity_3mer                   # Diversity analysis
+  
+  # Round-specific evaluation
+  eval_every_round: true               # Evaluate after each round
+  save_round_results: true             # Save results per round
+  plot_progression: true               # Plot improvement across rounds
+
+# Paths for offline DPO
+paths:
+  save_dir: ribopo_v2/runs/04_offline_dpo
+  checkpoint_dir: ribopo_v2/checkpoints/offline_dpo
+  
+  # Input data
+  pairs_offline: ribopo_v2/output/pairs_offline.jsonl
+  winners_only: ribopo_v2/output/winners_only.jsonl
+  sft_checkpoint: ribopo_v2/checkpoints/sft_baseline/best.pt
+  
+  # Output paths
+  dpo_results: ribopo_v2/results/offline_dpo_results.json
+  round_metrics: ribopo_v2/results/offline_dpo_round_metrics.csv
+  progression_plots: ribopo_v2/results/offline_dpo_progression.png
+
+# DPO training strategy
+dpo_strategy:
+  # Loss combination
+  loss_weights:
+    dpo_loss: 1.0                      # Primary DPO loss weight
+    sft_loss: 0.10                     # SFT regularization weight
+  
+  # Training progression
+  progressive_training:
+    enable: false                      # No curriculum for offline DPO
+    difficulty_ramp: false             # Static difficulty
+  
+  # Quality control
+  quality_control:
+    clip_logits: true                  # Clip extreme logits
+    stability_check: true              # Check training stability
+    divergence_monitoring: true        # Monitor KL divergence
+
+# Success criteria for offline DPO
+success_criteria:
+  # Preference learning
+  preference_accuracy_min: 0.65        # Preference accuracy > 65%
+  margin_consistency: true             # Margins should be consistent
+  
+  # Performance improvement
+  tm_improvement_min: 0.05             # TM improvement > 0.05 over SFT
+  mfe_improvement_min: 2.0             # MFE improvement > 2.0 kcal/mol
+  winner_likelihood_increase: true     # Winner likelihood should increase
+  
+  # Training stability
+  loss_convergence: true               # Loss should converge
+  no_overfitting: true                # No severe overfitting
+  gradient_stability: true            # Stable gradients
+
+# Logging and monitoring
+wandb:
+  enable: true
+  project: RiboPO-v2-Training
+  entity: minghao-sun-soc
+  run_name: 04_offline_dpo_training
+  tags: ["phase4", "offline_dpo", "best_vs_random", "multiround"]
+  notes: "Phase 4: Offline DPO training with best-vs-random pairs and reference updates"
+  group: "ribopo_v2_training"
+
+# Monitoring and analysis
+monitoring:
+  # Training monitoring
+  log_preference_accuracy: true        # Log preference accuracy
+  log_margin_stats: true              # Log margin statistics
+  log_winner_probs: true              # Log winner probabilities
+  
+  # Round progression
+  track_round_progression: true        # Track metrics across rounds
+  save_intermediate_models: true       # Save models after each round
+  
+  # Comparison analysis
+  compare_to_baseline: true           # Compare to SFT baseline
+  analyze_failure_cases: true         # Analyze failed preferences
+
+# Debug settings
+debug:
+  save_preference_data: true          # Save preference pair analysis
+  validate_pairs: true               # Validate pair quality
+  monitor_reference_updates: true     # Monitor reference model updates
+  track_model_evolution: true        # Track model changes across rounds

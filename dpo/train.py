@@ -19,8 +19,33 @@ def _to_sn(o):
 
 
 def load_cfg(path: str) -> SN:
-    with open(path, "r") as f:
-        raw = yaml.safe_load(f)
+    """Load configuration with inheritance support."""
+    def load_config_with_inheritance(config_path):
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        if 'inherit_from' in config:
+            if isinstance(config['inherit_from'], str):
+                parent_paths = [config['inherit_from']]
+            else:
+                parent_paths = config['inherit_from']
+            
+            for parent_path in parent_paths:
+                parent_config = load_config_with_inheritance(parent_path)
+                # Deep merge parent config with current config (current overrides parent)
+                def deep_merge(dict1, dict2):
+                    result = dict1.copy()
+                    for key, value in dict2.items():
+                        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                            result[key] = deep_merge(result[key], value)
+                        else:
+                            result[key] = value
+                    return result
+                config = deep_merge(parent_config, config)
+        
+        return config
+    
+    raw = load_config_with_inheritance(path)
     return _to_sn(raw)
 
 
