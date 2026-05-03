@@ -1,65 +1,255 @@
-# Custom
-/notebooks/designs/
-/tools
-data/*
-!data/pairs_margin125/
-/wandb
-/slurm
-/docs/milestones/
-/docs
-arnie_file.txt
-.DS_Store
+# ============================================================================
+# RiboPO — open-source-ready .gitignore
+#
+# Strategy:
+#   1. Track:    code (src/, dpo/, multiround/), public configs, scripts,
+#                docs, manuscript LaTeX SOURCE, the canonical paper checkpoints.
+#   2. Don't track: AI-agent state, planning/progress docs, manuscript drafts
+#                & build artifacts, templates, papers (other authors'),
+#                wandb / runs / outputs / designs_* (training scratch),
+#                large data files (distribute via Zenodo), most .pt files.
+# ============================================================================
+
+
+# ----------------------------------------------------------------------------
+# AI agent / IDE state — NEVER track
+# ----------------------------------------------------------------------------
+CLAUDE.md
+AGENTS.md
+.codex
+.codex/
+.claude/
+.cursor/
+.aider*
+**/CLAUDE.md
+**/AGENTS.md
+**/.codex
+**/.codex/
+
+
+# ----------------------------------------------------------------------------
+# Progress / planning / status documents (research-non-relevant)
+# ----------------------------------------------------------------------------
+PROJECT_STATUS.md
+PROJECT_STRUCTURE.md
+ROADMAP.md
+RUN_MANIFEST.md
+WORKSPACE_MANIFEST.md
+WORKFLOWS.md
+CONFIG_INDEX.md
+CURATION.md
+**/PROJECT_STATUS.md
+**/PROJECT_STRUCTURE.md
+**/ROADMAP.md
+**/RUN_MANIFEST.md
+**/WORKSPACE_MANIFEST.md
+**/WORKFLOWS.md
+**/CONFIG_INDEX.md
+**/CURATION.md
+**/notes/
+**/tasks/
+docs/milestones/
+**/docs/milestones/
+cleanup_summary_report.md
+
+
+# ----------------------------------------------------------------------------
+# Manuscript drafts, private memos, templates, build artifacts
+# Source LaTeX *is* tracked; only intermediate/private/heavy stuff is excluded.
+# ----------------------------------------------------------------------------
+
+# Private feedback memos & reviewer-facing drafts
+manuscript/feedback/
+manuscript/ICML_Rebuttal_Material/
+
+# LaTeX templates (third-party, not our content)
+manuscript/Springer_Nature_LaTeX_Template/
+manuscript/Formatting_Instructions_For_NeurIPS_2026/
+manuscript/iclr2026_template/
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.synctex*
+*.toc
+*.lof
+*.lot
+*.pyg
+*.nav
+*.snm
+
+# Compiled manuscript PDFs (regenerated from source; don't commit)
+manuscript/RiboPO_revision/iclr2026_conference.pdf
+manuscript/RiboPO_revision/RiboPO_ICML_submit_vers.pdf
+manuscript/RiboPO_ICML_submit/RiboPO_ICML_submit_vers.pdf
+**/build_workdir.sh
+
+# Local stub .sty files (workarounds for missing texlive packages on this cluster)
+manuscript/RiboPO_revision/makecell.sty
+manuscript/RiboPO_revision/multirow.sty
+manuscript/RiboPO_revision/wrapfig.sty
+manuscript/RiboPO_revision/bbm.sty
+
+
+# ----------------------------------------------------------------------------
+# Other authors' papers / external PDFs (not ours to redistribute)
+# ----------------------------------------------------------------------------
+external/papers/
+**/external/papers/
+external/**/*.pdf
+**/external/**/*.pdf
 docs/RiboPO_ICLR2026.pdf
 
-ribopo_v2/cache/
-ribopo_v2/data_clean
-ribopo_v2/data_clean_filtered
-ribopo_v2/output
-ribopo_v2/results
-ribopo_v2/runs
-ribopo_v2/debug
+
+# ----------------------------------------------------------------------------
+# Training scratch — NEVER track (huge, regenerable)
+# ----------------------------------------------------------------------------
+wandb/
+**/wandb/
+runs/
+**/runs/
+outputs/
+**/outputs/
+slurm_logs/
+**/slurm_logs/
+slurm/
+**/slurm/
+designs_*/
+designed_test/
+designs_round_*/
+nohup.out
+eval_log.txt
+*.mcout
+multiround/runs/
+multiround/eval_multiround/
+dpo/runs/
+dpo/eval_results/
+dpo/hpo/optuna_results/
+dpo/debug/archive/
+dpo/debug/out/
+dpo/debug/out_len/
+dpo/debug/*test_output/
+dpo/debug/*debug/
 
 
+# ----------------------------------------------------------------------------
+# Large data files & external tools — distribute via Zenodo, not git
+# ----------------------------------------------------------------------------
+data/*
+!data/README.md
+!data/.gitkeep
+tools/
+**/tools/
+backup_checkpoints/
 
 
-# *.ipynb
-checkpoints/
-backup_checkpoints/*
-Miniforge3-Linux-x86_64.sh
-exit/
+# ----------------------------------------------------------------------------
+# Checkpoints (.pt / .pth / .ckpt)
+#
+# Default-ignore all checkpoint files; explicitly allow ONLY the canonical
+# paper checkpoints + the dataset-split index. Phase-2 / debug / sweep
+# checkpoints stay out (release selectively via Zenodo if needed).
+# ----------------------------------------------------------------------------
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.tar
+*.npz
+# canonical paper checkpoints — INCLUDE
+!dpo/ckpts/multi_b0.12_rd1.pt
+!dpo/ckpts/multi_b0.12_rd2.pt
+!dpo/ckpts/multi_b0.12_rd4.pt
+!dpo/ckpts/beta0.12_lambda0.10_best_pref_acc.pt
+# dataset split file (not a real model ckpt, just .pt-format)
+!data/das_split.pt
 
-# DPO-RNA
-multiround/runs/*
-multiround/eval_multiround/*
-dpo/runs/*
-dpo/__pycache__/
-dpo/debug/__pycache__/
-runs/*
-CLAUDE.md
-dpo/eval_results/*
-dpo/hpo/optuna_results/*
-designs_round_1/*
 
-# Additional cleanup patterns
+# ----------------------------------------------------------------------------
+# Archives & legacy experiments (kept locally; not part of public release)
+# ----------------------------------------------------------------------------
+archive_pls_ignore/
+old_*/
+backup_*/
+debug_*/
+scratch_*/
+**/debug_*/
+**/scratch_*/
+
+
+# ----------------------------------------------------------------------------
+# ribopo_v4 (parallel curated workspace) — track its code, not its scratch.
+# Most ribopo_v4 content has been promoted to the root; the surviving tree
+# is mostly historical, so we ignore aggressively.
+# ----------------------------------------------------------------------------
+ribopo_v4/notes/
+ribopo_v4/tasks/
+ribopo_v4/outputs/
+ribopo_v4/wandb/
+ribopo_v4/runs/
+ribopo_v4/manuscript/
+ribopo_v4/rebuttal/
+ribopo_v4/PROJECT_STATUS.md
+ribopo_v4/PROJECT_STRUCTURE.md
+ribopo_v4/ROADMAP.md
+ribopo_v4/RUN_MANIFEST.md
+ribopo_v4/WORKSPACE_MANIFEST.md
+ribopo_v4/WORKFLOWS.md
+ribopo_v4/CONFIG_INDEX.md
+ribopo_v4/CURATION.md
+ribopo_v4/AGENTS.md
+ribopo_v4/CLAUDE.md
+ribopo_v4/temp_*.fasta
+ribopo_v4/molprobity*
+ribopo_v4/molprobity_coot.py
+
+
+# ----------------------------------------------------------------------------
+# Local environment & cluster bootstrap (not for distribution)
+# ----------------------------------------------------------------------------
+.env
+**/.env
+.env.bak
+**/scripts/cluster_attach.sh
+**/scripts/activate_env.sh
+
+
+# ----------------------------------------------------------------------------
+# Misc scratch / temp files
+# ----------------------------------------------------------------------------
+test_vienna_fix.py
+*.fasta
+!data/raw_seq.fasta
+arnie_file.txt
+molprobity*
+rna.ps
 *.bak
 *.backup
 *~
 *.tmp
 *.temp
-*.mcout
-dpo/debug/archive/*
-dpo/debug/out/*
-dpo/debug/out_len/*
-dpo/debug/*test_output/
-dpo/debug/*debug/
-dpo/eval_results/archive/*
+Miniforge3-Linux-x86_64.sh
+exit/
 
-# Byte-compiled / optimized / DLL files
+
+# ----------------------------------------------------------------------------
+# Notebooks
+# ----------------------------------------------------------------------------
+.ipynb_checkpoints
+**/.ipynb_checkpoints
+notebooks/designs/
+
+
+# ----------------------------------------------------------------------------
+# Standard Python ignores
+# ----------------------------------------------------------------------------
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
 # Distribution / packaging
@@ -82,17 +272,19 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+
+# ----------------------------------------------------------------------------
+# PyInstaller / installer logs
+# ----------------------------------------------------------------------------
 *.manifest
 *.spec
-
-# Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+
+# ----------------------------------------------------------------------------
+# Test / coverage
+# ----------------------------------------------------------------------------
 htmlcov/
 .tox/
 .nox/
@@ -107,102 +299,69 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Translations
-*.mo
-*.pot
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# ----------------------------------------------------------------------------
+# Type checkers / linters
+# ----------------------------------------------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+cython_debug/
 
-# Flask stuff:
-instance/
-.webassets-cache
 
-# Scrapy stuff:
-.scrapy
+# ----------------------------------------------------------------------------
+# IDEs / editors
+# ----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.spyderproject
+.spyproject
+.ropeproject
 
-# Sphinx documentation
-docs/_build/
 
-# PyBuilder
-.pybuilder/
-target/
+# ----------------------------------------------------------------------------
+# OS
+# ----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
 
-# Jupyter Notebook
-.ipynb_checkpoints
 
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
+# ----------------------------------------------------------------------------
+# Virtual environments
+# ----------------------------------------------------------------------------
 .venv
-env/
 venv/
+env/
 ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
 
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
+# ----------------------------------------------------------------------------
+# Other
+# ----------------------------------------------------------------------------
+*.log
+*.out
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+.pybuilder/
+target/
+profile_default/
+ipython_config.py
+__pypackages__/
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+*.mo
+*.pot
 /site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-.idea/
