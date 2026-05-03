@@ -1,0 +1,12 @@
+[submodule "external/RhoDesign"]
+	path = external/RhoDesign
+	url = https://github.com/ml4bio/RhoDesign.git
+[submodule "external/RIdiffusion"]
+	path = external/RIdiffusion
+	url = https://github.com/byternaAdmin/RIdiffusion.git
+[submodule "external/RDesign"]
+	path = external/RDesign
+	url = https://github.com/A4Bio/RDesign.git
+[submodule "external/RiFold"]
+	path = external/RiFold
+	url = https://github.com/zjuKeLiu/RiFold.git

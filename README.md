@@ -1,176 +1,154 @@
-# RiboPO
+# RiboPO: Pareto-Preference Optimization for Structure- and Stability-Aware RNA Design
 
-Preference Optimization (DPO/SimPO) for RNA inverse folding (temperorary name)
+Preference-optimization framework for RNA inverse folding that addresses two RNA-specific failure modes: **heterogeneous noise** across physical proxies (deterministic 2D folding, stochastic 3D prediction, GC-confounded free energy) and **sequence–structure degeneracy** that enables compositional reward hacking via GC enrichment.
 
+The framework wraps gRNAde with three RNA-specific design choices:
 
-Multi-Round PO for the training. 
+1. **ε-Pareto-dominance preference set** on standardized per-metric features.
+2. **Variability-aware margin** (`α_r · σ_m`) — a heteroscedastic Bradley–Terry confidence threshold.
+3. **Frozen-reference DPO with a decreasing-margin curriculum** — mirror descent on a KL trust region with a quantitative off-policy bias bound.
 
-Structural and Thermostability Rewards & Feedback
+Two extensions on top:
+- **Thermodynamic-surplus pair filter** that re-fits MFE on length and GC and drops GC-driven pairs (constructive defense against compositional reward hacking).
+- **Pareto-DPO Stage 2** — a weight-conditioned policy via FiLM that adds 1024 parameters and lets users traverse the Pareto front at inference time without retraining.
 
-Various Evaluation Metrics
+## Headline numbers (DAS test, 98 structures)
 
+| Axis | Metric | gRNAde | RiboPO | Δ |
+|---|---|---|---|---|
+| 2D | EternaFold scMCC | 0.61 | 0.69 | +13.2% (paired Wilcoxon p=1.2e-3) |
+| Thermo | Vienna MFE (kcal/mol) | −30.4 | −34.0 | −11.8% (p=7.0e-6) |
+| Thermo | P(target structure) | 0.0027 | 0.0215 | **+687%** (p=1.6e-5) |
+| Thermo | Melting Tm (°C) | 36.30 | 37.51 | +1.2 °C |
+| 3D | Designability (RMSD<8 Å) | 0.425 | 0.490 | +15.3 pp |
+| Func | INF non-canonical | −0.065 | −0.050 | +24% (p=1e-3) |
+| Practical | pass@1 (joint criterion) | 0.038 | **0.258** | exceeds gRNAde pass@64 (0.154); 64× sample efficiency |
 
+GC-controlled regression confirms 69% of the MFE gain is GC-independent (p=1.3e-7).
 
-## Project Overview
+## Repository layout
 
-RiboPO implements preference optimization methods (DPO/SimPO) to fine-tune the gRNAde RNA inverse folding model. The goal is to improve RNA sequence design that correctly folds into target 3D structures, critical for RNA therapeutics and synthetic biology.
+```
+ribopo/
+├── src/                          # gRNAde core (unmodified)
+├── dpo/                          # single-round DPO + SimPO + IPO + KTO + Pareto-DPO
+│   ├── losses.py                 # all preference-optimization loss functions
+│   ├── pareto_dpo.py             # weight-conditioned policy (Stage 2)
+│   ├── trainer.py                # DPOTrainer with loss dispatcher + Stage-2 wiring
+│   ├── train.py                  # CLI entry; --loss_type {dpo,simpo,ipo,kto,pareto_dpo,dpo_is}
+│   ├── bench/eval_full.py        # SSTT eval pipeline
+│   └── configs/experiments_phase2/ # canonical phase-2 configs
+├── multiround/                   # multi-round DPO with curriculum
+├── data/
+│   ├── pairs_margin125/          # baseline preference pairs (0.125σ margin)
+│   ├── pairs_margin25/           # baseline preference pairs (0.25σ margin)
+│   └── pairs_thermo_surplus_*/   # GC-controlled thermodynamic-surplus pair sets
+├── scripts/
+│   ├── build_thermo_surplus_pairs.py  # re-fit MFE regression and re-filter pairs
+│   ├── analyze_thermo_surplus.py      # appendix figure
+│   ├── dispatch_a100.sh               # srun --jobid --overlap dispatcher
+│   ├── auto_eval_watcher.sh           # polling watcher firing eval on training exit
+│   ├── eval_phase2_checkpoint.sh      # SSTT eval helper
+│   ├── aggregate_phase2_results.py    # combined results table + figures
+│   └── plot_beta_recovery_curve.py
+├── docs/
+│   ├── phase2_experiments.md     # design + status of Phase-2 sprint
+│   └── is_dpo_integration_plan.md # importance-corrected iterative DPO plan
+├── manuscript/
+│   ├── RiboPO_revision/          # editable manuscript working tree (LaTeX)
+│   └── RiboPO_ICML_submit/       # frozen ICML 2026 submission
+└── tools/                        # external (RhoFold+, EternaFold, Vienna, x3dna, MolProbity)
+```
 
-## Key Commands
+## Quick start
 
-### Training
 ```bash
-# SimPO training (recommended - more memory efficient)
-python -m dpo.train --config dpo/configs/defaults.yaml --loss_type simpo
+# Setup
+mamba activate grnade  # see env.md for environment details
 
-# DPO training  
-python -m dpo.train --config dpo/configs/defaults.yaml --loss_type dpo
+# Train RiboPO at the canonical β=0.12 with the variability-aware curriculum
+python -m dpo.train --config dpo/configs/experiments_phase2/beta_012.yaml
 
-# Override specific parameters
-python -m dpo.train --config dpo/configs/defaults.yaml --run_name custom_name --wandb_mode offline
+# Train Pareto-DPO Stage 2 (weight-conditioned policy)
+python -m dpo.train --config dpo/configs/experiments_phase2/pareto_stage2_b012.yaml
 
-# SLURM submission (SoC cluster)
-sbatch dpo/scripts/train.slurm dpo/configs/defaults.yaml
+# Train on the GC-controlled thermodynamic-surplus pair set
+python -m dpo.train --config dpo/configs/experiments_phase2/thermo_surplus_m25.yaml
+
+# Loss-ablation (IPO / KTO / Pareto-DPO Stage 1)
+python -m dpo.train --config dpo/configs/experiments_phase2/ipo_b012.yaml
+python -m dpo.train --config dpo/configs/experiments_phase2/kto_b012.yaml
+python -m dpo.train --config dpo/configs/experiments_phase2/pareto_dpo_b012.yaml
+
+# Full SSTT evaluation
+python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml
 ```
 
-### Evaluation
+Build the thermodynamic-surplus dataset from the existing margin-25/125 pair sets:
+
 ```bash
-# Full evaluation with sampling (comprehensive metrics)
-python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml --n_samples 8 --temperature 0.5
-
-# # Basic teacher-forced evaluation (fast)
-# python -m dpo.bench.eval_benchmark --config dpo/configs/bench.yaml
-
-# SLURM submission
-sbatch dpo/scripts/eval.slurm dpo/configs/bench_full.yaml
-sbatch dpo/scripts/eval_dna.slurm dpo/configs/bench_full.yaml  # DNA cluster
+python scripts/build_thermo_surplus_pairs.py
 ```
 
-### Hyperparameter Optimization
-```bash
-# Run HPO with Optuna
-sbatch dpo/scripts/hpo_optuna.slurm dpo/hpo/optuna_1.yaml
+This re-fits `MFE = a + b·L + c·(GC·L)` on the candidate pool and keeps only pairs where the winner has a strictly more negative MFE residual than the loser.
+
+## Method summary
+
+### Preference construction
+Given backbone $\mathcal{G}$ and per-metric quality vector $\phi(s) = (\text{pLDDT}, -\text{RMSD}, -\text{MFE})$:
+
+```
+D_r = { (s_w, s_l) : φ(s_w) ≽_ε φ(s_l) }   (ε-Pareto dominance)
+ε_r,m = α_r · σ_m  (variability-aware margin per metric)
+α_r ∈ {0.25, 0.125}  (decreasing curriculum across rounds)
 ```
 
-### Testing & Debugging
-```bash
-# Run debug tests from project root
-python dpo/debug/test_vienna_examples_suite.py
-python dpo/debug/test_evaluator_usalign_pair.py
+Quality gate on the winner: pLDDT > 0.70 AND RMSD < 8.0 Å.
+
+### Theoretical guarantees
+- **Theorem 1 (trust-region drift bound):** Frozen-reference + decreasing-α DPO has cumulative drift $\text{KL}(\pi_R \| \pi_{\text{ref}}) \leq G^2 / (2\beta) \sum_r \alpha_r^2$, finite when $\sum \alpha_r^2 < \infty$.
+- **Theorem 2 (off-policy bias bound):** Static-pair multi-round DPO has gradient bias $O(\sqrt{R/\beta})$, predicting empirical R5+ degradation when KL exceeds $\log C$ for candidate-pool size $C$.
+
+### Pareto-DPO Stage 2 (optional)
+A 1024-parameter FiLM head modulates the gRNAde encoder embeddings on a sampled scalarization weight $w \sim \text{Dirichlet}(\mathbf{1})$. Residual init makes the wrapper exactly equal to the base when loaded from a vanilla gRNAde checkpoint. At inference, query π(s | G, w) for any w to traverse the achievable Pareto front.
+
+## Hyperparameters (canonical)
+
+| Parameter | Symbol | Value |
+|---|---|---|
+| pLDDT floor (winner) | κ | 0.70 |
+| RMSD ceiling (winner) | γ | 8.0 Å |
+| Margin (Rounds 1–2) | α_r | 0.25 × σ_m |
+| Margin (Rounds 3–5) | α_r | 0.125 × σ_m |
+| DPO temperature | β | 0.12 |
+| SFT anchor weight | λ_SFT | 0.10 |
+| Learning rate | — | 1.8 × 10⁻⁴ |
+| Batch size (per pair) | — | 32 |
+| Warmup steps | — | 1,000 |
+
+## Data
+
+Preference pair datasets:
+- `data/pairs_margin125/` — 0.125σ margin (canonical for ICML submission)
+- `data/pairs_margin25/` — 0.25σ margin
+- `data/pairs_thermo_surplus_margin{25,125}/` — GC-controlled thermodynamic-surplus filter applied (this repo)
+
+Test split: `data/das_split.pt` (98 structures from DAS benchmark).
+
+## Citation
+
+```bibtex
+@article{ribopo2025,
+  title={RiboPO: Preference Optimization for Structure- and Stability-Aware RNA Design},
+  author={Sun, Minghao and Cao, Hanqun and Zhang, Zhou and Wei, Chen and Wang, Liang and others},
+  year={2025}
+}
 ```
 
-## Architecture
+## License
 
-### Core Components
-- **src/**: Original gRNAde codebase (unmodified, preserve as-is)
-  - `models.py`: AutoregressiveMultiGNNv1 model definition
-  - `data/`: Dataset classes, RNA graph featurizers
-  - `evaluator.py`: Evaluation metrics (recovery, perplexity, self-consistency)
-  
-- **dpo/**: Preference optimization implementation (all modifications here)
-  - `train.py`: Main training entry point
-  - `trainer.py`: DPO/SimPO trainer with graph batching
-  - `losses.py`: DPO and SimPO loss implementations
-  - `data.py`: Preference pair dataset with RBF error handling
-  - `bench/`: Evaluation pipelines (eval_full.py, eval_benchmark.py)
-  - `hpo/`: Hyperparameter optimization configs
+See `LICENSE`. The `src/` directory inherits gRNAde's license; original copyright notices preserved.
 
-- multiround ribopo
+## Acknowledgements
 
-### Key Design Patterns
-1. **Zero-modification approach**: All DPO logic isolated in `dpo/` folder
-2. **Graph batching**: PyTorch Geometric's Batch for GPU efficiency
-3. **Error resilience**: Graceful RBF featurization failure handling
-4. **Device flexibility**: CPU featurization to avoid CUDA issues
-5. **Multi-round training**: Reference model reset each round (DPO only)
-
-## Data Flow
-
-1. **Preference pairs** from `data/pairs_margin125/by_das/clean/`
-   - Winners: RMSD < 8Å AND pLDDT > 0.7
-   - Losers: Opposite criteria
-   - Confidence margin: 0.125σ difference
-
-2. **Featurization** converts PDB → PyG graphs
-   - Node features: RNA backbone geometry
-   - Edge features: Distance-based interactions
-   - RBF expansion for continuous features
-
-3. **Loss computation**
-   - SimPO: `-log σ(β*(avg_logp_w - avg_logp_l) - γ)` with length norm
-   - DPO: `-log σ(β*(log π/π_ref difference))` + SFT regularization
-
-## Critical Configuration
-
-### SimPO Parameters (Recommended)
-```yaml
-loss_type: simpo
-simpo:
-  beta: 2.0      # Reward scaling [1.5-2.5]
-  gamma: 0.5     # Target margin [0.3-1.2]  
-  sft_lambda: 0  # Optional regularization
-```
-
-### DPO Parameters
-```yaml
-loss_type: dpo
-dpo:
-  beta: 0.12     # Temperature [0.1-0.5]
-  sft_lambda: 0.12  # Regularization [0.1-0.2]
-```
-
-### Training Settings
-```yaml
-training:
-  batch_size: 4        # Adjust for GPU memory
-  grad_accum_steps: 4  # Effective batch = 16
-  num_workers: 8       # CPU parallelization
-optimizer:
-  lr: 1.8e-4          # [1e-4 to 5e-6]
-```
-
-## Environment Setup
-
-### Required Paths (in configs)
-- `PROJECT_PATH`: /mnt/rna01/smh/projects/ribopo
-- `tools/EternaFold`: 2D structure evaluation
-- `tools/x3dna-v2.4`: 3D structure tools
-- `tools/USalign`: Structure alignment
-
-### SLURM Configuration
-- Update paths in `dpo/scripts/*.slurm`
-- Conda activation: `source ~/miniconda3/bin/activate rna`
-- GPU constraint: `--constraint="xgpg|xgph"` for A100s
-
-## Common Issues & Solutions
-
-1. **RBF expansion errors**: Automatically skipped, check logs for frequency
-2. **GPU memory**: Reduce batch_size or increase grad_accum_steps
-3. **Featurization failures**: Check PDB file validity, sequence-structure length match
-4. **SLURM paths**: Ensure absolute paths in configs match cluster setup
-
-## Monitoring
-
-W&B metrics (wandb.ai):
-- **SimPO**: `reward_acc` (key metric), `avg_logp_w/l`, `z_margin`
-- **DPO**: `pref_acc`, `margin`, `loss_dpo`, `sft_loss`
-- **Validation**: `val/recovery`, `val/perplexity`
-- **Training**: `loss`, `lr`, GPU utilization
-
-## Development Workflow
-
-1. **Make changes only in `dpo/` directory** - never modify `src/`
-2. **Test locally first**: Use debug scripts in `dpo/debug/`
-3. **Check GPU utilization**: Aim for >70% with proper batching
-4. **Monitor convergence**: SimPO typically converges faster than DPO
-5. **Validate checkpoints**: Use eval_benchmark.py for quick validation
-
-
-
-
-Important commands:
-
-eval baselines
-
-python evaluate_baselines.py --models rdesign --limit 15 --output_dir /tmp/test_baseline_eval_limited
-
-
+Built on top of [gRNAde](https://github.com/chaitjo/geometric-rna-design) (Joshi et al. 2025). Evaluation uses RhoFold+, EternaFold, ViennaRNA, USalign, MolProbity, and x3dna-DSSR.
