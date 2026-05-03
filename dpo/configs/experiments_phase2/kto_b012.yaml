@@ -1,0 +1,89 @@
+# IPO baseline (Azar et al., 2024) — squared loss instead of log-sigmoid.
+# Same data, same compute as the β=0.12 DPO run; isolates the loss-shape effect.
+seed: 42
+device: cuda
+loss_type: kto
+
+wandb:
+  enable: true
+  project: DPO-RNA
+  entity: minghao-sun-soc
+  run_name: kto_b0.12
+  mode: offline
+
+paths:
+  processed_pt: data/processed.pt
+  split_pt: data/das_split.pt
+  pair_margin: "125"
+  pairs:
+    train: data/pairs_margin125/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
+  base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
+  save_dir: runs/phase2/loss_ablation/kto
+  external_tools_dir: tools
+  project_root: /mnt/rna01/smh/projects/ribopo
+  data_root: /mnt/rna01/smh/projects/ribopo/data
+  wandb_dir: /mnt/rna01/smh/projects/ribopo
+
+tools:
+  usalign: { dir_name: USalign, executable_name: USalign }
+  eternafold: { root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold }
+  x3dna:
+    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
+    bin:  /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
+  molprobity: { root: /mnt/rna01/smh/projects/ribopo/tools/molprobity }
+
+featurizer:
+  split: train
+  radius: 0.0
+  top_k: 32
+  num_rbf: 32
+  num_posenc: 32
+  max_num_conformers: 1
+  noise_scale: 0.1
+  distance_eps: 0.001
+  device: cpu
+
+model:
+  name: AutoregressiveMultiGNNv1
+  node_in_dim: [15, 4]
+  node_h_dim:  [128, 16]
+  edge_in_dim: [131, 3]
+  edge_h_dim:  [64, 4]
+  num_layers: 4
+  drop_rate: 0.5
+  out_dim: 4
+
+optimizer:
+  name: adamw
+  lr: 1.8e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  grad_clip_norm: 1.0
+
+scheduler:
+  name: cosine
+  warmup_steps: 1000
+  min_lr_ratio: 0.1
+
+training:
+  epochs: 10
+  batch_size: 32
+  grad_accum_steps: 2
+  num_workers: 6
+  pin_memory: false
+  drop_last: false
+  compile: false
+  precision: bf16
+  log_every: 1
+  val_every: 50
+  save_every: 50
+  keep_last_n: 3
+
+dpo:
+  beta: 0.12
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+  max_len: null

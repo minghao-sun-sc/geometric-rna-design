@@ -55,7 +55,8 @@ def main():
     parser.add_argument("--run_name", type=str, default=None, help="Override wandb run name from config")
     parser.add_argument("--wandb_mode", type=str, default=None, choices=["online", "offline", "disabled"], 
                        help="Override wandb mode from config")
-    parser.add_argument("--loss_type", type=str, default=None, choices=["dpo", "simpo"],
+    parser.add_argument("--loss_type", type=str, default=None,
+                       choices=["dpo", "simpo", "ipo", "kto", "pareto_dpo", "dpo_is"],
                        help="Override loss type from config")
     parser.add_argument("--batch_size", type=int, default=None,
                        help="Override training batch size from config")

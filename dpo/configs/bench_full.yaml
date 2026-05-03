@@ -1,7 +1,7 @@
 # Full evaluation config with all gRNAde metrics for DPO-RNA
 # Evaluates: sequence recovery, perplexity, 2D/3D self-consistency
 
-seed: 42 # 0 
+seed: 42
 device: cuda
 
 paths:
@@ -11,15 +11,15 @@ paths:
   
   # Checkpoints to evaluate
   checkpoints:
-    - name: "BASE_gRNAde_1state_das_temp0.1_samp1"
+    - name: "BASE_gRNAde_1state_das_temp0.1_samp8_sd42"
       path: checkpoints/gRNAde_ARv1_1state_das.h5
     # Add DPO checkpoints once training completes:
-    - name: "beta0.10_dpo_v3_step16.3k_temp0.1"
-      path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
-    - name: "dpo_v5_best_temp0.1"  
-      # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
-      path: runs/offline_dpo/dpo_rna_v5/best.pt
-      # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
+    # - name: "multi_b0.12_temp0.1_samp8_sd6"
+      # path: dpo/ckpts/multi_b0.12_rd2.pt
+    # - name: "BASE_gRNAde_1state_das_temp0.1_samp8_sd40"
+    #   # path: runs/offline_dpo/dpo_rna_v3/steps/step_0016300.pt
+    #   path: checkpoints/gRNAde_ARv1_1state_das.h5
+    #   # path: runs/multiround/plan_a_01_sft_b0_l010_m25_b0.0_l0.1_bs64_0919_0213/round_01/round_1_best.pt
 
 
 # python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml
@@ -52,7 +52,7 @@ eval:
   pin_memory: true
   
   # Output directory for results and designs
-  out_dir: runs/benchmark_full/temp0.1/
+  out_dir: runs/benchmark_full/ribopov3/
   
   # Sampling parameters
   n_samples: 8                  # number of sequences to sample per structure

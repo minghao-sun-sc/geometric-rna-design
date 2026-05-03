@@ -1,0 +1,29 @@
+{
+  "phase2": [],
+  "existing_beta": [
+    {
+      "tag": "beta_012_paper",
+      "beta": 0.12,
+      "recovery": 0.5,
+      "scMCC": 0.71,
+      "MFE": -35.83,
+      "RMSD": 10.4
+    },
+    {
+      "tag": "beta_05_paper",
+      "beta": 0.5,
+      "recovery": 0.47,
+      "scMCC": 0.57,
+      "MFE": -41.05,
+      "RMSD": 11.96
+    },
+    {
+      "tag": "beta_10_paper",
+      "beta": 1.0,
+      "recovery": 0.49,
+      "scMCC": 0.59,
+      "MFE": -41.86,
+      "RMSD": 13.9
+    }
+  ]
+}

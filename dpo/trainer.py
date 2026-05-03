@@ -6,10 +6,33 @@ import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 
 from dpo.data import build_dataloaders
-from dpo.losses import dpo_step_losses, ce_on_sequence, SimPOLoss
+from dpo.losses import dpo_step_losses, ce_on_sequence, SimPOLoss, step_losses, _LOSS_REGISTRY
 from dpo.ref_manager import build_policy_and_reference, save_checkpoint, load_checkpoint
 from dpo.utils import WarmupCosine, AverageMeter, now_str
 import wandb
+
+# Pareto-DPO Stage-2 support: if cfg.pareto_stage2 is set, the policy is
+# upgraded to a WeightConditionedAutoregressiveGNN whose forward takes an
+# additional w argument. The reference policy stays as the un-conditioned base.
+def _maybe_upgrade_to_stage2(policy, cfg, device):
+    """If cfg.pareto_stage2 is true, wrap policy with FiLM head (preserving weights)."""
+    if not getattr(cfg, "pareto_stage2", False):
+        return policy, False
+    from dpo.pareto_dpo import WeightConditionedAutoregressiveGNN
+    base_kwargs = dict(
+        node_in_dim=tuple(cfg.model.node_in_dim),
+        node_h_dim=tuple(cfg.model.node_h_dim),
+        edge_in_dim=tuple(cfg.model.edge_in_dim),
+        edge_h_dim=tuple(cfg.model.edge_h_dim),
+        num_layers=cfg.model.num_layers,
+        drop_rate=cfg.model.drop_rate,
+        out_dim=cfg.model.out_dim,
+    )
+    wrapped = WeightConditionedAutoregressiveGNN(base_kwargs=base_kwargs, w_dim=3)
+    # Copy the existing policy's weights into the base of the wrapper.
+    wrapped.base.load_state_dict(policy.state_dict(), strict=True)
+    wrapped = wrapped.to(device)
+    return wrapped, True
 
 
 class DPOTrainer:
@@ -44,6 +67,22 @@ class DPOTrainer:
         os.makedirs(self.save_root, exist_ok=True)
         os.makedirs(os.path.join(self.save_root, "steps"), exist_ok=True)
 
+        # Pareto-DPO Stage-2 upgrade: wrap policy with FiLM head if enabled.
+        # Must be done AFTER policy/reference are built so we copy current weights
+        # into the wrapper. Optimizer is rebuilt on the wrapped model.
+        self.policy, self.is_stage2 = _maybe_upgrade_to_stage2(self.policy, cfg, self.device)
+        if self.is_stage2:
+            print(f"[Pareto-DPO Stage 2] FiLM-conditioned policy active "
+                  f"(extra params={sum(p.numel() for p in self.policy.film.parameters())})", flush=True)
+            # Rebuild optimizer to include the FiLM head parameters.
+            self.optimizer = torch.optim.AdamW(
+                self.policy.parameters(),
+                lr=cfg.optimizer.lr,
+                betas=tuple(cfg.optimizer.betas),
+                eps=cfg.optimizer.eps,
+                weight_decay=cfg.optimizer.weight_decay,
+            )
+
         if cfg.training.compile and hasattr(torch, "compile"):
             self.policy = torch.compile(self.policy)
 
@@ -74,18 +113,60 @@ class DPOTrainer:
                 batch.loser_seq = batch.loser_seq.to(self.device)
 
                 with autocast(enabled=cfg.training.precision in ["fp16", "bf16"], dtype=torch.bfloat16 if cfg.training.precision=="bf16" else torch.float16):
-                    # DPO forward
-                    out = dpo_step_losses(
-                        model=self.policy,
-                        ref_model=self.reference,
-                        batch=batch,
-                        beta=cfg.dpo.beta,
-                        label_smoothing=cfg.dpo.label_smoothing,
-                        max_len=cfg.dpo.max_len
-                    )
-                    loss = out["loss_dpo"]
+                    # Loss dispatch — the canonical loss is "dpo"; alternatives
+                    # (ipo, kto, pareto_dpo, dpo_is) share the same DPO infrastructure
+                    # and the dpo.* hyperparameters (β, sft_lambda, max_len).
+                    loss_type = getattr(cfg, "loss_type", "dpo")
 
-                    # optional SFT on winners
+                    # Pareto-DPO Stage 2: weight-conditioned policy. Sample w per
+                    # batch and call the dedicated step function. Overrides loss_type.
+                    if self.is_stage2:
+                        from dpo.pareto_dpo import pareto_stage2_step_losses, sample_dirichlet_w
+                        w = sample_dirichlet_w(
+                            batch_size=1,
+                            w_dim=getattr(cfg, "pareto_w_dim", 3),
+                            alpha=getattr(cfg, "pareto_dirichlet_alpha", 1.0),
+                            device=self.device,
+                        )
+                        out = pareto_stage2_step_losses(
+                            policy_w=self.policy,
+                            ref_model=self.reference,
+                            batch=batch,
+                            w=w,
+                            beta=cfg.dpo.beta,
+                            max_len=cfg.dpo.max_len,
+                        )
+                        loss = out["loss_pareto2"]
+                    elif loss_type == "dpo":
+                        # Preserve original code path (label_smoothing only used by DPO).
+                        out = dpo_step_losses(
+                            model=self.policy,
+                            ref_model=self.reference,
+                            batch=batch,
+                            beta=cfg.dpo.beta,
+                            label_smoothing=cfg.dpo.label_smoothing,
+                            max_len=cfg.dpo.max_len
+                        )
+                        loss = out["loss_dpo"]
+                    elif loss_type in _LOSS_REGISTRY:
+                        loss, out = step_losses(
+                            loss_type,
+                            model=self.policy,
+                            ref_model=self.reference,
+                            batch=batch,
+                            beta=cfg.dpo.beta,
+                            max_len=cfg.dpo.max_len,
+                        )
+                        # Add aliases so downstream meters always find canonical keys.
+                        if "loss_dpo" not in out:
+                            out["loss_dpo"] = loss.detach()
+                    else:
+                        raise ValueError(
+                            f"Unknown loss_type {loss_type!r}; "
+                            f"valid: {['dpo', 'simpo'] + list(_LOSS_REGISTRY)}"
+                        )
+
+                    # optional SFT on winners (applies to all loss types using DPOTrainer)
                     if cfg.dpo.sft_lambda and cfg.dpo.sft_lambda > 0:
                         loss_sft = ce_on_sequence(self.policy, batch.graph, batch.winner_seq, max_len=cfg.dpo.max_len)
                         loss = loss + cfg.dpo.sft_lambda * loss_sft
@@ -115,6 +196,21 @@ class DPOTrainer:
                     log["epoch"] = epoch
                     log["step"] = self.global_step
                     wandb.log(log, step=self.global_step)
+
+                # lightweight stdout progress (every 25 steps) for nohup-tailing
+                if self.global_step > 0 and (self.global_step % 25) == 0:
+                    try:
+                        print(
+                            f"[ep={epoch} step={self.global_step}] "
+                            f"loss={meters['train/loss'].avg:.4f} "
+                            f"loss_dpo={meters['train/loss_dpo'].avg:.4f} "
+                            f"pref_acc={meters['train/pref_acc'].avg:.3f} "
+                            f"margin={meters['train/margin'].avg:.3f} "
+                            f"lr={self.optimizer.param_groups[0]['lr']:.2e}",
+                            flush=True,
+                        )
+                    except Exception:
+                        pass
 
                 # periodic eval & save
                 if (self.global_step % cfg.training.val_every) == 0:
