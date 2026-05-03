@@ -439,13 +439,14 @@ def eval_full_metrics(
                         print(f"Vienna Tm calculation failed for sample: {e}")
                         v_tm_scores.append(float('nan'))
                 
-                # Store metrics
-                vienna_mfe_list.extend(v_mfe_scores)
-                vienna_ed_list.extend(v_ed_scores)
-                vienna_ednt_list.extend(v_ednt_scores)
+                # Store metrics — NaN-filter at append (consistent with pS0/Tm) so
+                # downstream np.mean / np.nanmean produces a real scalar instead of NaN.
+                vienna_mfe_list.extend([x for x in v_mfe_scores if not np.isnan(x)])
+                vienna_ed_list.extend([x for x in v_ed_scores if not np.isnan(x)])
+                vienna_ednt_list.extend([x for x in v_ednt_scores if not np.isnan(x)])
                 vienna_pS0_list.extend([x for x in v_pS0_scores if not np.isnan(x)])
-                vienna_entropy_list.extend(v_entropy_scores)
-                vienna_diversity_list.extend(v_diversity_scores)
+                vienna_entropy_list.extend([x for x in v_entropy_scores if not np.isnan(x)])
+                vienna_diversity_list.extend([x for x in v_diversity_scores if not np.isnan(x)])
                 vienna_tm_list.extend([x for x in v_tm_scores if not np.isnan(x)])  # Store Tm values
                 vienna_success = True  # Mark Vienna calculation as successful
                 
@@ -699,13 +700,13 @@ def eval_full_metrics(
     vienna_requested = any(m.startswith('vienna') for m in metrics) or 'sc_vienna' in metrics
     if vienna_requested:
         results.update({
-            "vienna_mfe": np.mean(vienna_mfe_list) if vienna_mfe_list else 0.0,
-            "vienna_ED": np.mean(vienna_ed_list) if vienna_ed_list else 0.0,
-            "vienna_ED_per_nt": np.mean(vienna_ednt_list) if vienna_ednt_list else 0.0,
-            "vienna_pS0": np.mean(vienna_pS0_list) if vienna_pS0_list else 0.0,
-            "vienna_entropy": np.mean(vienna_entropy_list) if vienna_entropy_list else 0.0,
-            "vienna_diversity": np.mean(vienna_diversity_list) if vienna_diversity_list else 0.0,
-            "vienna_Tm": np.mean(vienna_tm_list) if vienna_tm_list else 0.0,
+            "vienna_mfe": float(np.nanmean(vienna_mfe_list)) if vienna_mfe_list else float('nan'),
+            "vienna_ED": float(np.nanmean(vienna_ed_list)) if vienna_ed_list else float('nan'),
+            "vienna_ED_per_nt": float(np.nanmean(vienna_ednt_list)) if vienna_ednt_list else float('nan'),
+            "vienna_pS0": float(np.nanmean(vienna_pS0_list)) if vienna_pS0_list else float('nan'),
+            "vienna_entropy": float(np.nanmean(vienna_entropy_list)) if vienna_entropy_list else float('nan'),
+            "vienna_diversity": float(np.nanmean(vienna_diversity_list)) if vienna_diversity_list else float('nan'),
+            "vienna_Tm": float(np.nanmean(vienna_tm_list)) if vienna_tm_list else float('nan'),
         })
     
     # Add diversity metrics if computed
@@ -855,16 +856,18 @@ def main():
         # Use command line args if provided, otherwise use config values
         n_samples = args.n_samples if args.n_samples is not None else getattr(cfg.eval, 'n_samples', 8)
         temperature = args.temperature if args.temperature is not None else getattr(cfg.eval, 'temperature', 0.5)
-        
+        # save_designs: CLI flag wins; otherwise honor cfg.eval.save_designs (was previously ignored)
+        save_designs = args.save_designs if args.save_designs else bool(getattr(cfg.eval, 'save_designs', False))
+
         # Get pass@k configuration from config file
         passk_cfg = getattr(cfg.eval, 'passk', None) if hasattr(cfg, 'eval') else None
-        
+
         stats = eval_full_metrics(
             cfg, ds, name, path, device,
             n_samples=n_samples,
             temperature=temperature,
             metrics=args.metrics,
-            save_designs=args.save_designs,
+            save_designs=save_designs,
             output_dir=out_dir,
             passk_cfg=passk_cfg
         )

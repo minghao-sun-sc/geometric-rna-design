@@ -71,6 +71,7 @@ cfg['paths']['checkpoints'] = [{'name': '${TAG}', 'path': '${EVAL_CKPT}'}]
 cfg['eval']['out_dir'] = '${OUT_DIR}'
 cfg['eval']['n_samples'] = 8
 cfg['eval']['temperature'] = 0.1
+cfg['eval']['save_designs'] = True   # persist FASTAs so we can rerun Vienna metrics offline if needed
 cfg['eval'].setdefault('wandb', {})['enable'] = False
 # Phase-2 fast-eval: skip the most expensive metrics (lDDT, MCQ, clash via relax).
 # This drops per-structure time from ~258s to ~60-90s, cutting full-eval from ~7h to ~2h.
