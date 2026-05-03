@@ -1,30 +1,94 @@
 # Post-Compact Playbook
 
 > **Self-contained handoff doc.** If the conversation context just compacted, this is the file that re-bootstraps you. Everything you need to resume is here.
-> Last updated: **2026-05-03 17:25**
+> Last updated: **2026-05-03 22:40**
 
-## What's running right now
+## What's running right now (22:41)
 
-Two trainings still active (87 % done, ETA ~30–45 min). Four SSTT evals running in parallel; `thermo_surplus_m25` already complete with `eval_summary.json`.
+**Pipeline health excellent**: NA-MPNN 57/98, RiboDiffusion-deployed 8/98, 7 main evals 0-16%, **zero segfaults across all 7 evals**. The Vienna rebalance fix is holding.
 
-### Trainings (alive)
+
+
+### Massive parallel pipeline in flight
+
+| Workload | GPU/CPU | Jobid | Status |
+|---|---|---|---|
+| beta_001_v3 | A100 zgpuA1001 | 4790774 | RUNNING ~14% |
+| pareto_stage2_b012_v3 | A100 zgpuA1002 | 4790775 | RUNNING ~7% |
+| thermo_surplus_m25_v3 | A40 zgpuA401 | 4815918 | RUNNING ~14% |
+| ipo_b012_v3 | A40 zgpuA403 | 4792654 | RUNNING ~0% (just past warmup) |
+| **kto_b012_v3** | A100 zgpuA1003 (NEW) | 4815802 | starting on shared A100 |
+| **pareto_dpo_b012_v3** | A100 zgpuA1003 | 4815802 | starting on shared A100 |
+| **beta_005_v3** | A100 zgpuA1003 | 4815802 | starting on shared A100 |
+| RiboDiffusion-deployed smoke | A100 zgpuA1003 | 4815802 | loading (997MB ckpt) |
+| 8× NA-MPNN parallel CPU | login node | none | 25/98 dirs done in ~5 min |
+
+**A100 4815802 just activated** with 4 days runtime — running 3 main reruns + RiboDiffusion smoke via `--overlap`.
+
+### Baselines done so far
+| Tag | recovery | scMCC | MFE | pS0 | Tm | diversity |
+|---|---|---|---|---|---|---|
+| RhoDesign (no-2D) | 0.543 | 0.182 | -21.93 | 0.013 | 29.2 | 0.533 |
+| RIdiffusion (submodule, small) | 0.412 | 0.244 | -24.34 | 0.008 | 31.8 | 0.885 |
+
+(quick eval, no sc_rhofold yet — will add when an A100 frees)
+
+### Remaining
+- NA-MPNN baseline gen (running CPU parallel, ETA ~22:50)
+- RiboDiffusion-deployed full run (after smoke verifies, on 4815802)
+- 4 main eval re-runs finish (ETA 02:00–05:00)
+- 3 reruns on 4815802 finish (ETA 03:00–05:00 — competing for GPU)
+- Baseline SSTT-with-sc_rhofold (~3-4h on A40, after one frees)
+
+
+
+All 6 phase-2 trainings completed. Watcher exited with 6 false-positive `EVAL_FAILED` events (ignore — see Caveats).
+
+**4 evals just relaunched at 22:06 with the FIXED Vienna code** (after a critical segfault was found at 22:02 — see §"22:02 segfault root-cause" below):
+
+| Tag | Jobid | GPU | Started | Type | Status |
+|---|---|---|---|---|---|
+| beta_001 | 4790774 (A100 zgpuA1001, 1d 21h) | A100 | 22:06 | fresh post-train (clean code) | RUNNING ~3% |
+| pareto_stage2_b012 | 4790775 (A100 zgpuA1002, 2d 12h) | A100 | 22:06 | fresh post-train (clean code) | RUNNING ~1% |
+| thermo_surplus_m25 | 4815918 (A40 zgpuA401, 3d 17h) | A40 | 22:06 | rerun replacing buggy summary (.bug.json archived) | RUNNING ~3% |
+| ipo_b012 | 4792654 (A40 zgpuA403, 2.4h) | A40 | 22:11 | rerun replacing buggy summary (.bug.json archived) | RUNNING (just config printed) |
+
+Estimated finish: A100 evals ~01:00–01:30, A40 evals ~03:00–05:00.
+
+**3 reruns still pending** (kto_b012, pareto_dpo_b012, beta_005) — fire when an A100 frees.
+
+**2 baselines DONE** (FASTAs persisted, awaiting SSTT eval):
+- `runs/phase2/baselines/rhodesign/designs/<gid>/sample{0..7}.fasta` (98/98)
+- `runs/phase2/baselines/ridiffusion/designs/<gid>/sample{0..7}.fasta` (98/98)
+- Run SSTT eval via: `bash scripts/run_baseline_sstt_eval.sh <jobid> <rhodesign|ridiffusion>` once A100 frees.
+
+### Eval summaries present
 ```
-beta_001            PID 547528   step 5675/6500 (ep 8, pref_acc 0.945)   srun jobid 4790775 (A100 zgpuA1002, 2d 17h left)
-pareto_stage2_b012  PID 551215   step 5600/6500 (ep 8, pref_acc 0.967)   srun jobid 4790775 (A100 zgpuA1002, 2d 17h left)
+runs/phase2/eval/thermo_surplus_m25/eval_summary.json    (BUG — replace with v3)
+runs/phase2/eval/ipo_b012/eval_summary.json              (BUG — replace with v3)
+runs/phase2/eval/kto_b012/eval_summary.json              (BUG — needs rerun)
+runs/phase2/eval/pareto_dpo_b012/eval_summary.json       (BUG — needs rerun)
+runs/phase2/eval/beta_005/eval_summary.json              (BUG — needs rerun)
++ thermo_surplus_m25/eval_summary.bug.json (archive)
++ ipo_b012/eval_summary.bug.json (archive)
 ```
 
-### Evals (running)
-```
-ipo_b012            srun PID 634387   jobid 4790774 (A100 zgpuA1001, 2d 1h left)   started 14:18
-kto_b012            srun PID 639440   jobid 4792653 (A40  zgpuA404,  5h 39m left)  started 14:41
-pareto_dpo_b012     srun PID 651452   jobid 4790772 (A40  zgpuA403,  5h 38m left)  started 15:40
-beta_005 (retry)    srun PID 765254   jobid 4815918 (A40  zgpuA401,  3d 22h left)  started 16:45 (relaunch — see §Caveats)
-```
+ETA `ALL_DONE` (clean): **2026-05-04 ~05:00**.
 
-### Done
-`thermo_surplus_m25` — `runs/phase2/eval/thermo_surplus_m25/eval_summary.json`
+## 22:02 segfault root-cause and fix
 
-ETA `ALL_DONE` = **2026-05-03 19:00–20:00** (the 4 running evals each take ~3–4 h on the slow SSTT pipeline; the 2 remaining trainings finish ~17:50, then their evals fire on 4790775 and finish ~21:00).
+The 17:55 Vienna soft-fix (truncate `target_db` to match `seq` length when off by 1–6 nt) had a hidden trap: **truncating a balanced dot-bracket can produce unbalanced parens**, e.g. `(((....))).` truncated to length 9 becomes `(((....))` — unbalanced. ViennaRNA segfaults at the C level on unbalanced parens, which **bypasses Python try/except** and crashes the entire process.
+
+The 4 already-completed evals (kto, pareto_dpo, beta_005, the original ipo) used the OLD hard-reject code (returning all-NaN on length mismatch); they completed but had broken aggregate MFE/ED. The 4 fresh evals fired with the new soft-fix code segfaulted at 0% on the first multi-chain structure.
+
+**Fix at 22:02**: added a paren-balancing pass after truncation in both `vienna_ensemble_metrics` (src/evaluator.py:2160-2182) and `vienna_Tm_by_pS0` (src/evaluator.py:2293-2314). Algorithm:
+1. Truncate or pad target_db to len(seq).
+2. Single-pass scan: replace unmatched `)` with `.`; track open-paren positions in a stack; replace remaining stack entries with `.`.
+
+Verified on representative truncation cases:
+- `(((....)))..((....))..` → trunc-17 → `(((....)))....... ` (5 open + 3 close → balance 3, drop 2 unmatched opens)
+
+The 4 retries fired at 22:06 successfully passed the 0% segfault zone — the fix works.
 
 ## Watchers (don't kill these)
 

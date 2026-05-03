@@ -26,12 +26,14 @@ cd "$ROOT"
 mkdir -p runs/phase2/logs
 
 # === EDIT ME: assign one live jobid to each tag ===
+# Filled 2026-05-03 22:02. Plan: fire 2 immediately on free A100/A40, defer the rest
+# to after beta_001/pareto_stage2 retries free their jobids (~23:30 and midnight).
 declare -A JOBIDS=(
-  [thermo_surplus_m25]=""
-  [ipo_b012]=""
-  [kto_b012]=""
-  [pareto_dpo_b012]=""
-  [beta_005]=""
+  [thermo_surplus_m25]="4790775"   # A100 zgpuA1002, freshly free, 2d 12h left
+  [ipo_b012]="4792654"             # A40 zgpuA403, 2h 39m left — should fit fast-eval (~2h)
+  [kto_b012]=""                    # defer until 4790774 or 4815918 frees
+  [pareto_dpo_b012]=""             # defer
+  [beta_005]=""                    # defer
 )
 
 declare -A CKPTS=(
@@ -42,12 +44,12 @@ declare -A CKPTS=(
   [beta_005]=runs/phase2/beta_sweep/b0.05/beta_sweep_b0.05/best.pt
 )
 
-# Validate
+# Validate (only for tags with non-empty JOBIDS — empty entries are deferred)
 missing=0
 for tag in "${!JOBIDS[@]}"; do
   if [[ -z "${JOBIDS[$tag]}" ]]; then
-    echo "ERROR: JOBIDS[$tag] is empty — please assign a live srun jobid."
-    missing=1
+    echo "[skip] $tag: deferred (no JOBID assigned yet)"
+    continue
   fi
   if [[ ! -e "${CKPTS[$tag]}" ]]; then
     echo "ERROR: ckpt missing for $tag: ${CKPTS[$tag]}"
@@ -56,8 +58,9 @@ for tag in "${!JOBIDS[@]}"; do
 done
 [[ $missing -eq 1 ]] && { echo "Aborting."; exit 1; }
 
-# Archive old summaries before overwriting
+# Archive old summaries before overwriting (only tags being re-fired)
 for tag in "${!JOBIDS[@]}"; do
+  [[ -z "${JOBIDS[$tag]}" ]] && continue
   old="runs/phase2/eval/${tag}/eval_summary.json"
   if [[ -e "$old" ]]; then
     cp "$old" "runs/phase2/eval/${tag}/eval_summary.bug.json"
@@ -65,9 +68,10 @@ for tag in "${!JOBIDS[@]}"; do
   fi
 done
 
-# Fire all 5 in parallel
+# Fire each non-empty tag in parallel
 for tag in "${!JOBIDS[@]}"; do
   jobid="${JOBIDS[$tag]}"
+  [[ -z "$jobid" ]] && continue
   ckpt="${CKPTS[$tag]}"
   log="runs/phase2/logs/${tag}_eval_v2.log"
   echo "[launch] $tag on jobid=$jobid log=$log"

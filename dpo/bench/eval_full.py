@@ -210,17 +210,18 @@ def _load_weights(model, ckpt_path, device):
 
 @torch.no_grad()
 def eval_full_metrics(
-    cfg: SN, 
-    ds: FullEvalDataset, 
-    ckpt_name: str, 
-    ckpt_path: str, 
+    cfg: SN,
+    ds: FullEvalDataset,
+    ckpt_name: str,
+    ckpt_path: str,
     device,
     n_samples: int = 8,
     temperature: float = 1.0,
     metrics: List[str] = ['recovery', 'perplexity', 'sc_eternafold', 'sc_rhofold'],
     save_designs: bool = False,
     output_dir: Optional[str] = None,
-    passk_cfg: Optional[SN] = None  # Pass@k configuration
+    passk_cfg: Optional[SN] = None,  # Pass@k configuration
+    from_fasta_dir: Optional[str] = None  # If set, skip model.sample() and read FASTAs from disk
 ) -> Dict[str, Any]:
     """
     Full evaluation with all gRNAde metrics including sampling and self-consistency.
@@ -241,10 +242,23 @@ def eval_full_metrics(
         Dictionary of metric values
     """
     
-    model = build_model_from_cfg(cfg.model).to(device)
-    _load_weights(model, ckpt_path, device)
-    model.eval()
-    
+    # External-baseline mode: skip the gRNAde-style model entirely; samples are read
+    # from <from_fasta_dir>/<structure_id>/sample{0..n-1}.fasta. Recovery, scMCC, INF,
+    # Vienna, RhoFold-3D and clash all still work; perplexity is undefined → NaN.
+    use_from_fasta = from_fasta_dir is not None
+    if use_from_fasta:
+        from pathlib import Path
+        from src.constants import LETTER_TO_NUM
+        _fasta_root = Path(from_fasta_dir)
+        if not _fasta_root.exists():
+            raise FileNotFoundError(f"--from_fasta_dir not found: {from_fasta_dir}")
+        print(f"[from_fasta] reading sequences from {_fasta_root}")
+        model = None  # not loaded
+    else:
+        model = build_model_from_cfg(cfg.model).to(device)
+        _load_weights(model, ckpt_path, device)
+        model.eval()
+
     # Initialize RhoFold if needed (following src/evaluator.py pattern)
     rhofold = None
     current_datetime = None
@@ -340,21 +354,56 @@ def eval_full_metrics(
         graph = item.graph.clone().to(device)
         graph.seq = item.seq.to(device)
         
-        # Sample sequences from the model
-        samples, logits = model.sample(graph, n_samples, temperature, return_logits=True)
-        
+        # Sample sequences from the model OR read pre-generated FASTAs (from_fasta_dir).
+        if use_from_fasta:
+            n_nodes = len(item.seq)
+            sample_dir = _fasta_root / item.gid
+            if not sample_dir.exists():
+                # Skip structures we don't have designs for
+                print(f"[from_fasta] no designs for {item.gid}, skipping")
+                continue
+            samples_list = []
+            for s_idx in range(n_samples):
+                fp = sample_dir / f"sample{s_idx}.fasta"
+                if not fp.exists():
+                    print(f"[from_fasta] missing {fp}, skipping structure")
+                    samples_list = None
+                    break
+                with open(fp) as fh:
+                    seq_str = "".join(
+                        line.strip().upper().replace("T", "U")
+                        for line in fh if not line.startswith(">")
+                    )
+                # Pad/truncate to n_nodes (defensive)
+                if len(seq_str) < n_nodes:
+                    seq_str = seq_str + "A" * (n_nodes - len(seq_str))
+                elif len(seq_str) > n_nodes:
+                    seq_str = seq_str[:n_nodes]
+                tok = [LETTER_TO_NUM.get(c, LETTER_TO_NUM["A"]) for c in seq_str]
+                samples_list.append(tok)
+            if samples_list is None:
+                continue
+            samples = torch.tensor(samples_list, dtype=torch.long, device=device)
+            logits = None
+        else:
+            samples, logits = model.sample(graph, n_samples, temperature, return_logits=True)
+
         # Compute sequence recovery (teacher-forced)
         recovery = samples.eq(item.seq.to(device)).float().cpu().numpy()
         recovery_list.append(recovery.mean())
-        
-        # Compute perplexity
-        n_nodes = logits.shape[1]
-        perplexity = torch.exp(F.cross_entropy(
-            logits.view(n_samples * n_nodes, model.out_dim),
-            samples.view(n_samples * n_nodes).long(),
-            reduction="none"
-        ).view(n_samples, n_nodes).mean(dim=1))
-        perplexity_list.extend(perplexity.cpu().numpy().tolist())
+
+        # Compute perplexity (NaN when running from FASTAs — no logits available)
+        if logits is None:
+            n_nodes = samples.shape[1]
+            perplexity_list.extend([float('nan')] * n_samples)
+        else:
+            n_nodes = logits.shape[1]
+            perplexity = torch.exp(F.cross_entropy(
+                logits.view(n_samples * n_nodes, model.out_dim),
+                samples.view(n_samples * n_nodes).long(),
+                reduction="none"
+            ).view(n_samples, n_nodes).mean(dim=1))
+            perplexity_list.extend(perplexity.cpu().numpy().tolist())
         
         # Get mask for valid coordinates from the featurized graph
         if hasattr(item.graph, 'mask_coords'):
@@ -651,8 +700,8 @@ def eval_full_metrics(
         "n_structures": n_processed,
         "n_samples_per_structure": n_samples,
         "temperature": temperature,
-        "recovery": np.mean(recovery_list) if recovery_list else 0.0,
-        "perplexity": np.mean(perplexity_list) if perplexity_list else 0.0,
+        "recovery": float(np.nanmean(recovery_list)) if recovery_list else float('nan'),
+        "perplexity": float(np.nanmean(perplexity_list)) if perplexity_list else float('nan'),
     }
     
     if 'sc_eternafold' in metrics:
@@ -812,6 +861,9 @@ def main():
                        default=None,  # Use config file metrics if not specified
                        help="Metrics to compute (overrides config if specified)")
     parser.add_argument("--save_designs", action="store_true", help="Save designed sequences")
+    parser.add_argument("--from_fasta_dir", default=None, type=str,
+                        help="If set, skip model.sample() and read pre-generated FASTAs from "
+                             "<dir>/<structure_id>/sample{0..n-1}.fasta. Used for external baselines.")
     args = parser.parse_args()
     
     cfg = load_cfg(args.config)
@@ -869,7 +921,8 @@ def main():
             metrics=args.metrics,
             save_designs=save_designs,
             output_dir=out_dir,
-            passk_cfg=passk_cfg
+            passk_cfg=passk_cfg,
+            from_fasta_dir=args.from_fasta_dir,
         )
         
         # Filter out non-numeric values (like pass@k analysis dict) before converting to float

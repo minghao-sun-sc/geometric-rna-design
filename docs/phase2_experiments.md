@@ -1,15 +1,44 @@
 # RiboPO Phase-2 Experiments
 
-> **Status as of 2026-05-03 11:20**
-> Thermo-surplus complete (training + SSTT eval). Six remaining trainings 62–84% complete; eval will auto-launch via the watcher when each `best.pt` lands.
+> **Status as of 2026-05-03 22:20**
+> All 7 phase-2 trainings done. Vienna NaN bug found + fixed (5 buggy summaries archived). 4 evals re-running with fixed code (segfault postmortem in playbook). 2 baselines (RhoDesign + RIdiffusion) done generating sequences; quick evals in flight; full SSTT pending free A100.
 
 This document tracks the post-ICML next-phase experiments. Goal: ICLR 2027 submission with the **Pareto-dominance + heteroscedastic preference learning + trust-region** reframe (Path B).
 
 ---
 
-## 0. Live state
+## 0. Live state — 22:20
 
-### Trainings (PIDs, all alive)
+### Trainings (all completed)
+All 6 phase-2 trainings + thermo_surplus completed. Best.pt for each saved.
+
+### Evals — 4 fresh re-runs in flight (with FIXED Vienna code)
+| Tag | Jobid | GPU | Status | Notes |
+|---|---|---|---|---|
+| beta_001_v3 | 4790774 | A100 | RUNNING ~4% (started 22:06) | replaces failed/segfault-failed retry |
+| pareto_stage2_b012_v3 | 4790775 | A100 | RUNNING ~2% | replaces failed retry; FiLM-stripped → centroid-w base |
+| thermo_surplus_m25_v3 | 4815918 | A40 | RUNNING ~4% | replaces buggy original (.bug.json archived) |
+| ipo_b012_v3 | 4792654 | A40 | STARTING | replaces buggy original (.bug.json archived) |
+
+### Baselines — sequences generated, SSTT eval in flight
+| Tag | FASTAs | Quick-eval (no sc_rhofold) | Full SSTT (with sc_rhofold) |
+|---|---|---|---|
+| rhodesign | 98/98 ✓ | RUNNING on jobid 4790772 (~5 min) | pending (need free A100) |
+| ridiffusion | 98/98 ✓ | RUNNING on jobid 4792653 (~5 min) | pending |
+
+### Eval summaries — current state
+```
+beta_001/                    pending (re-run in flight)
+beta_005/eval_summary.json   BUG (will rerun)
+ipo_b012/eval_summary.json   BUG (re-run in flight)
+kto_b012/eval_summary.json   BUG (will rerun)
+pareto_dpo_b012/eval_summary.json  BUG (will rerun)
+pareto_stage2_b012/          pending (re-run in flight)
+thermo_surplus_m25/eval_summary.json  BUG (re-run in flight)
+```
+Plus archives `<tag>/eval_summary.bug.json` for thermo_surplus and ipo (the 2 already re-fired).
+
+### Trainings (PIDs, all alive)  [HISTORICAL — all completed]
 
 | Tag | Node / GPU | PID | Step | Epoch | pref_acc | best.pt expected | Notes |
 |---|---|---|---|---|---|---|---|

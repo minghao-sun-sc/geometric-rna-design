@@ -2157,11 +2157,11 @@ def vienna_ensemble_metrics(seq: str,
         return nan_result
     
     # Check 5: PRE-VALIDATE / repair target structure before any ViennaRNA calls.
-    # Length-mismatch and invalid-char cases used to hard-reject (returning all-NaN);
-    # we now soft-fix them so MFE/ED/pS0 can still be computed on the bulk of the
-    # structural prior. The original target_db lengths are only off by 1-6 nt
-    # (typically multi-chain edge residues), and Guards-2/3 below were already
-    # designed for this — the all-NaN early-return was just dead-code-overshadowing.
+    # Length-mismatch cases used to hard-reject (returning all-NaN); we now soft-fix
+    # them so MFE/ED/pS0 can still be computed on the bulk of the structural prior.
+    # CRITICAL: ViennaRNA segfaults at the C level on unbalanced parens (try/except
+    # below cannot catch this — the whole Python process dies). Truncating a balanced
+    # dot-bracket can leave it unbalanced, so we must rebalance defensively here.
     if target_db is not None:
         if len(target_db) != len(seq):
             if len(target_db) > len(seq):
@@ -2169,11 +2169,27 @@ def vienna_ensemble_metrics(seq: str,
             else:
                 target_db = target_db + "." * (len(seq) - len(target_db))
 
-        # Sanitize invalid structure characters to '.' (unpaired) instead of rejecting
+        # Sanitize invalid structure characters to '.' (unpaired)
         valid_structure_chars = set('().')
         invalid_structure_chars = set(target_db) - valid_structure_chars
         if invalid_structure_chars:
             target_db = "".join(c if c in valid_structure_chars else '.' for c in target_db)
+
+        # Balance parens defensively — single-pass scan; replace unmatched chars with '.'.
+        # Without this, ViennaRNA can SEGFAULT on truncated structures.
+        chars = list(target_db)
+        stack = []
+        for i, c in enumerate(chars):
+            if c == '(':
+                stack.append(i)
+            elif c == ')':
+                if stack:
+                    stack.pop()
+                else:
+                    chars[i] = '.'  # unmatched ')'
+        for i in stack:
+            chars[i] = '.'  # unmatched '('
+        target_db = ''.join(chars)
     
     # SEGFAULT FIX: Initialize default values in case any ViennaRNA call fails
     mfe_db, mfe = "." * len(seq), float('nan')
@@ -2290,11 +2306,27 @@ def vienna_Tm_by_pS0(seq: str,
     # Soft-fix length mismatch (matches the soft-fix in vienna_ensemble_metrics);
     # avoids skipping Tm for the ~1.2% of multi-chain edge cases where target_db
     # extraction misaligns with the model's graph residue filter by 1-6 nt.
+    # CRITICAL: rebalance parens after truncate to prevent ViennaRNA C-level segfault.
     if len(seq) != len(target_db):
         if len(target_db) > len(seq):
             target_db = target_db[:len(seq)]
         else:
             target_db = target_db + "." * (len(seq) - len(target_db))
+    chars = list(target_db)
+    stack = []
+    for i, c in enumerate(chars):
+        if c == '(':
+            stack.append(i)
+        elif c == ')':
+            if stack:
+                stack.pop()
+            else:
+                chars[i] = '.'
+        elif c not in '().':
+            chars[i] = '.'
+    for i in stack:
+        chars[i] = '.'
+    target_db = ''.join(chars)
 
     # SEGFAULT FIX: Skip Tm calculation for very long sequences that crash ViennaRNA
     max_vienna_length = 1000  # Conservative limit to prevent segfaults
