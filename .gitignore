@@ -181,30 +181,10 @@ scratch_*/
 
 
 # ----------------------------------------------------------------------------
-# ribopo_v4 (parallel curated workspace) — track its code, not its scratch.
-# Most ribopo_v4 content has been promoted to the root; the surviving tree
-# is mostly historical, so we ignore aggressively.
+# ribopo_v4 (parallel curated workspace) — its code/data has been merged into
+# the root. The surviving tree is purely historical; ignore entirely.
 # ----------------------------------------------------------------------------
-ribopo_v4/notes/
-ribopo_v4/tasks/
-ribopo_v4/outputs/
-ribopo_v4/wandb/
-ribopo_v4/runs/
-ribopo_v4/manuscript/
-ribopo_v4/rebuttal/
-ribopo_v4/PROJECT_STATUS.md
-ribopo_v4/PROJECT_STRUCTURE.md
-ribopo_v4/ROADMAP.md
-ribopo_v4/RUN_MANIFEST.md
-ribopo_v4/WORKSPACE_MANIFEST.md
-ribopo_v4/WORKFLOWS.md
-ribopo_v4/CONFIG_INDEX.md
-ribopo_v4/CURATION.md
-ribopo_v4/AGENTS.md
-ribopo_v4/CLAUDE.md
-ribopo_v4/temp_*.fasta
-ribopo_v4/molprobity*
-ribopo_v4/molprobity_coot.py
+ribopo_v4/
 
 
 # ----------------------------------------------------------------------------
@@ -225,6 +205,7 @@ test_vienna_fix.py
 !data/raw_seq.fasta
 arnie_file.txt
 molprobity*
+**/molprobity*
 rna.ps
 *.bak
 *.backup
