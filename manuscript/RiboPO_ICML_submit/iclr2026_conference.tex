@@ -1,0 +1,124 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2026_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{makecell} 
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{wrapfig}
+\usepackage{array}
+\usepackage{longtable}
+% \usepackage{geometry}
+\usepackage[table]{xcolor} 
+\usepackage{makecell}
+
+\usepackage{subcaption}
+\usepackage{bbm}
+
+
+
+
+\title{RiboPO: Preference Optimization for \\ Structure- and Stability-Aware RNA Design}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+% \iclrfinalcopy
+
+% \author{Antiquus S.~Hippocampus, Natalia Cerebro \& Amelie P. Amygdale \thanks{ Use footnote for providing further information
+% about author (webpage, alternative address)---\emph{not} for acknowledging
+% funding agencies.  Funding acknowledgements go at the end of the paper.} \\
+% Department of Computer Science\\
+% Cranberry-Lemon University\\
+% Pittsburgh, PA 15213, USA \\
+% \texttt{\{hippo,brain,jen\}@cs.cranberry-lemon.edu} \\
+% \And
+% Ji Q. Ren \& Yevgeny LeNet \\
+% Department of Computational Neuroscience \\
+% University of the Witwatersrand \\
+% Joburg, South Africa \\
+% \texttt{\{robot,net\}@wits.ac.za} \\
+% \AND
+% Coauthor \\
+% Affiliation \\
+% Address \\
+% \texttt{email}
+% }
+
+
+\author{%
+\begin{tabular}{l} % Groups all author lines into one centered, bolded block
+Minghao Sun\textsuperscript{1}\thanks{Equal contribution.} \quad
+Hanqun Cao\textsuperscript{2}\footnotemark[1] \quad
+Zhou Zhang\textsuperscript{4}\footnotemark[1] \quad
+Chen Wei\textsuperscript{1} \quad 
+Liang Wang\textsuperscript{1,5} \\
+Tianrui Jia\textsuperscript{1} \quad
+Zhiyuan Liu\textsuperscript{1} \quad
+Tianfan Fu\textsuperscript{4} \quad
+Xiangru Tang\textsuperscript{6} \quad
+Yejin Choi\textsuperscript{3} \\
+Pheng\mbox{-}Ann Heng\textsuperscript{2} \quad
+Fang Wu\textsuperscript{3}\thanks{Corresponding author.} \quad
+Yang Zhang\textsuperscript{1}\footnotemark[2]
+\end{tabular}
+\\[6pt] % This is now the main separator between authors and affiliations
+\textsuperscript{1}National University of Singapore \quad
+\textsuperscript{2}The Chinese University of Hong Kong \\
+\textsuperscript{3}Stanford University \quad
+\textsuperscript{4}Nanjing University \quad
+\textsuperscript{5}Chinese Academy of Sciences \\
+\textsuperscript{6}Yale University 
+}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+% \iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\input{section/abstract}
+\input{section/intro}
+\input{section/related}
+\input{section/methods}
+\input{section/experiment}
+% \input{section/discussion}
+\input{section/conclusion}
+
+
+\bibliography{iclr2026_conference}
+\bibliographystyle{iclr2026_conference}
+
+\input{section/appendix}
+
+
+\end{document}

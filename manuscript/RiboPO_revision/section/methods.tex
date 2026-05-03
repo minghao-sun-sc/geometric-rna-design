@@ -1,0 +1,135 @@
+\section{Methods}
+\label{sec:method}
+
+\subsection{Problem Formulation and Backbone-Conditioned Approach}
+Ribonucleic acid (RNA) is a nucleic acid present in all living cells. An RNA molecule, often single-stranded, has a backbone made of alternating phosphate groups and sugar ribose. RNA has four nucleotides (also known as bases): adenine (A), guanine (G), cytosine (C), and uracil (U).
+
+We formulate RNA inverse folding as a multi-objective optimization problem over the discrete RNA sequence space $\mathcal{S}=\{A,U,C,G\}^L$ ($L$ is the RNA sequence length), where we seek sequences that jointly maximize structural fidelity and thermodynamic stability:
+\begin{equation}
+s^*=\arg\max_{s\in\mathcal{S}}\left[f_{\text{struct}}(s,\mathcal{G})+f_{\text{thermo}}(s)\right],
+\end{equation}
+where $\mathcal{G}$ denotes the target backbone geometry, $f_{\text{struct}}$ captures structural quality metrics (e.g., pLDDT, RMSD), and $f_{\text{thermo}}$ quantifies thermodynamic favorability via free energy.
+
+To solve this, we use a backbone-conditioned policy that generates sequences given $\mathcal{G}$. Specifically, our policy $\pi_\theta(s\mid\mathcal{G})$ follows the GNN-GVP architecture from gRNAde \citep{joshi2025grnade}, encoding the 3D backbone and producing sequences autoregressively:
+\begin{equation}
+\pi_\theta(s\mid\mathcal{G})=\prod_{i=1}^L \pi_\theta(s_i \mid s_{<i}, \mathcal{G}).
+\end{equation}
+We maintain a frozen reference policy $\pi_{\mathrm{ref}}$ initialized from the pre-trained gRNAde model to provide a stable baseline and regularize distributional drift.
+
+Optimization proceeds via multi-round Direct Preference Optimization with a frozen reference, a $\varepsilon$-Pareto-dominance preference set, and a decreasing-margin curriculum (\S\ref{subsec:pref_construction}--\S\ref{subsec:rlpf_dpo}). The frozen-reference + curriculum coupling has a clean trust-region characterization (Theorem~\ref{thm:trust_region}, Appendix~\ref{app:trust_region}); the static-pair multi-round scheme has a quantitative off-policy bias bound (Theorem~\ref{thm:off_policy}, Appendix~\ref{app:off_policy}). Together these explain the empirical Pareto plateau at rounds 2--4 and identify importance-corrected iterative DPO as the principled extension when the round budget must be lifted.
+
+
+\subsection{Preference Construction under Heterogeneous Noisy Proxies}
+\label{subsec:pref_construction}
+
+RNA preference optimization is fundamentally different from LLM preference optimization in two ways. First, RNA candidates are scored by \emph{multiple} physical proxies (3D fidelity, secondary-structure consistency, free energy) with very different noise scales rather than a single learned reward model. Second, RNA's sequence-structure degeneracy \citep{schuster1994rna2dshape} creates exponentially large neutral networks in which compositional optimization (e.g., GC enrichment for MFE) trivially exploits any single proxy. These two properties force a different preference construction.
+
+\subsubsection{$\varepsilon$-Pareto-dominance preference set}
+\label{subsubsec:pareto_pref}
+
+Let $\phi(s, \mathcal{G}) = (\phi_1, \dots, \phi_M) \in \mathbb{R}^M$ denote the per-metric quality vector of sequence $s$ folded against backbone $\mathcal{G}$, with each $\phi_m$ oriented so that larger values are preferred. In our instantiation $M=3$ with $\phi = (\text{pLDDT},\, -\text{RMSD},\, -\text{MFE})$.\footnote{We adopt the sign convention that $\phi_m(s) > \phi_m(s')$ means $s$ is preferred on metric $m$.} For per-coordinate margins $\varepsilon = (\varepsilon_1,\dots,\varepsilon_M) \succeq 0$, define the $\varepsilon$-Pareto-dominance relation
+\begin{equation}
+\phi(s^w) \succeq_{\varepsilon} \phi(s^l) \;\iff\; \forall m \in \{1,\dots,M\}:\; \phi_m(s^w) - \phi_m(s^l) \;>\; \varepsilon_m.
+\label{eq:pareto_dom}
+\end{equation}
+At round $r$, RiboPO constructs the preference set
+\begin{equation}
+\mathcal{D}_r \;=\; \big\{(s^w, s^l, \mathcal{G}) :\; \phi(s^w, \mathcal{G}) \succeq_{\varepsilon_r} \phi(s^l, \mathcal{G})\big\},
+\label{eq:pref_set}
+\end{equation}
+where the per-metric margin $\varepsilon_r$ is set by the variability-aware schedule described next. We additionally apply a structural \emph{quality gate} on the winner:
+\begin{equation}
+\text{\textbf{Quality gate:}}\quad \text{pLDDT}(g(s^w)) \;>\; \kappa \;\;\land\;\; \text{RMSD}(\mathcal{G},\, g(s^w)) \;<\; \gamma,
+\label{eq:gate}
+\end{equation}
+with $\kappa = 0.70$ and $\gamma = 8.0\,\text{\AA}$ in all experiments. The gate enforces that the winner lies in a biophysically plausible region; \S\ref{subsec:gc_control} shows that without it, multi-round optimization collapses to GC-enriched trivial solutions.
+
+\paragraph{Pareto preferences vs.~scalarized preferences.}
+The $\varepsilon$-Pareto formulation is strictly stronger than recording a preference based on any single linear scalarization $w^\top\phi$. A preference $\phi^a \succeq_{\varepsilon} \phi^b$ is consistent with \emph{every} weight $w \succeq 0$; equivalently, $\mathcal{D}_r$ contains only pairs where $s^w$ improves \emph{simultaneously} on all $M$ objectives, by amounts that exceed $\varepsilon$. This avoids the standard scalarization pathologies (one objective compensating for another, GC-rich MFE solutions winning over structurally accurate but slightly less stable candidates) and is the construction that makes RNA preference learning robust to compositional reward hacking. Section~\ref{sec:experiments} (Table~\ref{tab:ablation_multiround}) shows that removing this filter produces catastrophic structural drift even when MFE improves dramatically.\footnote{The contemporary protein-IF MODPO variant of \citet{hou2026protalign} samples preference pairs evenly from $K$ per-property datasets and adds a deterministic cross-property compensation term to the DPO log-ratio. This is a \emph{soft} multi-objective treatment: pairs that worsen objective $k'$ remain in the dataset for objective $k$ and are merely re-weighted. Our $\varepsilon$-Pareto filter is a \emph{hard} multi-objective treatment: only pairs that simultaneously improve every standardized coordinate (within tolerance $\varepsilon$) are retained. The two operators target different failure modes; in RNA, simultaneous improvement is required because GC-driven MFE gains can co-occur with structural-quality losses, which the soft margin does not block.}
+
+\subsubsection{Variability-aware margin: heteroscedastic preference learning}
+\label{subsubsec:heteroscedastic}
+
+The three RNA proxies have qualitatively different noise scales. Empirically, on our candidate pool: $\sigma_{\text{pLDDT}} \approx 0.04$ (deterministic per RhoFold+ run, narrow range), $\sigma_{\text{RMSD}} \approx 1.5\,\text{\AA}$ (stochastic, structure-prediction variance), and $\sigma_{\text{MFE}} \approx 4\,\text{kcal/mol}$ (deterministic but with $\sim 30\%$ of variance explained by GC content; see \S\ref{subsec:gc_control}). A constant per-metric margin would over-reject low-noise metrics and under-reject high-noise metrics. We therefore set
+\begin{equation}
+\varepsilon_{r,m} \;=\; \alpha_r \cdot \sigma_m, \qquad \alpha_r \in \mathbb{R}_+,
+\label{eq:variability_margin}
+\end{equation}
+where $\sigma_m$ is the per-metric empirical standard deviation on the candidate pool and $\alpha_r$ is the round-specific reliability multiplier ($\alpha_{1,2}=0.25$ and $\alpha_{3,4,5}=0.125$ in our schedule). For MFE we use $\varepsilon_{r,\text{MFE}}=0$ (the inequality $\text{MFE}(s^w) < \text{MFE}(s^l)$); see Appendix~\ref{app:hetero_derivation} for the full derivation.
+
+\paragraph{Why $\alpha_r \cdot \sigma_m$ is the natural threshold.}
+Suppose each observed metric is the sum of a true value and predictor noise: $\hat\phi_m(s) = \phi_m^*(s) + \varepsilon_m^{(s)}$ with $\varepsilon_m^{(s)} \sim \mathcal{N}(0, \sigma_m^2)$ independent across metrics and sequences. The observed margin $\hat\Delta_m = \hat\phi_m(s^w) - \hat\phi_m(s^l)$ has noise $\sqrt{2}\sigma_m$. A z-score threshold $\hat\Delta_m / \sigma_m > \alpha_r$ enforces a uniform per-metric false-positive rate $\Phi(-\alpha_r/\sqrt{2})$, which corresponds to a calibrated reliability level for the recorded preference. Per-metric standardization makes the $\varepsilon$-Pareto cone scale-invariant and ensures the implicit reward fitted by DPO downstream operates on a common SNR scale across heterogeneous proxies. This formalism does not appear in standard DPO because LLM alignment uses a single reward model.
+
+\paragraph{Decreasing $\alpha_r$ as a reliability curriculum.}
+The schedule $\alpha_r: 0.25 \to 0.125$ implements an exploration-to-exploitation transition on label \emph{reliability}, not difficulty. Early rounds use loose margins (large $\alpha_r$) that admit high-confidence pairs with large quality gaps, building broad foldability priors from labels robust to predictor noise. Later rounds tighten the margin to capture subtle, near-native improvements that would be drowned in noise if used too early. Together with the structural quality gate \eqref{eq:gate}, this curriculum is the minimal modification to standard DPO that yields stable optimization on RNA's heterogeneous, noisy reward landscape; without either component, multi-round training collapses to either GC-enriched solutions or structural drift (Table~\ref{tab:ablation_multiround}). Empirically, the schedule is decreasing-Pareto-optimal: comparing decreasing, constant-loose, constant-strict, and increasing schedules with the same total margin budget, only the decreasing variant achieves both the best scMCC and the best RMSD at the optimal early-stopping round (Appendix~\ref{app:schedule_comparison}).
+
+\paragraph{Connection to Bayesian preference inference.}
+The variability-aware margin can be interpreted as a confidence-thresholded posterior on a heteroscedastic Bradley--Terry model: pairs are retained when the per-metric posterior probability of correct ordering exceeds a calibration level set by $\alpha_r$. The $\varepsilon$-Pareto conjunction then enforces simultaneous high-confidence preference on all metrics, which is the multi-objective analog of the standard BTL likelihood with a single noisy reward. Appendix~\ref{app:hetero_derivation} provides the full derivation, including the equivalence between the per-metric $z$-score threshold and a maximum-likelihood threshold under heteroscedastic Gaussian noise.
+
+
+\subsection{Pareto-Constrained DPO with Trust-Region Multi-Round Updates}
+\label{subsec:rlpf_dpo}
+
+Given the preference set $\mathcal{D}_r$ defined in \eqref{eq:pref_set}, we fit an implicit reward via the standard Direct Preference Optimization (DPO) loss \citep{rafailov2023direct}:
+\begin{equation}
+\mathcal{L}_{\mathrm{DPO}}(\theta)
+= -\mathbb{E}_{(s^w, s^l, \mathcal{G})\sim \mathcal{D}_r}\!\left[
+\log \sigma \!\Bigl(
+\beta \log \frac{\pi_\theta(s^w \mid \mathcal{G})}{\pi_{\mathrm{ref}}(s^w \mid \mathcal{G})}
+-
+\beta \log \frac{\pi_\theta(s^l \mid \mathcal{G})}{\pi_{\mathrm{ref}}(s^l \mid \mathcal{G})}
+\Bigr)
+\right].
+\label{eq:dpo_loss}
+\end{equation}
+DPO fits an implicit scalar reward $r_\theta(s,\mathcal{G}) = \beta \log \pi_\theta(s\mid\mathcal{G})/\pi_{\mathrm{ref}}(s\mid\mathcal{G})$. Because $\mathcal{D}_r$ is constructed via $\varepsilon$-Pareto dominance, the implicit reward is constrained to the Pareto-monotonic class
+\begin{equation}
+\mathcal{F}_P \;=\; \big\{f:\mathbb{R}^M \to \mathbb{R} \;\big|\; \phi^a \succeq_{\varepsilon} \phi^b \Rightarrow f(\phi^a) > f(\phi^b)\big\}.
+\label{eq:pareto_class}
+\end{equation}
+Any linear scalarization $f(\phi) = w^\top \phi$ with $w \succeq 0$ lies in $\mathcal{F}_P$; DPO does not select a single $w$ but instead learns a (potentially nonlinear) member of $\mathcal{F}_P$ whose induced policy maximizes the BTL likelihood on $\mathcal{D}_r$. Equivalently, the optimum of \eqref{eq:dpo_loss} is the KL-regularized policy
+\begin{equation}
+\pi^*_r(s\mid \mathcal{G}) \;\propto\; \pi_{\mathrm{ref}}(s\mid \mathcal{G})\, \exp\!\big(\beta \cdot r_\theta^*(s,\mathcal{G})\big),\qquad r_\theta^* \in \mathcal{F}_P,
+\label{eq:pareto_policy}
+\end{equation}
+which is consistent with \emph{every} positive-weight scalarization respecting $\succeq_{\varepsilon}$. This is a strictly stronger guarantee than scalarized preference optimization, where the optimum depends on a single chosen $w$.
+
+\paragraph{SFT anchor.}
+We augment the DPO loss with a supervised fine-tuning term on the chosen sequences:
+\begin{equation}
+\mathcal{L}(\theta)
+\;=\; \mathcal{L}_{\mathrm{DPO}}(\theta)
+\;+\; \lambda_{\mathrm{SFT}}\,
+\mathbb{E}_{(s^w,\mathcal{G})\sim \mathcal{D}_r}\!\big[-\log \pi_\theta(s^w \mid \mathcal{G})\big].
+\label{eq:sft_anchor}
+\end{equation}
+The SFT term explicitly anchors $\pi_\theta$ on the high-quality winners; without it, the policy can satisfy the BTL objective by depressing $\pi_\theta(s^l)$ rather than concentrating mass on $s^w$, which is a known failure mode of vanilla DPO under low-margin or low-coverage data \citep{Pan2025WhatMI}. We use $\lambda_{\mathrm{SFT}}=0.10$.
+
+\paragraph{Frozen reference and the trust-region interpretation.}
+We keep the reference policy $\pi_{\mathrm{ref}}$ frozen at the gRNAde initialization across all rounds. Combined with the variability-aware margin curriculum \eqref{eq:variability_margin}, the multi-round update
+\[
+\pi_{\theta, r+1}\;=\;\arg\min_{\pi}\; \mathcal{L}_r(\theta)
+\]
+is mirror descent on the KL-regularized expected reward objective with step-size annealing. The cumulative KL drift of $\pi_{\theta, R}$ from $\pi_{\mathrm{ref}}$ is bounded by $\tfrac{1}{2\beta}\sum_r \alpha_r^2 G^2$ for some bounded gradient norm $G$; the bound stays finite when $\sum_r \alpha_r^2 < \infty$, which holds for our schedule. If instead the reference is updated to $\pi_{\theta, r}$ each round, the trust region is lost and KL drift can be unbounded. Theorem~\ref{thm:trust_region} in Appendix~\ref{app:trust_region} formalizes this; Table~\ref{tab:ablation_multiround} shows the empirical correspondence (reference update produces MFE $-48.07$ kcal/mol but RMSD $14.30$ \AA, the canonical signature of unbounded drift).
+
+\paragraph{Off-policy degradation under static pairs.}
+We compute $\mathcal{D}_r$ once per training campaign from candidates sampled from $\pi_{\mathrm{ref}}$. As training proceeds, $\pi_{\theta, r}$ drifts away from the candidate-generation distribution. Theorem~\ref{thm:off_policy} (Appendix~\ref{app:off_policy}) establishes that the resulting gradient bias grows linearly in the round count, predicting performance degradation once $\mathrm{KL}(\pi_{\theta, r}\,\|\,\pi_{\mathrm{ref}})$ exceeds $\log C$ for $C$ candidates per backbone. Empirically, this matches the observed Pareto plateau at rounds 2--4 and gradual degradation at rounds 5--8 (Appendix~\ref{app:extended_rounds}); it also identifies on-policy / importance-corrected iterative DPO as the principled successor to the static-pair scheme used here.
+
+% \textcolor{blue}{Mention designability in the introduction section}
+
+% \subsection{SSTT Benchmark: Comprehensive Evaluation Framework}
+% \label{subsec:sstt}
+
+% Unlike existing RNA inverse folding benchmarks, which mainly evaluate sequence recovery and RMSD, we introduce the SSTT benchmark to assess performance across four complementary dimensions. This framework integrates thermodynamic stability and ensemble properties alongside traditional structural metrics, offering a multidimensional view of design quality. Detailed calculation procedures are provided in Appendix~\ref{subsec:sstt_detail}. {\textbf{S}equence Axis} captures how closely designed sequences resemble native ones and how broadly they explore sequence space. We assess recovery rate \citep{dauparas2022proteinmpnn} to measure native residue similarity, and 3-mer diversity \citep{shannon1948mathematical,Bokulich2024diversitykmer} to quantify sequence exploration capacity. {\textbf{S}econdary Structure Axis} evaluates whether designed sequences fold back into their intended secondary structures. We measure forward-folding self-consistency using Matthews Correlation Coefficient \citep{matthews1975comparison,mccmoreaccurate} on EternaFold \citep{waymentsteele2022eternafold} predictions, capturing base-pairing fidelity. {\textbf{T}ertiary Structure Axis} assesses three-dimensional fidelity at both global and local levels as well as steric and torsional realism. We evaluate TM-score \citep{zhang2004tmscore}, GDT, and RMSD for global similarity; pLDDT \citep{jumper2021alphafold2} for confidence; lDDT for local structure preservation; interaction network fidelity \citep{parisien2009newmetricsinf} for base-pairing accuracy; clash score \citep{word1999clashscore,davis2007molprobity} for geometric feasibility; and backbone torsion quality \citep{ramachandran1963stereochemistry} for stereochemical realism. {\textbf{T}hermostability Axis} quantifies the thermodynamic robustness of designed sequences under physiological conditions. We incorporate minimum free energy \citep{zuker1981optimal} for stability, ensemble defect \citep{zadeh2011nucleic} to measure target structure specificity, target structure probability \citep{McCaskill1990TheEquilibrium} to quantify conformational preference, Shannon entropy for ensemble sharpness, and melting temperature for thermal resilience. 
+ 
+% % comprehensively
+
+
+\subsection{SSTT Benchmark: Comprehensive Evaluation Framework}
+\label{subsec:sstt}
+
+Unlike existing RNA inverse folding benchmarks, which mainly evaluate sequence recovery and RMSD, we introduce the SSTT benchmark to assess performance across four complementary dimensions. This framework integrates thermodynamic stability and ensemble properties alongside traditional structural metrics, offering a multidimensional view of design quality. Detailed calculation procedures are provided in Appendix~\ref{subsec:sstt_detail}. 
+{\textbf{S}equence Axis} captures how closely designed sequences resemble native ones and how broadly they explore sequence space. We assess recovery rate \citep{dauparas2022proteinmpnn} to measure native residue similarity, and 3-mer diversity \citep{shannon1948mathematical,Bokulich2024diversitykmer} to quantify sequence exploration capacity.
+{\textbf{S}econdary Structure Axis} evaluates whether designed sequences fold back into their intended secondary structures. We measure forward-folding self-consistency using Matthews Correlation Coefficient \citep{matthews1975comparison,mccmoreaccurate} on EternaFold \citep{waymentsteele2022eternafold} predictions, capturing base-pairing fidelity. 
+{\textbf{T}ertiary Structure Axis} assesses three-dimensional fidelity at both global and local levels as well as steric realism. We evaluate TM-score \citep{zhang2004tmscore}, GDT, and RMSD for global similarity; pLDDT \citep{jumper2021alphafold2} for confidence; { interaction network fidelity \citep{parisien2009newmetricsinf} for base-pairing accuracy; and clash score \citep{word1999clashscore,davis2007molprobity} for geometric feasibility.} 
+{\textbf{T}hermostability Axis} quantifies the thermodynamic robustness of designed sequences under physiological conditions. We incorporate minimum free energy \citep{zuker1981optimal} for stability, { and ensemble defect \citep{zadeh2011nucleic} to measure target structure specificity.}

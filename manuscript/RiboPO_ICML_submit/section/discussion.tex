@@ -1,0 +1,38 @@
+\section{Discussion \& Limitations}
+
+\textcolor{blue}{I admire the insights, but we'd not show this in the article. In other words, we can show a partial of the content, since there is not enough space for the experiment section. We can describe the baselines perform bad, and the insight of multi-round RNA or the insight of using MFE.}
+
+\textcolor{yellow}{R: We just put these texts here, and will decide which part to reserve in the final stage.}
+
+\textbf{Preference alignment moves the token distribution.} Offline DPO with an energy-leaning signal reweights the policy toward low-MFE basins, reflected in improved perplexity and 2D self-consistency. The recovery drop indicates a trade-off: the policy steps away from native token modes that maximized exact match.
+
+\textbf{Why limited 3D gains?} The composite signal was computed offline and gated on a subset; training did not backprop through a 3D predictor. Moreover, MFE (2D) and 3D agreement (TM/GDT) can disagree on some backbones. Without online feedback, the policy may move toward sequences that are thermodynamically strong in 2D but not necessarily better under 3D predictors.
+
+\textbf{Data hygiene matters.} Length mismatches between preference pairs and graphs were pervasive in raw pairs; filtering was essential for a stable, fair comparison on DAS test.
+
+\textbf{Benchmark} We followed the dataset splitting in gRNAde \citep{joshi2025grnade}, with is conflicted with some other baseline models. For better comparison, we could benchmark at some unseen, newly released RNA data \citep{Martin2024review}. 
+
+\textbf{The lack of reliable RNA 3D structure prediction models}. The RNA 3D structure prediction has not reached the AlphaFold moment \citep{schneider2023rnaalphafoldmoment}, with different RNA tertiary structure prediction models behave differently on different tasks \citep{Martin2024review}. In this research, we used the RhoFold+ \citep{shen2024accurate} because of its fast speed, the availability of the pLDDT, and the overall good performance. However, we still want to highlight that the 3D structure prediction itself could be biased, and may provide inaccurate feedback towards the optimization of the RNA design. For better refinement of the designed RNAs, we still need 1) a well-designed reward from the RNA physical feedback and 2) Assurance of the relative accuracy of the rewards. 
+
+
+
+\paragraph{Future works}
+% \paragraph{Next steps.} \textcolor{red}{the word ``future works'' is better? }
+(i) Multi-round DPO with \emph{updated} reference models and tighter gating on 3D-aware signals; 
+(ii) \emph{On-policy} preference refresh (semi-online) for hard backbones; 
+(iii) Curriculum over $\beta$ and $\lambda_{\mathrm{SFT}}$; 
+(iv) LoRA adapters for safer finetuning; 
+(v) Ensemble \& diversification penalties to explore broader basins; 
+(vi) Calibrate 2D/3D signal mixing with held-out meta-validation.
+
+
+
+
+\paragraph{Potential Extensions and Future}
+We have the confidence that the preference optimization-based methods can be widely used in science. 
+
+
+
+
+
+
