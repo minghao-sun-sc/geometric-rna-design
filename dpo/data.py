@@ -19,6 +19,10 @@ class PairBatch:
     loser_seq:  torch.Tensor  # [L]
     cid: str
     split: Optional[str] = None
+    # IS-DPO: per-pair log π_{r-1}(s | G); None when not in IS-correction mode (round 1)
+    # Filled at start of round r >= 2 by MultiRoundDPOTrainer._precompute_pair_log_probs.
+    log_prev_w: Optional[torch.Tensor] = None  # scalar (single) or [B] (batched)
+    log_prev_l: Optional[torch.Tensor] = None
 
 
 class DPOPairDataset(Dataset):
@@ -74,6 +78,20 @@ class DPOPairDataset(Dataset):
         self.missing_ids = set()
         self.mapped_ids = {}
         self.completely_missing = set()
+
+        # IS-DPO per-pair previous-round log-probs (filled by trainer at round >= 2).
+        # None per slot until set; we serve them from __getitem__ as scalar tensors.
+        self.log_prev_w = [None] * len(self.pairs)
+        self.log_prev_l = [None] * len(self.pairs)
+
+    def set_log_prev(self, idx: int, lw: float, ll: float):
+        """Store previous-round log-probs for the pair at index `idx` (IS-DPO)."""
+        self.log_prev_w[idx] = float(lw)
+        self.log_prev_l[idx] = float(ll)
+
+    def has_log_prev(self) -> bool:
+        """True iff at least one pair has log_prev set (i.e. IS mode is active)."""
+        return any(x is not None for x in self.log_prev_w)
 
     def __len__(self):
         return len(self.pairs)
@@ -222,8 +240,21 @@ class DPOPairDataset(Dataset):
                 w = to_int_seq(pair["winner_seq"])
                 l = to_int_seq(pair["loser_seq"])
 
+                # IS-DPO: pack per-pair previous-round log-probs if available.
+                # Use original_idx (the pair the trainer asked for, before any
+                # length-mismatch retry) so the log_prev set by precompute lines up.
+                lp_w = self.log_prev_w[original_idx] if 0 <= original_idx < len(self.log_prev_w) else None
+                lp_l = self.log_prev_l[original_idx] if 0 <= original_idx < len(self.log_prev_l) else None
+                lp_w_t = torch.tensor(lp_w, dtype=torch.float32) if lp_w is not None else None
+                lp_l_t = torch.tensor(lp_l, dtype=torch.float32) if lp_l is not None else None
+
                 # Move to target device after creation
-                return PairBatch(graph=graph.to(self.device), winner_seq=w.to(self.device), loser_seq=l.to(self.device), cid=cid, split=self.split_name)
+                return PairBatch(
+                    graph=graph.to(self.device),
+                    winner_seq=w.to(self.device), loser_seq=l.to(self.device),
+                    cid=cid, split=self.split_name,
+                    log_prev_w=lp_w_t, log_prev_l=lp_l_t,
+                )
                 
             except ValueError as e:
                 if "Sequence length mismatch" in str(e):
@@ -276,9 +307,20 @@ class DPOPairDataset(Dataset):
                 
                 w = to_int_seq(pair["winner_seq"])
                 l = to_int_seq(pair["loser_seq"])
-                
+
+                # IS-DPO log_prev for the fallback pair (rare path; usually None).
+                lp_w = self.log_prev_w[random_idx] if 0 <= random_idx < len(self.log_prev_w) else None
+                lp_l = self.log_prev_l[random_idx] if 0 <= random_idx < len(self.log_prev_l) else None
+                lp_w_t = torch.tensor(lp_w, dtype=torch.float32) if lp_w is not None else None
+                lp_l_t = torch.tensor(lp_l, dtype=torch.float32) if lp_l is not None else None
+
                 print(f"SUCCESS: Fallback found valid pair at index {random_idx} ({cid})")
-                return PairBatch(graph=graph.to(self.device), winner_seq=w.to(self.device), loser_seq=l.to(self.device), cid=cid, split=self.split_name)
+                return PairBatch(
+                    graph=graph.to(self.device),
+                    winner_seq=w.to(self.device), loser_seq=l.to(self.device),
+                    cid=cid, split=self.split_name,
+                    log_prev_w=lp_w_t, log_prev_l=lp_l_t,
+                )
                 
             except Exception as e:
                 continue
@@ -337,7 +379,19 @@ def collate_batch_pairs(batch_list):
     # Stack into batch dimension
     winner_seq_batch = torch.stack(padded_winner)  # [B, L]
     loser_seq_batch = torch.stack(padded_loser)    # [B, L]
-    
+
+    # IS-DPO: stack per-pair log_prev_{w,l} if all items have them; else None.
+    have_lp_w = [item.log_prev_w for item in batch_list]
+    have_lp_l = [item.log_prev_l for item in batch_list]
+    if all(x is not None for x in have_lp_w):
+        log_prev_w_batch = torch.stack([t.view(()) for t in have_lp_w])  # [B]
+    else:
+        log_prev_w_batch = None
+    if all(x is not None for x in have_lp_l):
+        log_prev_l_batch = torch.stack([t.view(()) for t in have_lp_l])  # [B]
+    else:
+        log_prev_l_batch = None
+
     # Return a batched PairBatch (keep on CPU)
     # Note: We're modifying the PairBatch to hold batched data
     # The graph is now a Batch object, and sequences are [B, L] tensors
@@ -346,7 +400,9 @@ def collate_batch_pairs(batch_list):
         winner_seq=winner_seq_batch,
         loser_seq=loser_seq_batch,
         cid=cids,  # List of cids
-        split=splits[0] if splits[0] is not None else None
+        split=splits[0] if splits[0] is not None else None,
+        log_prev_w=log_prev_w_batch,
+        log_prev_l=log_prev_l_batch,
     )
 
 

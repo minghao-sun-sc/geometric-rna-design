@@ -1,0 +1,56 @@
+# 17. IS-DPO smoke test — minimal R=2 × 1-epoch run to verify wiring works end-to-end.
+# Goals: (a) round 1 standard DPO completes; (b) round 2 precompute populates log_prev;
+# (c) round 2 IS loss runs without NaN; (d) checkpoints saved.
+# Wall time: ~10-20 minutes on A100. Use this BEFORE firing the full R=5 experiments.
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: false                     # smoke test — skip wandb
+  project: MultiRound-DPO-RNA
+  run_name: 17_isdpo_smoke
+  mode: offline
+
+multiround:
+  num_rounds: 2
+  epochs_per_round: 1
+  update_reference: false           # frozen reference (the standard case)
+  use_is_correction: true           # KEY: smoke-test the IS code path
+  is_clip: 5.0
+  eval_temperature: 0.5
+  final_eval_temperature: 0.1
+  eval_samples: 4
+  final_eval_samples: 4
+  save_eval_data: false
+  # Per-round built-in eval has shape bugs; we'll run eval separately via
+  # scripts/eval_phase2_checkpoint.sh on the saved round_N_best.pt files.
+  skip_per_round_eval: true
+  output_root: runs/multiround
+
+paths:
+  pair_margin: "25"
+  save_dir: runs/multiround/17_isdpo_smoke
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.12
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+training:
+  epochs: 1
+  batch_size: 4                     # small, fast
+  grad_accum_steps: 1
+  log_every: 5
+  val_every: 999999                 # skip val mid-round
+  save_every: 999999
+
+optimizer:
+  lr: 1.8e-4

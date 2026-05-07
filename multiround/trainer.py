@@ -12,9 +12,14 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 from dpo.trainer import DPOTrainer
-from dpo.ref_manager import save_checkpoint, load_checkpoint
+from dpo.ref_manager import save_checkpoint, load_checkpoint, build_model_from_cfg
 from dpo.utils import AverageMeter, now_str
-from dpo.losses import dpo_step_losses, ce_on_sequence
+from dpo.losses import (
+    dpo_step_losses,
+    ce_on_sequence,
+    seq_logprob,
+    importance_corrected_dpo_step_losses,
+)
 from torch.cuda.amp import autocast
 from multiround.evaluator import MultiRoundEvaluator
 from multiround.pair_provider import MultiRoundPairProvider
@@ -233,10 +238,21 @@ class MultiRoundDPOTrainer:
                 })
             print(f"📊 Logged margin type '{current_margin}' and pair counts to wandb")
         
+        # Step 2.5: IS-DPO precompute (only for round >= 2 with use_is_correction=True).
+        # This populates log_prev_{w,l} on each pair in the train dataset.
+        # Theorem 2 (off-policy bias bound) mitigation. Failures are NOT caught
+        # here on purpose: silently degrading IS-on into IS-off would invalidate
+        # the IS-on/off comparison the user explicitly requested.
+        if (round_num >= 2
+            and getattr(self.cfg.multiround, 'use_is_correction', False)):
+            print(f"🧮 [IS-DPO] Precomputing previous-round log-probs (round {round_num-1})...")
+            self._precompute_pair_log_probs(round_num)
+            print(f"✅ [IS-DPO] precompute done")
+
         # Step 3: Train for specified epochs
         print(f"🏃 Training for {self.epochs_per_round} epochs...")
         train_start = datetime.now()
-        
+
         # Execute training for this round
         # Instead of modifying config, we'll call a custom training loop
         training_result = self._train_for_round(self.epochs_per_round)
@@ -247,15 +263,20 @@ class MultiRoundDPOTrainer:
         # Step 4: Evaluate on test set
         print(f"📊 Evaluating round {round_num}...")
         eval_start = datetime.now()
-        
+
         # Use appropriate sample count for evaluation
         is_final_round = (round_num == self.num_rounds)
-        eval_result = self.evaluator.evaluate_round(
-            model=self.trainer.policy,
-            round_num=round_num,
-            output_dir=round_dir,
-            is_final_round=is_final_round
-        )
+        if getattr(self.cfg.multiround, 'skip_per_round_eval', False):
+            print("⏭ skip_per_round_eval=True — bypassing built-in evaluator. "
+                  "Run eval_phase2_checkpoint.sh on round_N_best.pt afterwards.")
+            eval_result = {}  # empty; checkpoint will be saved by Step 5 anyway
+        else:
+            eval_result = self.evaluator.evaluate_round(
+                model=self.trainer.policy,
+                round_num=round_num,
+                output_dir=round_dir,
+                is_final_round=is_final_round
+            )
         
         eval_time = datetime.now() - eval_start
         print(f"✅ Evaluation completed in {eval_time}")
@@ -371,6 +392,88 @@ class MultiRoundDPOTrainer:
         # Reference model update is now handled in train_round() after trainer setup
         # This ensures consistent timing and logic
     
+    def _precompute_pair_log_probs(self, round_num: int):
+        """IS-DPO: load round (round_num-1)'s policy and compute log π_{r-1}(s | G)
+        for each pair in the train dataset. Stores values on the dataset via
+        DPOPairDataset.set_log_prev so the dataloader yields them in batches.
+
+        This is the static-pair multi-round mitigation described in
+        Theorem 2 (off-policy bias) — see docs/is_dpo_integration_plan.md Step 2.
+        Time cost: O(|pairs|) forward passes, ~1-2 minutes per round on A100.
+        """
+        if self.trainer is None or self.trainer.train_loader is None:
+            raise RuntimeError("Trainer/train_loader not initialised before precompute")
+
+        # Locate previous round's best.pt
+        prev_dir = os.path.join(self.output_root, f"round_{round_num - 1:02d}")
+        # Try a few common file names for previous-round best ckpt
+        candidates = [
+            os.path.join(prev_dir, f"round_{round_num - 1}_best.pt"),
+            os.path.join(prev_dir, "checkpoints", f"round_{round_num - 1}_best.pt"),
+            os.path.join(prev_dir, "best.pt"),
+        ]
+        prev_ckpt = next((p for p in candidates if os.path.exists(p)), None)
+        if prev_ckpt is None:
+            raise FileNotFoundError(
+                f"No previous-round checkpoint found among {candidates}; "
+                f"cannot run IS-DPO precompute for round {round_num}"
+            )
+        print(f"   loading previous-round policy: {prev_ckpt}")
+
+        # Build a fresh model on device, load prev ckpt, set eval, freeze.
+        prev_policy = build_model_from_cfg(self.cfg.model).to(self.device)
+        sd = torch.load(prev_ckpt, map_location=self.device)
+        if isinstance(sd, dict) and "state_dict" in sd:
+            sd = sd["state_dict"]
+        # Stage-2 (FiLM-wrapped) is unsupported here: silently dropping `film.*`
+        # would load a base-only model and produce wrong IS weights. Fail loudly
+        # so a Stage-2 user knows to extend this loader.
+        if any(k.startswith("film.") for k in sd.keys()):
+            raise NotImplementedError(
+                f"IS-DPO precompute encountered FiLM keys in {prev_ckpt}. "
+                "Stage-2 (FiLM-conditioned) checkpoints are not supported by this "
+                "loader; the previous-round policy must be a base "
+                "AutoregressiveMultiGNNv1 (Stage-1) for the IS weights to be correct. "
+                "To extend, instantiate WeightConditionedAutoregressiveGNN here and "
+                "condition seq_logprob on w."
+            )
+        # Tolerate a leading `base.` prefix (older single-stage saves stored the
+        # base-AR model under that key even without a FiLM head).
+        sd = {k.replace("base.", "", 1) if k.startswith("base.") else k: v
+              for k, v in sd.items()}
+        prev_policy.load_state_dict(sd, strict=False)
+        prev_policy.eval()
+
+        # Walk the underlying dataset (NOT the dataloader — collate batches things and
+        # we want to set log_prev per pair index).
+        ds = self.trainer.train_loader.dataset
+        n = len(ds)
+        n_done = 0
+        n_skipped = 0
+        with torch.no_grad():
+            for i in range(n):
+                try:
+                    item = ds[i]  # PairBatch (CPU)
+                    g = item.graph.to(self.device)
+                    w = item.winner_seq.to(self.device)
+                    l = item.loser_seq.to(self.device)
+                    lpw = float(seq_logprob(prev_policy, g, w))
+                    lpl = float(seq_logprob(prev_policy, g, l))
+                    ds.set_log_prev(i, lpw, lpl)
+                    n_done += 1
+                    if n_done % 1000 == 0:
+                        print(f"   [is-precompute] {n_done}/{n} pairs", flush=True)
+                except Exception as e:
+                    n_skipped += 1
+                    if n_skipped <= 3:
+                        print(f"   [is-precompute] skipped pair {i}: {type(e).__name__}: {e}")
+        print(f"   [is-precompute] done: {n_done}/{n} (skipped {n_skipped})")
+
+        # Free the temporary policy
+        del prev_policy
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def _update_reference_model(self):
         """
         Update reference model by cloning current policy.
@@ -733,18 +836,45 @@ class MultiRoundDPOTrainer:
                 if precision == 'bf16' and not torch.cuda.is_bf16_supported():
                     print("⚠️ BF16 not supported on this GPU, falling back to FP32")
                     precision = 'fp32'
-                with autocast(enabled=precision in ["fp16", "bf16"], 
+                with autocast(enabled=precision in ["fp16", "bf16"],
                              dtype=torch.bfloat16 if precision=="bf16" else torch.float16):
-                    # DPO forward
-                    out = dpo_step_losses(
-                        model=self.trainer.policy,
-                        ref_model=self.trainer.reference,
-                        batch=batch,
-                        beta=cfg.dpo.beta,
-                        label_smoothing=cfg.dpo.label_smoothing,
-                        max_len=cfg.dpo.max_len
+                    # IS-DPO swap: round >= 2 + use_is_correction + log_prev populated.
+                    use_is = (
+                        self.current_round >= 2
+                        and getattr(cfg.multiround, 'use_is_correction', False)
+                        and getattr(batch, 'log_prev_w', None) is not None
+                        and getattr(batch, 'log_prev_l', None) is not None
                     )
-                    loss = out["loss_dpo"]
+                    if use_is:
+                        is_lpw = batch.log_prev_w
+                        is_lpl = batch.log_prev_l
+                        if isinstance(is_lpw, torch.Tensor):
+                            is_lpw = is_lpw.to(self.trainer.device)
+                            is_lpl = is_lpl.to(self.trainer.device)
+                        out = importance_corrected_dpo_step_losses(
+                            model=self.trainer.policy,
+                            ref_model=self.trainer.reference,
+                            batch=batch,
+                            beta=cfg.dpo.beta,
+                            is_clip=getattr(cfg.multiround, 'is_clip', 5.0),
+                            is_log_prev_w=is_lpw,
+                            is_log_prev_l=is_lpl,
+                            max_len=cfg.dpo.max_len,
+                        )
+                        loss = out["loss_dpo_is"]
+                        # alias for downstream meters that look for "loss_dpo"
+                        out["loss_dpo"] = out["loss_dpo_is"]
+                    else:
+                        # DPO forward (round 1 or IS off)
+                        out = dpo_step_losses(
+                            model=self.trainer.policy,
+                            ref_model=self.trainer.reference,
+                            batch=batch,
+                            beta=cfg.dpo.beta,
+                            label_smoothing=cfg.dpo.label_smoothing,
+                            max_len=cfg.dpo.max_len
+                        )
+                        loss = out["loss_dpo"]
 
                     # optional SFT on winners
                     if cfg.dpo.sft_lambda and cfg.dpo.sft_lambda > 0:
@@ -1087,25 +1217,31 @@ class MultiRoundDPOTrainer:
     def _print_round_summary(self, round_result: Dict):
         """Print a summary of the round results."""
         print(f"\n📈 Round {round_result['round']} Summary:")
-        
+
+        # Helper: safely format possibly-None numbers
+        def _fmt(x):
+            if isinstance(x, (int, float)):
+                return f"{x:.4f}"
+            return repr(x)
+
         # Training metrics
         if 'final_train_loss' in round_result:
-            print(f"   Training Loss: {round_result['final_train_loss']:.4f}")
+            print(f"   Training Loss: {_fmt(round_result['final_train_loss'])}")
         if 'final_val_loss' in round_result:
-            print(f"   Validation Loss: {round_result['final_val_loss']:.4f}")
-        
+            print(f"   Validation Loss: {_fmt(round_result['final_val_loss'])}")
+
         # Primary evaluation metrics
         primary_metrics = ['tm_mean', 'rmsd_mean', 'mfe_mean']
         for metric in primary_metrics:
             if metric in round_result:
-                print(f"   {metric.upper()}: {round_result[metric]:.4f}")
-        
+                print(f"   {metric.upper()}: {_fmt(round_result[metric])}")
+
         # Secondary metrics
         secondary_metrics = ['plddt_mean', 'gdt_mean', 'diversity_3mer_mean']
         for metric in secondary_metrics:
             if metric in round_result:
-                print(f"   {metric.upper()}: {round_result[metric]:.4f}")
-        
+                print(f"   {metric.upper()}: {_fmt(round_result[metric])}")
+
         print()
     
     def _generate_final_summary(self) -> Dict:

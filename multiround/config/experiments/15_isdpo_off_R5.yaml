@@ -1,0 +1,59 @@
+# 15. Multi-round DPO baseline (NO importance-correction) for Theorem-2 validation.
+# R=5 rounds × 5 epochs each. Frozen reference, decreasing α schedule (margin curriculum).
+# Pair sets: m125 (R1) → m25 (R2-5).
+# Expected: scMCC peaks at R≈2, drifts down at R≥4 (predicted by Theorem 2).
+#
+# Pair with experiment 16 (use_is_correction=true) to validate the IS mitigation.
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 15_isdpo_off_R5
+  mode: offline
+  tags: ["isdpo", "off", "R5", "thm2_baseline"]
+  notes: "Theorem-2 baseline: static-pair multi-round DPO, no IS correction"
+  group: "is_dpo_validation"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 5
+  update_reference: false           # Frozen reference (the trust-region condition)
+  use_is_correction: false          # KEY: NO IS correction
+  is_clip: 5.0
+  eval_temperature: 0.1
+  final_eval_temperature: 0.1
+  # NOTE: defaults use these key names — n_samples_* would be silently ignored
+  # and the eval would default to 64 samples × 98 structures = ~5-7h per round
+  eval_samples: 8                   # per-round eval (matches phase-2 protocol)
+  final_eval_samples: 8             # final-round eval
+  save_eval_data: true
+  # The built-in per-round eval has reshape bugs; we'll run eval separately via
+  # eval_phase2_checkpoint.sh on each round_N_best.pt to populate scMCC-vs-R curve.
+  skip_per_round_eval: true
+  output_root: runs/multiround
+
+paths:
+  pair_margin: "25"
+  save_dir: runs/multiround/15_isdpo_off_R5
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.12
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+training:
+  epochs: 5
+
+optimizer:
+  lr: 1.8e-4

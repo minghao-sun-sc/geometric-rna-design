@@ -1,0 +1,54 @@
+# 16. Multi-round DPO WITH importance-correction (Theorem-2 mitigation experiment).
+# Same setup as exp 15 except `use_is_correction=true`.
+# Expected: scMCC plateau extends through R5 — IS correction mitigates the off-policy bias
+# bound predicted by Theorem 2.
+
+inherit_from: multiround/config/multiround_defaults.yaml
+
+seed: 42
+device: cuda
+loss_type: dpo
+
+wandb:
+  enable: true
+  project: MultiRound-DPO-RNA
+  entity: minghao-sun-soc
+  run_name: 16_isdpo_on_R5
+  mode: offline
+  tags: ["isdpo", "on", "R5", "thm2_mitigation"]
+  notes: "Theorem-2 mitigation: static-pair multi-round DPO with clipped IS reweighting"
+  group: "is_dpo_validation"
+
+multiround:
+  num_rounds: 5
+  epochs_per_round: 5
+  update_reference: false           # Frozen reference (same as baseline)
+  use_is_correction: true           # KEY: IS correction enabled at round >= 2
+  is_clip: 5.0
+  eval_temperature: 0.1
+  final_eval_temperature: 0.1
+  # NOTE: defaults use these key names — see 15_isdpo_off_R5.yaml note
+  eval_samples: 8
+  final_eval_samples: 8
+  save_eval_data: true
+  skip_per_round_eval: true         # eval offline via eval_phase2_checkpoint.sh
+  output_root: runs/multiround
+
+paths:
+  pair_margin: "25"
+  save_dir: runs/multiround/16_isdpo_on_R5
+  pairs:
+    train: data/pairs_margin25/by_das/clean/train.clean.jsonl
+    val:   data/pairs_margin25/by_das/clean/val.clean.jsonl
+    test:  data/pairs_margin25/by_das/clean/test.clean.jsonl
+
+dpo:
+  beta: 0.12
+  sft_lambda: 0.10
+  label_smoothing: 0.0
+
+training:
+  epochs: 5
+
+optimizer:
+  lr: 1.8e-4

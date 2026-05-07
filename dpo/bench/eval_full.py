@@ -208,6 +208,48 @@ def _load_weights(model, ckpt_path, device):
     return model
 
 
+def _load_model_filmlike_aware(cfg, ckpt_path, device, w_dim: int = 3):
+    """Load a model that may be FiLM-conditioned (Pareto-Stage-2).
+
+    If the checkpoint contains keys starting with ``film.`` we instantiate
+    `WeightConditionedAutoregressiveGNN` (preserves FiLM head). Otherwise we
+    fall back to the standard `AutoregressiveMultiGNNv1` via `build_model_from_cfg`.
+
+    Returns (model, is_film_aware).
+    """
+    raw = torch.load(ckpt_path, map_location=device)
+    sd = raw["model"] if (isinstance(raw, dict) and "model" in raw and isinstance(raw["model"], dict)) else raw
+    if isinstance(sd, dict) and "state_dict" in sd and isinstance(sd["state_dict"], dict):
+        sd = sd["state_dict"]
+    has_film = any(k.startswith("film.") for k in sd.keys())
+    if has_film:
+        from dpo.pareto_dpo import WeightConditionedAutoregressiveGNN
+        base_kwargs = dict(
+            node_in_dim=tuple(cfg.model.node_in_dim),
+            node_h_dim=tuple(cfg.model.node_h_dim),
+            edge_in_dim=tuple(cfg.model.edge_in_dim),
+            edge_h_dim=tuple(cfg.model.edge_h_dim),
+            num_layers=cfg.model.num_layers,
+            drop_rate=cfg.model.drop_rate,
+            out_dim=cfg.model.out_dim,
+        )
+        model = WeightConditionedAutoregressiveGNN(base_kwargs=base_kwargs, w_dim=w_dim).to(device)
+        # Stage-2 ckpts wrap base under "base." prefix and put FiLM under "film.".
+        # The wrapper class is laid out as `self.base = AutoregressiveMultiGNNv1(...)`
+        # and `self.film = FiLMHead(...)` so the "base." prefix in the state_dict
+        # is exactly correct.
+        missing, unexpected = model.load_state_dict(sd, strict=False)
+        if missing or unexpected:
+            print(f"[warn] film-aware load_state_dict: missing={len(missing)} unexpected={len(unexpected)}")
+        # forward `out_dim` so callers can read it like the base class
+        model.out_dim = cfg.model.out_dim
+        return model, True
+    else:
+        model = build_model_from_cfg(cfg.model).to(device)
+        _load_weights(model, ckpt_path, device)
+        return model, False
+
+
 @torch.no_grad()
 def eval_full_metrics(
     cfg: SN,
@@ -221,7 +263,8 @@ def eval_full_metrics(
     save_designs: bool = False,
     output_dir: Optional[str] = None,
     passk_cfg: Optional[SN] = None,  # Pass@k configuration
-    from_fasta_dir: Optional[str] = None  # If set, skip model.sample() and read FASTAs from disk
+    from_fasta_dir: Optional[str] = None,  # If set, skip model.sample() and read FASTAs from disk
+    w: Optional[torch.Tensor] = None,  # FiLM scalarization weight for Pareto-Stage-2 ckpts
 ) -> Dict[str, Any]:
     """
     Full evaluation with all gRNAde metrics including sampling and self-consistency.
@@ -246,6 +289,7 @@ def eval_full_metrics(
     # from <from_fasta_dir>/<structure_id>/sample{0..n-1}.fasta. Recovery, scMCC, INF,
     # Vienna, RhoFold-3D and clash all still work; perplexity is undefined → NaN.
     use_from_fasta = from_fasta_dir is not None
+    is_film_aware = False
     if use_from_fasta:
         from pathlib import Path
         from src.constants import LETTER_TO_NUM
@@ -255,9 +299,17 @@ def eval_full_metrics(
         print(f"[from_fasta] reading sequences from {_fasta_root}")
         model = None  # not loaded
     else:
-        model = build_model_from_cfg(cfg.model).to(device)
-        _load_weights(model, ckpt_path, device)
+        # FiLM-aware loader: returns either base AR model or wrapped WeightConditionedAutoregressiveGNN.
+        # If `w` is supplied for a base (non-FiLM) ckpt, it's silently ignored.
+        model, is_film_aware = _load_model_filmlike_aware(
+            cfg, ckpt_path, device,
+            w_dim=int(getattr(cfg.model, 'w_dim', 3)),
+        )
         model.eval()
+        if w is not None and is_film_aware:
+            print(f"[film-aware] sampling at w={w.tolist() if isinstance(w, torch.Tensor) else w}")
+        elif w is not None and not is_film_aware:
+            print("[film-aware] NOTE: --w supplied but checkpoint has no FiLM keys; ignoring")
 
     # Initialize RhoFold if needed (following src/evaluator.py pattern)
     rhofold = None
@@ -386,7 +438,12 @@ def eval_full_metrics(
             samples = torch.tensor(samples_list, dtype=torch.long, device=device)
             logits = None
         else:
-            samples, logits = model.sample(graph, n_samples, temperature, return_logits=True)
+            if is_film_aware:
+                samples, logits = model.sample(
+                    graph, n_samples, temperature, w=w, return_logits=True
+                )
+            else:
+                samples, logits = model.sample(graph, n_samples, temperature, return_logits=True)
 
         # Compute sequence recovery (teacher-forced)
         recovery = samples.eq(item.seq.to(device)).float().cpu().numpy()
@@ -847,7 +904,50 @@ def eval_full_metrics(
         except Exception as e:
             print(f"❌ Pass@k analysis failed: {e}")
             results["passk_analysis"] = {"error": str(e)}
-    
+
+    # Persist per-sample list arrays for later bootstrap CI computation (Phase A3).
+    # These are the same arrays that go into the means above; saving them lets us
+    # recompute 95% CIs (10k bootstrap, percentile method) offline without rerunning
+    # the eval. Optional: gated on output_dir so we don't bloat memory in unit tests.
+    if output_dir:
+        per_structure = {
+            "n_structures": n_processed,
+            "n_samples_per_structure": n_samples,
+            "lists": {
+                # sequence
+                "recovery": recovery_list,
+                "perplexity": perplexity_list,
+                # 2D
+                "sc_eternafold": sc_eternafold_list,
+                # 3D
+                "sc_rmsd": sc_rmsd_list, "sc_tm": sc_tm_list, "sc_gdt": sc_gdt_list,
+                "sc_plddt": sc_plddt_list,
+                "rmsd_within_8A": rmsd_within_thresh_list,
+                "plddt_above_070": plddt_within_thresh_list,
+                # functional
+                "inf_all": inf_all_list, "inf_wc": inf_wc_list,
+                "inf_nwc": inf_nwc_list, "inf_stack": inf_stack_list,
+                "clashscore_pre_relax": clashscore_pre_list,
+                "clashscore_post_relax": clashscore_post_list,
+                # thermodynamics
+                "vienna_mfe": vienna_mfe_list,
+                "vienna_ED": vienna_ed_list,
+                "vienna_ED_per_nt": vienna_ednt_list,
+                "vienna_pS0": vienna_pS0_list,
+                "vienna_Tm": vienna_tm_list,
+                # sequence diversity
+                "diversity_3mer": diversity_3mer_list,
+            },
+        }
+        try:
+            per_path = os.path.join(output_dir, f"{ckpt_name}_per_structure.json")
+            os.makedirs(output_dir, exist_ok=True)
+            with open(per_path, "w") as fp:
+                json.dump(_convert_for_json(per_structure), fp)
+            print(f"💾 per-sample list arrays → {per_path}")
+        except Exception as e:
+            print(f"⚠️ failed to write per-sample arrays: {e}")
+
     return results
 
 
@@ -861,19 +961,37 @@ def main():
                        default=None,  # Use config file metrics if not specified
                        help="Metrics to compute (overrides config if specified)")
     parser.add_argument("--save_designs", action="store_true", help="Save designed sequences")
+    parser.add_argument("--w", default=None, type=str,
+                        help="FiLM scalarization weight as a comma-separated 3-tuple, e.g. "
+                             "'1,0,0' or '0.33,0.33,0.34'. Only used when the checkpoint "
+                             "contains FiLM keys (Pareto-Stage-2). Ignored otherwise.")
     parser.add_argument("--from_fasta_dir", default=None, type=str,
                         help="If set, skip model.sample() and read pre-generated FASTAs from "
                              "<dir>/<structure_id>/sample{0..n-1}.fasta. Used for external baselines.")
     args = parser.parse_args()
-    
+
     cfg = load_cfg(args.config)
     set_seed(getattr(cfg, 'seed', 42))
     device = torch.device(getattr(cfg, 'device', 'cuda') if torch.cuda.is_available() else "cpu")
-    
+
     # Use config metrics if not specified on command line
     if args.metrics is None:
         args.metrics = getattr(cfg.eval, 'metrics', ['recovery', 'perplexity', 'sc_eternafold', 'sc_rhofold', 'sc_vienna', 'diversity_3mer'])
     print(f"Metrics to compute: {args.metrics}")
+
+    # Parse --w into a tensor if supplied (FiLM-aware sampling).
+    parsed_w = None
+    if args.w is not None:
+        try:
+            parts = [float(x) for x in args.w.split(",")]
+            parsed_w = torch.tensor(parts, dtype=torch.float32, device=device)
+            # Normalise to simplex (defensive — accept "1,0,0" or "1, 0, 0" or "0.33,0.33,0.34")
+            if parsed_w.sum().item() > 0:
+                parsed_w = parsed_w / parsed_w.sum()
+            print(f"[w] parsed scalarization weight: {parsed_w.tolist()}")
+        except Exception as e:
+            print(f"[w] failed to parse --w {args.w!r}: {e}; ignoring")
+            parsed_w = None
     
     # Load dataset
     split_name = getattr(cfg.paths, 'split_name', 'test')
@@ -923,6 +1041,7 @@ def main():
             output_dir=out_dir,
             passk_cfg=passk_cfg,
             from_fasta_dir=args.from_fasta_dir,
+            w=parsed_w,
         )
         
         # Filter out non-numeric values (like pass@k analysis dict) before converting to float

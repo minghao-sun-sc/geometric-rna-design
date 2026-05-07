@@ -273,6 +273,14 @@ def importance_corrected_dpo_step_losses(
 
     if is_log_prev_w is not None and is_log_prev_l is not None:
         # importance ratio = π_prev(s) / π_ref(s) ~ exp(log_prev - log_ref) per side.
+        # NOTE on granularity (theory–impl gap, intentional): is_log_prev_{w,l}
+        # are precomputed ONCE at the start of round r against the round_{r-1}
+        # checkpoint and held CONSTANT for every step in round r. Within-round
+        # drift of π_θ is therefore not corrected; this is a per-round (not
+        # per-step) IS scheme. The paper's claim about trajectory shape
+        # (monotone-drift vs. bounded-oscillation) is robust to this
+        # approximation, but the bound in Proposition (off_policy) is
+        # conservative w.r.t. step-level drift.
         with torch.no_grad():
             log_w_prev = is_log_prev_w - lrw
             log_l_prev = is_log_prev_l - lrl
