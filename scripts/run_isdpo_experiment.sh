@@ -13,7 +13,7 @@ set -uo pipefail
 JOBID="${1:?usage: $0 <jobid> <config>}"
 CFG="${2:?usage: $0 <jobid> <config>}"
 
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 
 if [[ ! -f "$CFG" ]]; then
   echo "ERROR: config not found: $CFG"

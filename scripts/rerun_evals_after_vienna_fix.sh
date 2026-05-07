@@ -13,7 +13,7 @@
 # Usage:
 #   1. Wait for `runs/phase2/eval/<tag>/eval_summary.json` to exist for ALL 7 tags
 #      (i.e. the broken-code chain settled, including beta_001 / pareto_stage2 evals).
-#   2. squeue -u smh   # find live jobids; need at least 5 with > 4h time-left.
+#   2. squeue -u $USER   # find live jobids; need at least 5 with > 4h time-left.
 #   3. Edit the JOBIDS array below.
 #   4. bash scripts/rerun_evals_after_vienna_fix.sh
 #
@@ -21,7 +21,7 @@
 # the buggy ones). Old results are auto-archived to <tag>/eval_summary.bug.json.
 
 set -eo pipefail
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 cd "$ROOT"
 mkdir -p runs/phase2/logs
 

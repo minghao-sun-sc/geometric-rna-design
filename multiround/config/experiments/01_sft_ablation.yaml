@@ -10,7 +10,7 @@ loss_type: dpo  # Keep DPO structure but β=0
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 01_sft_b0_l010
   mode: online
   tags: ["01_sft", "ablation", "baseline"]

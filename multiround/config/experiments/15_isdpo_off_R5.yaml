@@ -14,7 +14,7 @@ loss_type: dpo
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 15_isdpo_off_R5
   mode: offline
   tags: ["isdpo", "off", "R5", "thm2_baseline"]

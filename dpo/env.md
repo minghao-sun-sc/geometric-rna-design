@@ -5,15 +5,15 @@
 ```bash
 # Mamba Installation
 # 1. Create a personal directory in /tmp and move into it
-mkdir /tmp/smh
-cd /tmp/smh
+mkdir /tmp/$USER
+cd /tmp/$USER
 
 # 2. Download and run the installer for that location
 wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-bash Miniforge3-Linux-x86_64.sh -b -p /tmp/smh/miniforge3
+bash Miniforge3-Linux-x86_64.sh -b -p /tmp/$USER/miniforge3
 
 # 3. Initialize your shell from the new location
-/tmp/smh/miniforge3/bin/conda init bash
+/tmp/$USER/miniforge3/bin/conda init bash
 ```
 
 ## gRNAde Env
@@ -92,7 +92,7 @@ python scripts/parse_plddt.py --npz_path ./results/rhofold/3owz_A/results.npz
 Example Results from the RhoFold:
 
 ```bash
-(rhofold_protocol) [smh@zgpuA1003 rhofold_protocol]$ python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --input_msa ./data/rhofold/3owz_A/3owz_A.afa --output_dir ./results/rhofold/3owz_A --device cuda:0 
+(rhofold_protocol) [user@host rhofold_protocol]$ python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --input_msa ./data/rhofold/3owz_A/3owz_A.afa --output_dir ./results/rhofold/3owz_A --device cuda:0 
 2025-08-29 09:31:38,516 - INFO: Constructing RhoFold
 2025-08-29 09:31:39,290 - INFO:     loading ./checkpoints/rhofold_pretrained_params.pt
 2025-08-29 09:31:39,941 - INFO: Input_fas ./data/rhofold/3owz_A/3owz_A.fasta
@@ -108,7 +108,7 @@ Example Results from the RhoFold:
 2025-08-29 09:34:33,959 - INFO:     Export PDB file to ./results/rhofold/3owz_A/relaxed_1000_model.pdb
 2025-08-29 09:34:33,960 - INFO: Finished Amber Relaxation : 1000 iterations in 166.085 seconds
 
-(rhofold_protocol) [smh@zgpuA1003 rhofold_protocol]$ python scripts/parse_plddt.py --npz_path ./results/rhofold/3owz_A/results.npz
+(rhofold_protocol) [user@host rhofold_protocol]$ python scripts/parse_plddt.py --npz_path ./results/rhofold/3owz_A/results.npz
 mean pLDDT = 0.8479894995689392
 ```
 
@@ -117,7 +117,7 @@ RhoFold Inference without MSA:
 ```bash
 python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --output_dir ./results/rhofold/3owz_A_no_msa --single_seq_pred True --device cuda:0
 
-(rhofold_protocol) [smh@zgpuA1003 rhofold_protocol]$ python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --output_dir ./results/rhofold/3owz_A_no_msa --single_seq_pred True --device cuda:0
+(rhofold_protocol) [user@host rhofold_protocol]$ python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --output_dir ./results/rhofold/3owz_A_no_msa --single_seq_pred True --device cuda:0
 2025-08-29 23:41:56,502 - INFO: Constructing RhoFold
 2025-08-29 23:41:57,279 - INFO:     loading ./checkpoints/rhofold_pretrained_params.pt
 2025-08-29 23:41:58,002 - INFO: Input_fas ./data/rhofold/3owz_A/3owz_A.fasta
@@ -132,7 +132,7 @@ python rhofold/inference.py --input_fasta ./data/rhofold/3owz_A/3owz_A.fasta --o
 2025-08-29 23:45:15,452 - INFO:     Energy at Minima is -573412.496 kcal/mol
 2025-08-29 23:45:15,622 - INFO:     Export PDB file to ./results/rhofold/3owz_A_no_msa/relaxed_1000_model.pdb
 2025-08-29 23:45:15,624 - INFO: Finished Amber Relaxation : 1000 iterations in 193.434 seconds
-(rhofold_protocol) [smh@zgpuA1003 rhofold_protocol]$ python scripts/parse_plddt.py --npz_path ./results/rhofold/3owz_A_no_msa/results.npz
+(rhofold_protocol) [user@host rhofold_protocol]$ python scripts/parse_plddt.py --npz_path ./results/rhofold/3owz_A_no_msa/results.npz
 mean pLDDT = 0.7739496231079102
 ```
 

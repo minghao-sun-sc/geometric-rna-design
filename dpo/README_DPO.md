@@ -161,7 +161,7 @@ loss_type: simpo        # "dpo" or "simpo"
 wandb:
   enable: true
   project: DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: simpo_rna_train
 
 training:

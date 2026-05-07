@@ -89,7 +89,7 @@ eval:
   wandb:
     enable: true
     project: DPO-RNA
-    entity: minghao-sun-soc
+    entity: <wandb-entity>
 
 # multiround/config/evaluation/eval_run/04_exp11_dpo_eval_add_v1.yaml
 # python -m dpo.bench.eval_full --config multiround/config/evaluation/eval_run/13_exp11_dnm_eval1.yaml

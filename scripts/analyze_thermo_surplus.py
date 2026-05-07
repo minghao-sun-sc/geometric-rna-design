@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-PROJECT_ROOT = Path("/mnt/rna01/smh/projects/ribopo")
+PROJECT_ROOT = Path(".")
 
 
 def gc_fraction(seq: str) -> float:

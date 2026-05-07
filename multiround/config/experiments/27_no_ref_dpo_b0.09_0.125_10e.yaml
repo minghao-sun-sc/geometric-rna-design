@@ -8,7 +8,7 @@ loss_type: dpo
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 27_no_ref_dpo_b0.09_0.125_10e
   mode: online
   tags: ["27_no_ref", "dynamic_margins", "10epochs", "ablation"]

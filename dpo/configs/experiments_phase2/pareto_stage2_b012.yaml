@@ -13,7 +13,7 @@ pareto_dirichlet_alpha: 1.0         # Dirichlet(1) — uniform on the simplex
 wandb:
   enable: true
   project: DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: pareto_stage2_b0.12
   mode: offline
 
@@ -28,17 +28,17 @@ paths:
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
   save_dir: runs/phase2/pareto_stage2
   external_tools_dir: tools
-  project_root: /mnt/rna01/smh/projects/ribopo
-  data_root: /mnt/rna01/smh/projects/ribopo/data
-  wandb_dir: /mnt/rna01/smh/projects/ribopo
+  project_root: .
+  data_root: ./data
+  wandb_dir: .
 
 tools:
   usalign: { dir_name: USalign, executable_name: USalign }
-  eternafold: { root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold }
+  eternafold: { root: ./tools/EternaFold }
   x3dna:
-    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
-    bin:  /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
-  molprobity: { root: /mnt/rna01/smh/projects/ribopo/tools/molprobity }
+    root: ./tools/x3dna-v2.4
+    bin:  ./tools/x3dna-v2.4/bin
+  molprobity: { root: ./tools/molprobity }
 
 featurizer:
   split: train

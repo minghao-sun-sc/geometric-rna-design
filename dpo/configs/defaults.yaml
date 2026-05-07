@@ -7,7 +7,7 @@ loss_type: dpo  # "dpo" or "simpo"
 wandb:
   enable: true
   project: DPO-RNA
-  entity: minghao-sun-soc     
+  entity: <wandb-entity>     
   run_name: add_dpo_beta1.0      
   mode: online                    # "offline" for no internet, "online" for live sync
 
@@ -37,21 +37,21 @@ paths:
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
   save_dir: runs/offline_dpo
   external_tools_dir: tools
-  project_root: /mnt/rna01/smh/projects/ribopo
-  data_root: /mnt/rna01/smh/projects/ribopo/data
-  wandb_dir: /mnt/rna01/smh/projects/ribopo
+  project_root: .
+  data_root: ./data
+  wandb_dir: .
 
 tools:
   usalign:
     dir_name: USalign
     executable_name: USalign
   eternafold:
-    root: /mnt/rna01/smh/projects/ribopo/tools/EternaFold
+    root: ./tools/EternaFold
   x3dna:
-    root: /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4
-    bin:  /mnt/rna01/smh/projects/ribopo/tools/x3dna-v2.4/bin
+    root: ./tools/x3dna-v2.4
+    bin:  ./tools/x3dna-v2.4/bin
   molprobity:
-    root: /mnt/rna01/smh/projects/ribopo/tools/molprobity
+    root: ./tools/molprobity
 
 
 

@@ -14,7 +14,7 @@
 # Eval timeout: 60 minutes per eval (else marked eval_failed and we move on).
 
 set -uo pipefail
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 cd "$ROOT"
 mkdir -p runs/phase2/logs runs/phase2/eval
 

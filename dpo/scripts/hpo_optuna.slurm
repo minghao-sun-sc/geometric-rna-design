@@ -24,7 +24,7 @@ fi
 
 # Set up environment
 export CUDA_VISIBLE_DEVICES=0
-export PYTHONPATH=/mnt/rna01/smh/projects/offline-dpo:$PYTHONPATH
+export PYTHONPATH=.:$PYTHONPATH
 
 # Activate conda environment if needed
 # source ~/miniconda3/etc/profile.d/conda.sh

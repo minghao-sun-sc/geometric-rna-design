@@ -82,6 +82,6 @@ eval:
   wandb:
     enable: true
     project: DPO-RNA
-    entity: minghao-sun-soc
+    entity: <wandb-entity>
     # run_name: null              # defaults to "full_eval_<split>_<timestamp>"
     # tags: ["bench", "gRNAde", "full_eval", "self_consistency"]

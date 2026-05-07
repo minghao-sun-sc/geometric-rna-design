@@ -18,7 +18,7 @@ CKPT="${2:?usage: $0 <jobid> <ckpt_path> <tag> <w_csv>}"
 TAG="${3:?usage: $0 <jobid> <ckpt_path> <tag> <w_csv>}"
 W_CSV="${4:?usage: $0 <jobid> <ckpt_path> <tag> <w_csv>}"
 
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 OUT_DIR="$ROOT/runs/phase2/eval/${TAG}"
 mkdir -p "${OUT_DIR}"
 

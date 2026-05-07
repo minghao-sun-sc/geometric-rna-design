@@ -22,7 +22,7 @@ fi
 
 # Set environment
 export CUDA_VISIBLE_DEVICES=0
-export PYTHONPATH=/mnt/rna01/smh/projects/offline-dpo:$PYTHONPATH
+export PYTHONPATH=.:$PYTHONPATH
 
 # Create directories
 mkdir -p dpo/hpo/optuna_results

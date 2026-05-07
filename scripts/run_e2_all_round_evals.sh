@@ -16,7 +16,7 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 cd "$ROOT"
 
 JOBIDS=("$@")

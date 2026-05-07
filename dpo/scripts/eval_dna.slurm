@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=8                # NOTE: A40 nodes might have many CPUs, so 8 is a safe number.
 #SBATCH --time=05:00:00                  # NOTE: The GPUA40 partition allows up to 4 days, so 5 hours is fine.
-#SBATCH --output=/mnt/rna01/smh/projects/offline-dpo/dpo/slurm_logs/eval_%j.log 
+#SBATCH --output=./dpo/slurm_logs/eval_%j.log 
 
 # --- Best Practices ---
 set -e

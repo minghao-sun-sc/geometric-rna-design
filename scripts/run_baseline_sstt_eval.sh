@@ -12,7 +12,7 @@
 set -eo pipefail
 JOBID="${1:?usage: $0 <jobid> <tag>}"
 TAG="${2:?usage: $0 <jobid> <tag>}"
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 cd "$ROOT"
 
 DESIGNS="${ROOT}/runs/phase2/baselines/${TAG}/designs"
@@ -57,7 +57,7 @@ set +u
 source ~/.bashrc.bak.2026-0319-1628 2>/dev/null
 eval \"\$(/mnt/dna01/library-seq/luca/miniforge3/bin/mamba shell hook --shell bash)\"
 mamba activate grnade
-cd /mnt/rna01/smh/projects/ribopo
+cd .
 python -m dpo.bench.eval_full --config '${TMP_CFG}' --from_fasta_dir '${DESIGNS}' 2>&1
 " | tee "${OUT}/eval.log"
 

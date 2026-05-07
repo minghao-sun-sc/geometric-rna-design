@@ -2601,10 +2601,10 @@ if __name__ == '__main__':
     print("--- Running test for get_clash_score_phenix with CIF file ---")
 
     # --- Configuration ---
-    PHENIX_WRAPPER_PATH = "/mnt/rna01/smh/projects/ribopo/tools/run_phenix.sh"
+    PHENIX_WRAPPER_PATH = "./tools/run_phenix.sh"
     
     # MODIFICATION: Using the exact directory and CIF filename you provided
-    TEST_STRUCTURE_FILE = "/mnt/rna01/smh/projects/ribopo/dpo/debug/example_data/1Y0T.cif"
+    TEST_STRUCTURE_FILE = "./dpo/debug/example_data/1Y0T.cif"
     
     # --- Test Setup ---
     # Check if your CIF file exists. If not, the script will stop.

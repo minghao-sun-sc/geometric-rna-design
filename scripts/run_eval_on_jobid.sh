@@ -10,7 +10,7 @@ JOBID="${1:?usage: $0 <jobid> <ckpt> <tag>}"
 CKPT="${2:?usage: $0 <jobid> <ckpt> <tag>}"
 TAG="${3:?usage: $0 <jobid> <ckpt> <tag>}"
 
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 
 exec srun --jobid="$JOBID" --overlap bash -c "
 set +u

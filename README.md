@@ -1,145 +1,248 @@
-# RiboPO: Pareto-Preference Optimization for Structure- and Stability-Aware RNA Design
+# RiboPO
 
-Preference-optimization framework for RNA inverse folding that addresses two RNA-specific failure modes: **heterogeneous noise** across physical proxies (deterministic 2D folding, stochastic 3D prediction, GC-confounded free energy) and **sequence–structure degeneracy** that enables compositional reward hacking via GC enrichment.
+**Pareto-Preference Optimization for Structure- and Stability-Aware RNA Inverse Folding.**
 
-The framework wraps gRNAde with three RNA-specific design choices:
+RiboPO is a preference-optimization framework for RNA inverse folding that addresses two RNA-specific obstacles: **heterogeneous noise** across physical proxies (deterministic 2D folding, stochastic 3D prediction, GC-confounded free energy) and **sequence–structure degeneracy** that admits compositional reward hacking via GC enrichment. The framework wraps a frozen-reference DPO policy on a gRNAde backbone with three RNA-specific design choices:
 
-1. **ε-Pareto-dominance preference set** on standardized per-metric features.
-2. **Variability-aware margin** (`α_r · σ_m`) — a heteroscedastic Bradley–Terry confidence threshold.
-3. **Frozen-reference DPO with a decreasing-margin curriculum** — mirror descent on a KL trust region with a quantitative off-policy bias bound.
+1. ε-Pareto-dominance preference labels on per-metric standardized features.
+2. A variability-aware margin schedule `α_r · σ_m` (heteroscedastic Bradley–Terry).
+3. Frozen-reference DPO with a decreasing-margin curriculum and a structural quality gate against GC-driven shortcuts.
 
-Two extensions on top:
-- **Thermodynamic-surplus pair filter** that re-fits MFE on length and GC and drops GC-driven pairs (constructive defense against compositional reward hacking).
-- **Pareto-DPO Stage 2** — a weight-conditioned policy via FiLM that adds 1024 parameters and lets users traverse the Pareto front at inference time without retraining.
+Optional extensions:
 
-## Headline numbers (DAS test, 98 structures)
+- **Thermodynamic-surplus pair filter** that drops GC-driven preference pairs by re-fitting MFE on length and GC.
+- **Importance-corrected iterative DPO** (clipped, self-normalized geometric-mean pair ratio at the frozen reference) for multi-round training beyond the static-pair regime.
+- **Stage-2 weight-conditioned policy** via a 1024-parameter FiLM head for inference-time Pareto-front traversal.
 
-| Axis | Metric | gRNAde | RiboPO | Δ |
-|---|---|---|---|---|
-| 2D | EternaFold scMCC | 0.61 | 0.69 | +13.2% (paired Wilcoxon p=1.2e-3) |
-| Thermo | Vienna MFE (kcal/mol) | −30.4 | −34.0 | −11.8% (p=7.0e-6) |
-| Thermo | P(target structure) | 0.0027 | 0.0215 | **+687%** (p=1.6e-5) |
-| Thermo | Melting Tm (°C) | 36.30 | 37.51 | +1.2 °C |
-| 3D | Designability (RMSD<8 Å) | 0.425 | 0.490 | +15.3 pp |
-| Func | INF non-canonical | −0.065 | −0.050 | +24% (p=1e-3) |
-| Practical | pass@1 (joint criterion) | 0.038 | **0.258** | exceeds gRNAde pass@64 (0.154); 64× sample efficiency |
-
-GC-controlled regression confirms 69% of the MFE gain is GC-independent (p=1.3e-7).
+---
 
 ## Repository layout
 
 ```
-ribopo/
-├── src/                          # gRNAde core (unmodified)
-├── dpo/                          # single-round DPO + SimPO + IPO + KTO + Pareto-DPO
-│   ├── losses.py                 # all preference-optimization loss functions
-│   ├── pareto_dpo.py             # weight-conditioned policy (Stage 2)
-│   ├── trainer.py                # DPOTrainer with loss dispatcher + Stage-2 wiring
-│   ├── train.py                  # CLI entry; --loss_type {dpo,simpo,ipo,kto,pareto_dpo,dpo_is}
-│   ├── bench/eval_full.py        # SSTT eval pipeline
-│   └── configs/experiments_phase2/ # canonical phase-2 configs
-├── multiround/                   # multi-round DPO with curriculum
+.
+├── src/                         # gRNAde core (geometric encoder, decoder, evaluator)
+├── dpo/                         # single-round DPO / SimPO / IPO / KTO / Pareto-DPO
+│   ├── losses.py                # all preference-optimization loss functions
+│   ├── pareto_dpo.py            # weight-conditioned policy (FiLM Stage 2)
+│   ├── trainer.py               # training loop with loss dispatcher and Stage-2 wiring
+│   ├── train.py                 # CLI: --loss_type {dpo, simpo, ipo, kto, pareto_dpo}
+│   ├── bench/eval_full.py       # SSTT evaluation pipeline
+│   ├── ckpts/                   # canonical paper checkpoints (.pt files)
+│   └── configs/                 # YAML configs (defaults + experiments_phase2/)
+├── multiround/                  # multi-round DPO with curriculum and clipped IS
 ├── data/
-│   ├── pairs_margin125/          # baseline preference pairs (0.125σ margin)
-│   ├── pairs_margin25/           # baseline preference pairs (0.25σ margin)
-│   └── pairs_thermo_surplus_*/   # GC-controlled thermodynamic-surplus pair sets
-├── scripts/
-│   ├── build_thermo_surplus_pairs.py  # re-fit MFE regression and re-filter pairs
-│   ├── analyze_thermo_surplus.py      # appendix figure
-│   ├── dispatch_a100.sh               # srun --jobid --overlap dispatcher
-│   ├── auto_eval_watcher.sh           # polling watcher firing eval on training exit
-│   ├── eval_phase2_checkpoint.sh      # SSTT eval helper
-│   ├── aggregate_phase2_results.py    # combined results table + figures
-│   └── plot_beta_recovery_curve.py
-├── docs/
-│   ├── phase2_experiments.md     # design + status of Phase-2 sprint
-│   └── is_dpo_integration_plan.md # importance-corrected iterative DPO plan
-├── manuscript/
-│   ├── RiboPO_revision/          # editable manuscript working tree (LaTeX)
-│   └── RiboPO_ICML_submit/       # frozen ICML 2026 submission
-└── tools/                        # external (RhoFold+, EternaFold, Vienna, x3dna, MolProbity)
+│   ├── pairs_margin125/         # ε=0.125·σ preference pairs (canonical)
+│   ├── das_split.pt             # DAS test split index
+│   └── README.md
+├── scripts/                     # data prep, baseline eval, analysis utilities
+├── external/                    # baseline submodules (RDesign, RhoDesign, RiFold, RIdiffusion)
+├── checkpoints/                 # gRNAde upstream checkpoints (download separately; see below)
+├── configs/                     # gRNAde upstream configs
+├── tools/                       # third-party binaries (Vienna, EternaFold, x3dna; install separately)
+├── main.py                      # gRNAde upstream training entry
+├── gRNAde.py                    # gRNAde upstream inference entry
+├── evaluate_baselines.py        # SSTT evaluation harness for baseline models
+├── env.md                       # environment / dependency notes
+├── LICENSE
+└── README.md
 ```
+
+---
+
+## Setup
+
+### 1. Conda environment
+
+A working RNA-design environment with PyTorch + PyTorch-Geometric is required. The end-to-end recipe (CUDA, PyG wheels, ViennaRNA, optional dependencies) is documented in `env.md`. In summary:
+
+```bash
+mamba create -n grnade python=3.10 -y
+mamba activate grnade
+mamba install pytorch=2.1.2 torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -c conda-forge -y
+uv pip install torch_geometric
+uv pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.1.2+cu121.html
+uv pip install wandb pyyaml ipdb python-dotenv tqdm einops ml_collections
+mamba install -c bioconda usalign viennarna cd-hit -y
+```
+
+### 2. External tools (install under `tools/`)
+
+| Tool                | Used for                                  |
+|---------------------|--------------------------------------------|
+| ViennaRNA / RNAfold | secondary structure, MFE, ensemble defect  |
+| EternaFold          | scMCC (held-out 2D oracle)                 |
+| RhoFold+            | 3D structure prediction (training oracle)  |
+| USalign             | TM-score / RMSD / GDT                      |
+| x3dna-DSSR (v2.4)   | INF metrics (canonical / non-canonical)    |
+| MolProbity          | clash / quality post-relaxation            |
+
+Each tool ships with its own install instructions; install under `tools/<name>` and the default config paths will resolve from the repository root.
+
+### 3. Data
+
+- DAS test split (98 structures): `data/das_split.pt` (tracked).
+- Preference pairs: `data/pairs_margin125/by_das/clean/{train,val,test}.clean.jsonl` (tracked).
+- Larger artifacts (raw candidate pools, baseline outputs, processed feature tensors) are not tracked; the construction scripts live in `scripts/` and `dpo/scripts/`.
+
+### 4. gRNAde upstream checkpoint
+
+The frozen reference policy is the canonical gRNAde autoregressive single-state DAS checkpoint. Download from the gRNAde release and place under `checkpoints/gRNAde_ARv1_1state_das.h5` (paths are configured in `dpo/configs/defaults.yaml`).
+
+### 5. Configuration
+
+The YAML configs use **relative paths from the repository root**. Run all commands with the repository root as the current working directory.
+
+Optional environment variables to set before training:
+
+- `WANDB_PROJECT` and `WANDB_ENTITY` (or edit `dpo/configs/defaults.yaml::wandb`)
+- `CUDA_VISIBLE_DEVICES`
+
+---
 
 ## Quick start
 
+### Train RiboPO (single-round DPO at the canonical operating point)
+
 ```bash
-# Setup
-mamba activate grnade  # see env.md for environment details
-
-# Train RiboPO at the canonical β=0.12 with the variability-aware curriculum
 python -m dpo.train --config dpo/configs/experiments_phase2/beta_012.yaml
+```
 
-# Train Pareto-DPO Stage 2 (weight-conditioned policy)
-python -m dpo.train --config dpo/configs/experiments_phase2/pareto_stage2_b012.yaml
+### Train multi-round RiboPO with the decreasing-margin curriculum
 
-# Train on the GC-controlled thermodynamic-surplus pair set
+```bash
+python -m multiround.train --config multiround/config/experiments/15_dpo_dynamic_margins.yaml
+```
+
+### Train multi-round with clipped importance-correction (extended-rounds regime)
+
+```bash
+python -m multiround.train --config multiround/config/experiments/16_isdpo_on_R5.yaml
+```
+
+### Train the thermodynamic-surplus variant (GC-controlled pair filter)
+
+```bash
 python -m dpo.train --config dpo/configs/experiments_phase2/thermo_surplus_m25.yaml
+```
 
-# Loss-ablation (IPO / KTO / Pareto-DPO Stage 1)
+### Train a Stage-2 weight-conditioned policy (FiLM)
+
+```bash
+python -m dpo.train --config dpo/configs/experiments_phase2/pareto_stage2_b012.yaml
+```
+
+### Loss-form ablations (IPO / KTO / Pareto-DPO Stage 1)
+
+```bash
 python -m dpo.train --config dpo/configs/experiments_phase2/ipo_b012.yaml
 python -m dpo.train --config dpo/configs/experiments_phase2/kto_b012.yaml
 python -m dpo.train --config dpo/configs/experiments_phase2/pareto_dpo_b012.yaml
+```
 
-# Full SSTT evaluation
+### Full SSTT evaluation on the DAS test set
+
+```bash
 python -m dpo.bench.eval_full --config dpo/configs/bench_full.yaml
 ```
 
-Build the thermodynamic-surplus dataset from the existing margin-25/125 pair sets:
+The evaluator runs 2D scoring (EternaFold scMCC), 3D refolding (RhoFold+ + USalign), thermodynamics (ViennaRNA partition-function ensemble + ED + P(target) + Tm), and quality / contact metrics (MolProbity + x3dna INF). Results are written to `runs/<tag>/eval_summary.json` plus per-structure tables.
+
+### Build the thermodynamic-surplus pair set from the base 0.125-σ pairs
 
 ```bash
 python scripts/build_thermo_surplus_pairs.py
 ```
 
-This re-fits `MFE = a + b·L + c·(GC·L)` on the candidate pool and keeps only pairs where the winner has a strictly more negative MFE residual than the loser.
+This re-fits `MFE = a + b·L + c·(GC·L)` on the candidate pool and retains pairs whose winner has a strictly more negative GC-corrected MFE residual than the loser.
+
+### Same-pool reranking control
+
+```bash
+bash scripts/eval_pareto_front.sh
+```
+
+---
 
 ## Method summary
 
 ### Preference construction
-Given backbone $\mathcal{G}$ and per-metric quality vector $\phi(s) = (\text{pLDDT}, -\text{RMSD}, -\text{MFE})$:
+
+Given backbone `G` and per-metric quality vector `φ(s) = (pLDDT, −RMSD, −MFE)`:
 
 ```
-D_r = { (s_w, s_l) : φ(s_w) ≽_ε φ(s_l) }   (ε-Pareto dominance)
-ε_r,m = α_r · σ_m  (variability-aware margin per metric)
-α_r ∈ {0.25, 0.125}  (decreasing curriculum across rounds)
+D_r = { (s_w, s_l) : φ(s_w) ≽_ε φ(s_l) }   ε-Pareto dominance
+ε_r,m = α_r · σ_m                           variability-aware margin
+α_r ∈ {0.25, 0.25, 0.125, 0.125, 0.125}     decreasing curriculum across rounds
 ```
 
-Quality gate on the winner: pLDDT > 0.70 AND RMSD < 8.0 Å.
+Quality gate on the winner: `pLDDT(s_w) > 0.70` AND `RMSD(s_w) < 8 Å`.
 
-### Theoretical guarantees
-- **Theorem 1 (trust-region drift bound):** Frozen-reference + decreasing-α DPO has cumulative drift $\text{KL}(\pi_R \| \pi_{\text{ref}}) \leq G^2 / (2\beta) \sum_r \alpha_r^2$, finite when $\sum \alpha_r^2 < \infty$.
-- **Theorem 2 (off-policy bias bound):** Static-pair multi-round DPO has gradient bias $O(\sqrt{R/\beta})$, predicting empirical R5+ degradation when KL exceeds $\log C$ for candidate-pool size $C$.
+### Loss
 
-### Pareto-DPO Stage 2 (optional)
-A 1024-parameter FiLM head modulates the gRNAde encoder embeddings on a sampled scalarization weight $w \sim \text{Dirichlet}(\mathbf{1})$. Residual init makes the wrapper exactly equal to the base when loaded from a vanilla gRNAde checkpoint. At inference, query π(s | G, w) for any w to traverse the achievable Pareto front.
+Standard frozen-reference DPO with an SFT anchor on the chosen sequences:
 
-## Hyperparameters (canonical)
+```
+L = L_DPO + λ_SFT · L_SFT(s_w)
+```
 
-| Parameter | Symbol | Value |
-|---|---|---|
-| pLDDT floor (winner) | κ | 0.70 |
-| RMSD ceiling (winner) | γ | 8.0 Å |
-| Margin (Rounds 1–2) | α_r | 0.25 × σ_m |
-| Margin (Rounds 3–5) | α_r | 0.125 × σ_m |
-| DPO temperature | β | 0.12 |
-| SFT anchor weight | λ_SFT | 0.10 |
-| Learning rate | — | 1.8 × 10⁻⁴ |
-| Batch size (per pair) | — | 32 |
-| Warmup steps | — | 1,000 |
+### Hyperparameters (canonical paper operating point)
 
-## Data
+| Parameter             | Value     |
+|-----------------------|-----------|
+| pLDDT floor (winner)  | 0.70      |
+| RMSD ceiling (winner) | 8.0 Å     |
+| Margin (rounds 1–2)   | 0.25 · σ_m|
+| Margin (rounds 3–5)   | 0.125 · σ_m|
+| DPO inverse-temp β    | 0.12      |
+| SFT anchor weight     | 0.10      |
+| Learning rate         | 1.8e-4    |
+| Candidate pool size C | 8         |
+| Reference policy      | gRNAde ARv1 1-state DAS (frozen) |
 
-Preference pair datasets:
-- `data/pairs_margin125/` — 0.125σ margin (canonical for ICML submission)
-- `data/pairs_margin25/` — 0.25σ margin
-- `data/pairs_thermo_surplus_margin{25,125}/` — GC-controlled thermodynamic-surplus filter applied (this repo)
+### Importance-corrected iterative DPO (multi-round)
 
-Test split: `data/das_split.pt` (98 structures from DAS benchmark).
+For round `r ≥ 2` the BTL log-likelihood is reweighted by a clipped, self-normalized geometric-mean pair ratio anchored at the frozen reference, with upper clip `ρ̄ = 5`:
 
+```
+w_pair^(r) = min( ρ̄, sqrt( π_{r-1}(s_w) · π_{r-1}(s_l) / π_ref(s_w) · π_ref(s_l) ) )
+```
 
-## License
+followed by per-batch self-normalization. This is a heuristic variance-controlled surrogate (not the unbiased pair-level Radon–Nikodym ratio); it is motivated by a pair-level Rényi-2 off-policy bias bound and is used to extend usable rounds beyond the static-pair regime.
 
-See `LICENSE`. The `src/` directory inherits gRNAde's license; original copyright notices preserved.
+### Stage-2 weight-conditioned policy (FiLM)
 
-## Acknowledgements
+A small FiLM head modulates scalar features in the gRNAde decoder as `h ↦ h(1 + γ(w)) + β(w)`, with `γ, β: R^M → R^{h_dim}` linear and zero-initialized (residual init: at initialization the wrapped policy is exactly the base policy). Total: 1024 extra parameters. During training, sample `w ∼ Dirichlet(1)` per batch; at inference, query at any `w ∈ Δ^{M-1}` to reach a corresponding Pareto operating point. The Pareto-DPO Stage-1 variant uses the same pair set with stochastic Dirichlet `w` but no FiLM head.
 
-Built on top of [gRNAde](https://github.com/chaitjo/geometric-rna-design) (Joshi et al. 2025). Evaluation uses RhoFold+, EternaFold, ViennaRNA, USalign, MolProbity, and x3dna-DSSR.
+---
+
+## Reproducing the canonical results
+
+Canonical RiboPO checkpoints are tracked under `dpo/ckpts/`:
+
+| File                                            | Configuration                  |
+|-------------------------------------------------|---------------------------------|
+| `dpo/ckpts/beta0.12_lambda0.10_best_pref_acc.pt`| Single-round DPO (β=0.12)       |
+| `dpo/ckpts/multi_b0.12_rd1.pt`                  | Multi-round DPO, R=1            |
+| `dpo/ckpts/multi_b0.12_rd2.pt`                  | Multi-round DPO, R=2 (primary)  |
+| `dpo/ckpts/multi_b0.12_rd4.pt`                  | Multi-round DPO, R=4 (best 2D)  |
+
+Run the SSTT evaluation harness against any of these to reproduce the headline numbers in the paper.
+
+---
+
+## Data and license
+
+- Preference pair sets (`data/pairs_margin125/`) and the DAS test split (`data/das_split.pt`) are tracked under this repository's license.
+- The `src/` directory and the gRNAde upstream entry points (`main.py`, `gRNAde.py`) inherit gRNAde's license; original notices are preserved.
+- External tools and baseline submodules retain their own licenses; this repository links to them as submodules and does not redistribute their code.
+
+See `LICENSE` for the top-level repository license.
+
+---
+
+## Notes for reproducibility
+
+- **Single training seed.** All shipped checkpoints were trained with one seed; multi-seed retrains are not included here.
+- **In-distribution evaluation.** The DAS test set is in-distribution to the gRNAde training corpus; out-of-distribution / family-heldout panels are out of scope for this release.
+- **Hardware.** Training was performed on a single A40 GPU (single-round) and on A40 / A100 (multi-round). Memory footprint stays well below 24 GB at the canonical hyperparameters.
+- **Wall-clock.** Single-round DPO ≈ 4 h on an A40; each multi-round step adds another ≈ 4 h sample / score / train cycle.

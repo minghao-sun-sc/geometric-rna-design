@@ -23,9 +23,9 @@ def copy_raw_pdb_files():
     print("=" * 50)
     
     # Paths
-    raw_files_list = "/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/test_set_raw_files.txt"
-    source_dir = Path("/mnt/rna01/smh/projects/ribopo/data/raw")
-    target_dir = Path("/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/das_split_raw_pdb")
+    raw_files_list = "./data/das_split_raw_data/test_set_raw_files.txt"
+    source_dir = Path("./data/raw")
+    target_dir = Path("./data/das_split_raw_data/das_split_raw_pdb")
     
     # Ensure target directory exists
     target_dir.mkdir(exist_ok=True)
@@ -62,8 +62,8 @@ def extract_sequences_from_processed():
     print("=" * 50)
     
     # Load processed data and test indices
-    processed_pt = "/mnt/rna01/smh/projects/ribopo/data/processed.pt"
-    split_pt = "/mnt/rna01/smh/projects/ribopo/data/das_split.pt"
+    processed_pt = "./data/processed.pt"
+    split_pt = "./data/das_split.pt"
     
     print(f"📂 Loading data from: {processed_pt}")
     all_raws = list(torch.load(processed_pt, map_location='cpu').values())
@@ -77,7 +77,7 @@ def extract_sequences_from_processed():
     print(f"📊 Test structures: {len(test_raws)}")
     
     # Extract sequences
-    target_dir = Path("/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/das_split_raw_seq")
+    target_dir = Path("./data/das_split_raw_data/das_split_raw_seq")
     target_dir.mkdir(exist_ok=True)
     
     # Create sequence records
@@ -152,7 +152,7 @@ def create_usage_readme():
     print("\n📄 Creating Usage Documentation")
     print("=" * 30)
     
-    readme_path = "/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/README.md"
+    readme_path = "./data/das_split_raw_data/README.md"
     
     readme_content = """# DAS Test Set Raw Data
 

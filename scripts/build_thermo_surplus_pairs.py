@@ -21,7 +21,7 @@ from typing import Iterable
 
 import numpy as np
 
-PROJECT_ROOT = Path("/mnt/rna01/smh/projects/ribopo")
+PROJECT_ROOT = Path(".")
 
 
 def gc_fraction(seq: str) -> float:

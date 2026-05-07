@@ -9,7 +9,7 @@
 set +u                # bashrc compatibility
 set -o pipefail
 
-ROOT=/mnt/rna01/smh/projects/ribopo
+ROOT=.
 cd "$ROOT"
 
 source ~/.bashrc.bak.2026-0319-1628 2>/dev/null || true

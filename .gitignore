@@ -265,32 +265,30 @@ ribopo_v4/
 
 
 # ----------------------------------------------------------------------------
-# ribopo_v2 (next-phase RLPF extension; see docs/lucky-toasting-rocket.md).
-# Track code (rlpf/, scripts/, experiments/configs, manuscript/*.tex, docs/);
-# ignore run artifacts and the symlinks to shared resources.
+# ribopo_v2 (next-phase research workspace) — entirely outside the public
+# release. Archived locally under archive_pls_ignore/ribopo_v2_*.
 # ----------------------------------------------------------------------------
-ribopo_v2/outputs/
-ribopo_v2/runs_v1
-ribopo_v2/data
-ribopo_v2/tools
-ribopo_v2/checkpoints
-ribopo_v2/external
-ribopo_v2/wandb/
-ribopo_v2/**/__pycache__/
-ribopo_v2/**/*.py[cod]
-ribopo_v2/**/*.pt
-ribopo_v2/**/*.pth
-ribopo_v2/**/.ipynb_checkpoints/
+ribopo_v2/
+**/ribopo_v2/
 
 
 # ----------------------------------------------------------------------------
-# Local environment & cluster bootstrap (not for distribution)
+# Local environment, cluster bootstrap, secrets (not for distribution)
 # ----------------------------------------------------------------------------
 .env
 **/.env
 .env.bak
+.envrc
 **/scripts/cluster_attach.sh
 **/scripts/activate_env.sh
+*.private
+*.secret
+secrets/
+**/secrets/
+.netrc
+.pypirc
+*.pem
+*.key
 
 
 # ----------------------------------------------------------------------------
@@ -311,6 +309,11 @@ rna.ps
 *.temp
 Miniforge3-Linux-x86_64.sh
 exit/
+reduce_fail.pdb
+designs_round_*/
+nohup*
+nohup.out
+*.mcout
 
 
 # ----------------------------------------------------------------------------

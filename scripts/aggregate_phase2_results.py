@@ -21,7 +21,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = Path("/mnt/rna01/smh/projects/ribopo")
+ROOT = Path(".")
 
 TAGS = [
     "thermo_surplus_m25",

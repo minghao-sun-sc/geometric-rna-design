@@ -166,7 +166,7 @@ def save_filtered_pairs(pairs: List[dict], output_path: str):
 def main():
     """Filter all splits to create exact-match datasets."""
     
-    base_dir = "/mnt/rna01/smh/projects/offline-dpo"
+    base_dir = "."
     
     # Process each split
     for split in ["train", "val"]:

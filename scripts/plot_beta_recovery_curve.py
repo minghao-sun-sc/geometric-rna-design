@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-PROJECT_ROOT = Path("/mnt/rna01/smh/projects/ribopo")
+PROJECT_ROOT = Path(".")
 
 # β values and their tag suffixes. The tag is the β value with the decimal point removed
 # (matches dpo/configs/experiments_phase2/beta_<tag>.yaml).

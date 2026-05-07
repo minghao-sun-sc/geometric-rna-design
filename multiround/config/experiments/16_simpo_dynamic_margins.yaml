@@ -10,7 +10,7 @@ loss_type: simpo
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 16_simpo_dynamic_m25_m125
   mode: online
   tags: ["16_simpo", "dynamic_margins", "curriculum", "advanced"]

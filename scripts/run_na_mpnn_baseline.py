@@ -1,7 +1,7 @@
 """Generate NA-MPNN baseline sequences for the DAS test set.
 
 NA-MPNN is the MPNN-style RNA inverse-folding baseline (Nucleic Acid MPNN), the
-RNA analog of ProteinMPNN. Wrapper at /mnt/rna01/smh/projects/tools/NA-MPNN/run_na_mpnn.sh
+RNA analog of ProteinMPNN. Wrapper at tools/NA-MPNN/run_na_mpnn.sh
 already handles env activation, decode of b/d/h/u → A/C/G/U, and design loop.
 
 For each PDB, runs the wrapper with --num_designs 8 → 8 designs in a single
@@ -25,7 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-NA_MPNN = Path("/mnt/rna01/smh/projects/tools/NA-MPNN")
+NA_MPNN = Path("tools/NA-MPNN")
 
 
 def _read_fasta(fp: Path):
@@ -47,9 +47,9 @@ def _read_fasta(fp: Path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pdb-dir", default="/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/das_split_raw_pdb")
-    parser.add_argument("--out-dir", default="/mnt/rna01/smh/projects/ribopo/runs/phase2/baselines/na_mpnn/designs")
-    parser.add_argument("--gids-from", default="/mnt/rna01/smh/projects/ribopo/runs/phase2/baselines/test_gids.txt")
+    parser.add_argument("--pdb-dir", default="./data/das_split_raw_data/das_split_raw_pdb")
+    parser.add_argument("--out-dir", default="./runs/phase2/baselines/na_mpnn/designs")
+    parser.add_argument("--gids-from", default="./runs/phase2/baselines/test_gids.txt")
     parser.add_argument("--n-samples", type=int, default=8)
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)

@@ -12,7 +12,7 @@ loss_type: dpo
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 20_dpo_ema_dynamic_10e
   mode: online
   tags: ["20_dpo", "ema_strategy", "dynamic_margins", "10epochs"]

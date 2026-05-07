@@ -10,7 +10,7 @@ loss_type: dpo
 wandb:
   enable: true
   project: MultiRound-DPO-RNA
-  entity: minghao-sun-soc
+  entity: <wandb-entity>
   run_name: 06_dpo_m25_3r
   mode: online
   tags: ["06_dpo", "m25", "3rounds", "fast"]

@@ -1,6 +1,6 @@
 """Generate RiboDiffusion (DEPLOYED, large model) baseline sequences.
 
-This is the deployed RiboDiffusion at /mnt/rna01/smh/projects/tools/RiboDiffusion/
+This is the deployed RiboDiffusion at tools/RiboDiffusion/
 with the LARGE 997 MB checkpoint `ckpts/exp_inf.pth` — distinct from the
 submodule version at external/RIdiffusion/ (smaller 30 MB weight). Worth
 running as a separate baseline row.
@@ -17,14 +17,14 @@ from __future__ import annotations
 import argparse, os, shutil, subprocess, sys
 from pathlib import Path
 
-RIBODIFF = Path("/mnt/rna01/smh/projects/tools/RiboDiffusion")
+RIBODIFF = Path("tools/RiboDiffusion")
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--pdb-dir", default="/mnt/rna01/smh/projects/ribopo/data/das_split_raw_data/das_split_raw_pdb")
-    p.add_argument("--out-dir", default="/mnt/rna01/smh/projects/ribopo/runs/phase2/baselines/ribodiffusion/designs")
-    p.add_argument("--gids-from", default="/mnt/rna01/smh/projects/ribopo/runs/phase2/baselines/test_gids.txt")
+    p.add_argument("--pdb-dir", default="./data/das_split_raw_data/das_split_raw_pdb")
+    p.add_argument("--out-dir", default="./runs/phase2/baselines/ribodiffusion/designs")
+    p.add_argument("--gids-from", default="./runs/phase2/baselines/test_gids.txt")
     p.add_argument("--n-samples", type=int, default=8)
     p.add_argument("--limit", type=int, default=None)
     args = p.parse_args()

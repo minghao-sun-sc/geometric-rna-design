@@ -80,7 +80,7 @@ eval:
   wandb:
     enable: true
     project: RiboPO-Multiround
-    entity: minghao-sun-soc
+    entity: <wandb-entity>
     run_name: eval_02_2dpo_t05       # Concise run name
     tags: ["evaluation", "base_vs_dpo", "t0.5", "relax"]
     notes: "Base gRNAde vs DPO checkpoints at T=0.5 with Amber relaxation"

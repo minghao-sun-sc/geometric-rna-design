@@ -35,7 +35,7 @@ This script uses `conda run -n base` to execute any Phenix command within the cl
   # We tell conda to run a bash command in the 'base' environment.
   # Inside that command, we first source the phenix environment, and then
   # execute the command and arguments ("$@") that were passed to this wrapper.
-  conda run -n base bash -c "source /mnt/rna01/smh/projects/ribopo/tools/phenix-1.21.2-5419/phenix_env.sh && exec \"\$@\"" -- "$@"
+  conda run -n base bash -c "source ./tools/phenix-1.21.2-5419/phenix_env.sh && exec \"\$@\"" -- "$@"
   ```
 
 - **Permissions:** After creating the script, it must be made executable:
@@ -119,10 +119,10 @@ if __name__ == '__main__':
     print("--- Running test for get_clash_score_phenix with CIF file ---")
 
     # --- Configuration ---
-    PHENIX_WRAPPER_PATH = "/mnt/rna01/smh/projects/ribopo/tools/run_phenix.sh"
+    PHENIX_WRAPPER_PATH = "./tools/run_phenix.sh"
     
     # MODIFICATION: Using the exact directory and CIF filename you provided
-    TEST_STRUCTURE_FILE = "/mnt/rna01/smh/projects/ribopo/dpo/debug/example_data/1Y0T.cif"
+    TEST_STRUCTURE_FILE = "./dpo/debug/example_data/1Y0T.cif"
     
     # --- Test Setup ---
     # Check if your CIF file exists. If not, the script will stop.
