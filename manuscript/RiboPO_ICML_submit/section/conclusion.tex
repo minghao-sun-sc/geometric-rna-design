@@ -1,6 +1,0 @@
-\section{{Conclusion}}
-We introduced \textbf{RiboPO}, a backbone-conditioned preference optimization framework that treats RNA inverse folding as a multi-objective problem over structural fidelity and thermodynamic stability. On SSTT, RiboPO improves thermostability and secondary-structure self-consistency while remaining competitive on tertiary metrics, and raises pass@k hit rates—evidence of more efficient sampling. Ablations show that DPO drives structural gains, SFT controls distributional drift and preserves geometry, and the margin curriculum enables coarse-to-fine refinement.
-
-Our analysis also clarifies limits of offline preference alignment: energy-leaning signals shift the policy toward low-MFE basins (explaining recovery drops), and 2D thermodynamic proxies do not fully align with global 3D similarity under current RNA predictors. \textbf{Overall, preference-based RL reliably steers sequences toward biophysically plausible, designable RNAs while preserving 3D fidelity.}
-
-

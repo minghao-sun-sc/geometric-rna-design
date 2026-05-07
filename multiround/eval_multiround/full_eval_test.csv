@@ -1,2 +1,0 @@
-ckpt_name,ckpt_path,split,n_structures,n_samples_per_structure,temperature,recovery,perplexity,passk_analysis
-BASE_gRNAde_1state_das_temp0.1_samp1,checkpoints/gRNAde_ARv1_1state_das.h5,test,4.0,64.0,0.1,0.45937762,1.2746803830377758,"{'n_structures': 4, 'structure_ids': ['3B58_1_B-C-A', '2NPY_1_D-C-A-B', '1ZFV_1_D-C-A-B', '3GS8_1_D-C-A-B'], 'k_values': [1, 2, 4, 8, 16, 32, 64], 'thresholds': {'tm_score': [0.4, 0.45, 0.5, 0.55], 'rmsd': [8.0, 6.0, 4.0, 2.0], 'mfe': [-10.0, -15.0, -20.0]}, 'passk_results': {}}"

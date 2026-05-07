@@ -54,20 +54,15 @@ cleanup_summary_report.md
 
 
 # ----------------------------------------------------------------------------
-# Manuscript drafts, private memos, templates, build artifacts
-# Source LaTeX *is* tracked; only intermediate/private/heavy stuff is excluded.
+# Manuscripts (entire dir)
+#
+# All manuscript drafts, third-party templates, reviewer materials, and build
+# artefacts stay local. The published surface is code + canonical checkpoints
+# + minimal data; manuscripts live alongside but are not part of the OSS repo.
 # ----------------------------------------------------------------------------
+manuscript/
 
-# Private feedback memos & reviewer-facing drafts
-manuscript/feedback/
-manuscript/ICML_Rebuttal_Material/
-
-# LaTeX templates (third-party, not our content)
-manuscript/Springer_Nature_LaTeX_Template/
-manuscript/Formatting_Instructions_For_NeurIPS_2026/
-manuscript/iclr2026_template/
-
-# LaTeX build artifacts
+# LaTeX build artefacts (in case any .tex ever sneaks back in)
 *.aux
 *.fls
 *.fdb_latexmk
@@ -80,18 +75,8 @@ manuscript/iclr2026_template/
 *.pyg
 *.nav
 *.snm
-
-# Compiled manuscript PDFs (regenerated from source; don't commit)
-manuscript/RiboPO_revision/iclr2026_conference.pdf
-manuscript/RiboPO_revision/RiboPO_ICML_submit_vers.pdf
-manuscript/RiboPO_ICML_submit/RiboPO_ICML_submit_vers.pdf
 **/build_workdir.sh
-
-# Local stub .sty files (workarounds for missing texlive packages on this cluster)
-manuscript/RiboPO_revision/makecell.sty
-manuscript/RiboPO_revision/multirow.sty
-manuscript/RiboPO_revision/wrapfig.sty
-manuscript/RiboPO_revision/bbm.sty
+texput.log
 
 
 # ----------------------------------------------------------------------------
@@ -102,6 +87,86 @@ external/papers/
 external/**/*.pdf
 **/external/**/*.pdf
 docs/RiboPO_ICLR2026.pdf
+RiFold.pdf
+
+
+# ----------------------------------------------------------------------------
+# Internal docs, planning files, debug artefacts (research-non-relevant)
+#
+# Keep README.md and dpo/README_DPO.md; everything below is internal.
+# ----------------------------------------------------------------------------
+# Internal docs
+docs/post_compact_playbook.md
+docs/is_dpo_integration_plan.md
+docs/phase2_experiments.md
+docs/gRNAde_readme.md
+docs/gRNAde_tutorial.txt
+docs/ribopo_v1.txt
+docs/evaluation_guide.md
+docs/evaluation_modules.md
+docs/neurips2026_submission_progress.md
+docs/next_phase_internal_review.md
+docs/reproducibility_audit.md
+
+# Multi-round / DPO internal status & analysis files
+multiround/EVALUATION_SYSTEM_READY.md
+multiround/IMPLEMENTATION_SUMMARY.md
+multiround/RESUME_TRAINING_GUIDE.md
+multiround/passk_individual_analysis.json
+multiround/distribution_analysis.py
+
+# Debug / scratch dirs (kept local, not redistributed)
+multiround/debug/
+dpo/debug/
+
+# Multi-round eval output (huge, regenerable)
+multiround/eval_multiround/
+multiround/config/experiments/debug/
+
+# Old SimPO sweep / debug configs (exploration, not paper-relevant)
+dpo/configs/experiments/debug_eval_*.yaml
+dpo/configs/experiments/test_*.yaml
+dpo/configs/experiments/exp003_*.yaml
+dpo/configs/experiments/exp004_*.yaml
+dpo/configs/experiments/exp005_*.yaml
+dpo/configs/experiments/exp006_*.yaml
+dpo/configs/experiments/exp007_*.yaml
+dpo/configs/experiments/exp008_*.yaml
+dpo/configs/experiments/exp009_*.yaml
+dpo/configs/experiments/exp010_*.yaml
+dpo/configs/experiments/exp011_*.yaml
+dpo/configs/experiments/exp012_*.yaml
+dpo/configs/experiments/exp013_*.yaml
+dpo/configs/experiments/eval_v10_checkpoints.yaml
+dpo/configs/experiments/full_eval_v10_checkpoints.yaml
+
+# HPO sweep results (Optuna DBs + per-trial JSONs)
+dpo/hpo/optuna_results/
+
+# Scripts experimental output (figures + json results)
+scripts/phase2_results.json
+scripts/phase2_beta_recovery.pdf
+scripts/thermo_surplus_analysis.json
+scripts/thermo_surplus_figure.pdf
+scripts/thermo_surplus_report.json
+
+
+# ----------------------------------------------------------------------------
+# Notebooks (gRNAde upstream + dev exploration)
+# ----------------------------------------------------------------------------
+notebooks/
+
+
+# ----------------------------------------------------------------------------
+# gRNAde upstream tutorial (third-party; not core to RiboPO)
+# ----------------------------------------------------------------------------
+tutorial/
+
+
+# ----------------------------------------------------------------------------
+# gRNAde upstream reference checkpoints (download from gRNAde release)
+# ----------------------------------------------------------------------------
+checkpoints/gRNAde_ARv1_*.h5
 
 
 # ----------------------------------------------------------------------------
@@ -137,13 +202,25 @@ dpo/debug/*debug/
 
 # ----------------------------------------------------------------------------
 # Large data files & external tools — distribute via Zenodo, not git
+#
+# data/ default-ignore; selectively re-allow split metadata + the preference
+# pair set (paper-relevant; ~80 MB but reproducibility-critical).
+# tools/ entirely ignored (third-party binaries: ViennaRNA, x3dna, RhoFold).
 # ----------------------------------------------------------------------------
 data/*
 !data/README.md
 !data/.gitkeep
+!data/das_split.pt
+!data/pairs_margin125/
+!data/pairs_margin125/**
 tools/
 **/tools/
 backup_checkpoints/
+
+# Top-level orphan artefacts
+result_dict.pt
+eval.tar.gz
+reduce_fail.pdb
 
 
 # ----------------------------------------------------------------------------
@@ -188,6 +265,25 @@ ribopo_v4/
 
 
 # ----------------------------------------------------------------------------
+# ribopo_v2 (next-phase RLPF extension; see docs/lucky-toasting-rocket.md).
+# Track code (rlpf/, scripts/, experiments/configs, manuscript/*.tex, docs/);
+# ignore run artifacts and the symlinks to shared resources.
+# ----------------------------------------------------------------------------
+ribopo_v2/outputs/
+ribopo_v2/runs_v1
+ribopo_v2/data
+ribopo_v2/tools
+ribopo_v2/checkpoints
+ribopo_v2/external
+ribopo_v2/wandb/
+ribopo_v2/**/__pycache__/
+ribopo_v2/**/*.py[cod]
+ribopo_v2/**/*.pt
+ribopo_v2/**/*.pth
+ribopo_v2/**/.ipynb_checkpoints/
+
+
+# ----------------------------------------------------------------------------
 # Local environment & cluster bootstrap (not for distribution)
 # ----------------------------------------------------------------------------
 .env
@@ -202,13 +298,14 @@ ribopo_v4/
 # ----------------------------------------------------------------------------
 test_vienna_fix.py
 *.fasta
-!data/raw_seq.fasta
 arnie_file.txt
 molprobity*
 **/molprobity*
 rna.ps
 *.bak
 *.backup
+*_backup.yaml
+**/bk_*
 *~
 *.tmp
 *.temp
@@ -346,3 +443,4 @@ celerybeat.pid
 *.mo
 *.pot
 /site
+runs/slurm_jobs/

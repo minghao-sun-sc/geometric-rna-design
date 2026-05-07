@@ -135,15 +135,6 @@ Preference pair datasets:
 
 Test split: `data/das_split.pt` (98 structures from DAS benchmark).
 
-## Citation
-
-```bibtex
-@article{ribopo2025,
-  title={RiboPO: Preference Optimization for Structure- and Stability-Aware RNA Design},
-  author={Sun, Minghao and Cao, Hanqun and Zhang, Zhou and Wei, Chen and Wang, Liang and others},
-  year={2025}
-}
-```
 
 ## License
 
