@@ -2,19 +2,31 @@
 """Build GC-controlled thermodynamic-surplus preference pairs.
 
 Replaces the raw-MFE inequality in the preference filter with a GC-controlled
-residual: MFE_residual = MFE - (a + b*L + c*(GC*L)), where (a,b,c) are fit on
-the candidate pool. Pairs where the winner has a more-negative residual than
-the loser are kept; others are dropped.
+residual: MFE_residual = MFE - (a + b*L + c*(GC*L)). Pairs where the winner
+has a more-negative residual than the loser are kept; others are dropped.
+
+Fit-pool policy
+---------------
+v0.2 (default, this file): the (a, b, c) regression is fit on TRAIN sequences
+ONLY. v0.1 pooled train+val+test, which leaked test-set MFE-vs-(L, GC)
+statistics into the train-time pair-filter coefficients. The leakage was small
+in magnitude (test contributed ~2.3% of fitting samples; pair-filter decisions
+shift on <1% of pairs) but train-only is the methodologically correct default.
+Use --legacy-pool-all to reproduce v0.1 behaviour exactly (matches the
+released dpo/ckpts/multi_b0.12_rd*.pt training pairs).
 
 Inputs:  data/pairs_margin{25,125}/by_das/clean/{train,val,test}.clean.jsonl
 Outputs: data/pairs_thermo_surplus_margin{25,125}/by_das/clean/*.clean.jsonl
-         scripts/thermo_surplus_report_margin{25,125}.json (kept/dropped stats)
+         scripts/thermo_surplus_report.json (kept/dropped stats + fit-policy meta)
 
-Usage: python scripts/build_thermo_surplus_pairs.py
+Usage:
+  python scripts/build_thermo_surplus_pairs.py                   # v0.2 (train-only fit)
+  python scripts/build_thermo_surplus_pairs.py --legacy-pool-all # v0.1 reproduction
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 from typing import Iterable
@@ -22,6 +34,7 @@ from typing import Iterable
 import numpy as np
 
 PROJECT_ROOT = Path(".")
+SCRIPT_VERSION = "v0.2"
 
 
 def gc_fraction(seq: str) -> float:
@@ -123,9 +136,42 @@ def process_pair_file(
     }
 
 
-def main():
-    out_root = PROJECT_ROOT / "data"
-    summary = {}
+def _load_records(path: Path) -> list[dict]:
+    out = []
+    with path.open() as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                out.append(json.loads(line))
+    return out
+
+
+def main(argv: list[str] | None = None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--legacy-pool-all",
+        action="store_true",
+        help="Reproducibility flag: fit the regression on train+val+test (v0.1 "
+             "behaviour). Default v0.2 fits on train only, which is the correct "
+             "policy for new runs. Use this flag only to bit-reproduce the "
+             "released thermo-surplus checkpoints.",
+    )
+    args = parser.parse_args(argv)
+
+    fit_splits: tuple[str, ...] = (
+        ("train", "val", "test") if args.legacy_pool_all else ("train",)
+    )
+    fit_policy = "train+val+test (legacy v0.1)" if args.legacy_pool_all else "train_only (v0.2)"
+    print(f"[fit-policy] {fit_policy}")
+
+    summary = {
+        "_meta": {
+            "script_version": SCRIPT_VERSION,
+            "fit_policy": fit_policy,
+            "fit_splits": list(fit_splits),
+        }
+    }
+
     for margin in ("25", "125"):
         in_dir = PROJECT_ROOT / f"data/pairs_margin{margin}/by_das/clean"
         out_dir = PROJECT_ROOT / f"data/pairs_thermo_surplus_margin{margin}/by_das/clean"
@@ -133,33 +179,45 @@ def main():
             print(f"[skip] {in_dir} does not exist")
             continue
 
-        # Step 1: pool all sequences to fit regression.
-        all_records = []
-        for split in ("train", "val", "test"):
+        # Step 1: collect fit records ONLY from `fit_splits`. In v0.2 default this
+        # is train alone; val/test are evaluated by the regression but never
+        # contribute to its coefficients.
+        fit_records: list[dict] = []
+        missing_required: list[str] = []
+        for split in fit_splits:
             f = in_dir / f"{split}.clean.jsonl"
             if not f.exists():
+                missing_required.append(str(f))
                 continue
-            with f.open() as fh:
-                for line in fh:
-                    line = line.strip()
-                    if line:
-                        all_records.append(json.loads(line))
-        if not all_records:
-            print(f"[skip] no records under {in_dir}")
+            fit_records.extend(_load_records(f))
+        if not fit_records:
+            print(
+                f"[skip] no records under {in_dir} for fit splits {fit_splits} "
+                f"(missing: {missing_required})"
+            )
             continue
-        L, GC, MFE = collect_sequences(all_records)
+        if not args.legacy_pool_all and "train" in missing_required:
+            # Train-only mode requires the train file. Bail rather than silently
+            # falling back to a partial fit.
+            raise FileNotFoundError(
+                f"v0.2 fit policy requires {in_dir/'train.clean.jsonl'}; not found."
+            )
+
+        L, GC, MFE = collect_sequences(fit_records)
         a, b, c, r2 = fit_regression(L, GC, MFE)
         n_seqs = int(L.size)
         gc_min, gc_max = float(GC.min()), float(GC.max())
         L_min, L_max = float(L.min()), float(L.max())
         print(
-            f"[margin={margin}] regression on {n_seqs} sequences: "
+            f"[margin={margin}] regression on {n_seqs} {'+'.join(fit_splits)} sequences: "
             f"MFE = {a:.3f} + ({b:.4f})*L + ({c:.4f})*(GC*L), R^2 = {r2:.3f}; "
             f"GC range [{gc_min:.3f}, {gc_max:.3f}], L range [{L_min:.0f}, {L_max:.0f}]"
         )
 
-        # Step 2: filter each split.
-        per_split = {}
+        # Step 2: apply the fitted regression to filter EVERY split (train + val
+        # + test). Test pairs are filtered too — that's intended; what was wrong
+        # was using test sequences to *fit* the coefficients.
+        per_split: dict[str, dict] = {}
         for split in ("train", "val", "test"):
             in_f = in_dir / f"{split}.clean.jsonl"
             out_f = out_dir / f"{split}.clean.jsonl"
@@ -178,6 +236,7 @@ def main():
             "regression": {
                 "a": a, "b": b, "c": c, "r2": r2,
                 "n_seqs": n_seqs,
+                "fit_splits": list(fit_splits),
                 "gc_range": [gc_min, gc_max],
                 "L_range": [L_min, L_max],
             },
