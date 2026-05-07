@@ -8,12 +8,12 @@ Optional overlay: thermo-surplus, Stage-1 (Pareto-DPO) for context.
 
 Usage:
     python scripts/plot_stage2_pareto_front.py \\
-        --centroid runs/phase2/eval/pareto_stage2_b012/eval_summary.json \\
-        --w_rmsd   runs/phase2/eval/pareto_stage2_b012_w_rmsd/eval_summary.json \\
-        --w_plddt  runs/phase2/eval/pareto_stage2_b012_w_plddt/eval_summary.json \\
-        --w_mfe    runs/phase2/eval/pareto_stage2_b012_w_mfe/eval_summary.json \\
-        --overlay  runs/phase2/eval/thermo_surplus_m25/eval_summary.json \\
-                   runs/phase2/eval/pareto_dpo_b012/eval_summary.json \\
+        --centroid runs/eval/pareto_stage2_b012/eval_summary.json \\
+        --w_rmsd   runs/eval/pareto_stage2_b012_w_rmsd/eval_summary.json \\
+        --w_plddt  runs/eval/pareto_stage2_b012_w_plddt/eval_summary.json \\
+        --w_mfe    runs/eval/pareto_stage2_b012_w_mfe/eval_summary.json \\
+        --overlay  runs/eval/thermo_surplus_m25/eval_summary.json \\
+                   runs/eval/pareto_dpo_b012/eval_summary.json \\
         --out manuscript/ribopo_nips2026/figs/stage2_pareto_front.pdf
 """
 import argparse

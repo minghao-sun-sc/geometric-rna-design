@@ -31,7 +31,7 @@ multiround:
   eval_samples: 8
   final_eval_samples: 8
   save_eval_data: true
-  skip_per_round_eval: true         # eval offline via eval_phase2_checkpoint.sh
+  skip_per_round_eval: true         # eval offline via the SSTT eval driver
   output_root: runs/multiround
 
 paths:

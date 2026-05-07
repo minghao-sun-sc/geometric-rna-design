@@ -20,7 +20,7 @@ paths:
     val:   data/pairs_margin125/by_das/clean/val.clean.jsonl
     test:  data/pairs_margin125/by_das/clean/test.clean.jsonl
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
-  save_dir: runs/phase2/beta_sweep
+  save_dir: runs/beta_sweep
   external_tools_dir: tools
   project_root: .
   data_root: ./data

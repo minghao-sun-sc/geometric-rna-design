@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Evaluate a Pareto-Stage-2 (FiLM-conditioned) checkpoint at a specific
-# scalarization weight w on the simplex. Unlike scripts/eval_phase2_checkpoint.sh,
+# scalarization weight w on the simplex. Unlike scripts/the SSTT eval driver,
 # this DOES NOT strip the FiLM head — it loads the full WeightConditionedAutoregressiveGNN
 # and samples at the supplied w.
 #
@@ -8,7 +8,7 @@
 #   bash scripts/eval_pareto_front.sh <jobid> <ckpt_path> <tag> <w_csv>
 # Example:
 #   bash scripts/eval_pareto_front.sh 4817734 \
-#     runs/phase2/pareto_stage2/pareto_stage2_b0.12/best.pt \
+#     runs/pareto_stage2/pareto_stage2_b0.12/best.pt \
 #     pareto_stage2_b012_w_rmsd \
 #     1,0,0
 
@@ -19,7 +19,7 @@ TAG="${3:?usage: $0 <jobid> <ckpt_path> <tag> <w_csv>}"
 W_CSV="${4:?usage: $0 <jobid> <ckpt_path> <tag> <w_csv>}"
 
 ROOT=.
-OUT_DIR="$ROOT/runs/phase2/eval/${TAG}"
+OUT_DIR="$ROOT/runs/eval/${TAG}"
 mkdir -p "${OUT_DIR}"
 
 # Build temp eval config locally (need yaml in env, do it before srun)

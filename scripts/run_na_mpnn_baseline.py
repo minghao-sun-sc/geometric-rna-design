@@ -8,7 +8,7 @@ For each PDB, runs the wrapper with --num_designs 8 → 8 designs in a single
 FASTA (one header + sequence per design). We split that into per-sample
 FASTAs at:
 
-    runs/phase2/baselines/na_mpnn/designs/<gid>/sample{0..7}.fasta
+    runs/baselines/na_mpnn/designs/<gid>/sample{0..7}.fasta
 
 Then `python -m dpo.bench.eval_full --config <cfg> --from_fasta_dir <DIR>` consumes
 these for the SSTT panel.
@@ -48,8 +48,8 @@ def _read_fasta(fp: Path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb-dir", default="./data/das_split_raw_data/das_split_raw_pdb")
-    parser.add_argument("--out-dir", default="./runs/phase2/baselines/na_mpnn/designs")
-    parser.add_argument("--gids-from", default="./runs/phase2/baselines/test_gids.txt")
+    parser.add_argument("--out-dir", default="./runs/baselines/na_mpnn/designs")
+    parser.add_argument("--gids-from", default="./runs/baselines/test_gids.txt")
     parser.add_argument("--n-samples", type=int, default=8)
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)

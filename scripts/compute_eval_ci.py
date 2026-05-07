@@ -5,8 +5,8 @@ and writes `<eval_dir>/eval_summary_ci.json` with mean ± 95% percentile-CI for 
 metric. Optionally augments the existing `eval_summary.json` in-place.
 
 Usage:
-    python scripts/compute_eval_ci.py runs/phase2/eval/grnade_base_v3/
-    python scripts/compute_eval_ci.py --inplace runs/phase2/eval/*/
+    python scripts/compute_eval_ci.py runs/eval/grnade_base/
+    python scripts/compute_eval_ci.py --inplace runs/eval/*/
 """
 import argparse
 import json
@@ -71,7 +71,7 @@ def process_dir(d, inplace=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("dirs", nargs="+", help="eval directories (e.g. runs/phase2/eval/<tag>)")
+    ap.add_argument("dirs", nargs="+", help="eval directories (e.g. runs/eval/<tag>)")
     ap.add_argument("--inplace", action="store_true",
                     help="also add ci_lo/ci_hi keys to <dir>/eval_summary.json")
     args = ap.parse_args()

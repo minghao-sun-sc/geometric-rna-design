@@ -14,7 +14,7 @@ use the weaker but cheaper teacher-forced bound that's sufficient to show the sh
 
 Usage:
     python scripts/compute_kl_drift.py \\
-        --ref runs/phase2/pareto_stage2/...best.pt \\
+        --ref runs/pareto_stage2/...best.pt \\
         --policies r1=run_off/round_01/checkpoints/round_1_best.pt \\
                    r2=run_off/round_02/checkpoints/round_2_best.pt ... \\
         --pairs data/pairs_margin25/by_das/clean/test.clean.jsonl \\

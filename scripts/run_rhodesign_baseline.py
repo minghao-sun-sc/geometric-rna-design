@@ -4,10 +4,10 @@ For each PDB in `data/das_split_raw_data/das_split_raw_pdb/<gid>.pdb` whose
 gid appears in the test set (read from FullEvalDataset), runs RhoDesign 8 times
 at temperature 0.1 and writes:
 
-    runs/phase2/baselines/rhodesign/designs/<gid>/sample{0..7}.fasta
+    runs/baselines/rhodesign/designs/<gid>/sample{0..7}.fasta
 
 Then `python -m dpo.bench.eval_full --config <cfg> --from_fasta_dir <DIR>` consumes
-this directory to produce SSTT metrics matching the rest of the phase-2 panel.
+this directory to produce SSTT metrics matching the rest of the panel.
 
 Run from inside the `grnade` env on a GPU node (uses the standard sample API of
 `RhoDesignModel`). RhoDesign's source uses biotite for PDB parsing; biotite is
@@ -33,7 +33,7 @@ sys.path.insert(0, str(RHO_SRC))
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb-dir", default=str(ROOT / "data/das_split_raw_data/das_split_raw_pdb"))
-    parser.add_argument("--out-dir", default=str(ROOT / "runs/phase2/baselines/rhodesign/designs"))
+    parser.add_argument("--out-dir", default=str(ROOT / "runs/baselines/rhodesign/designs"))
     parser.add_argument("--ckpt", default=str(RHO_SRC.parent / "checkpoint/no_ss_apexp_best.pth"))
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--n-samples", type=int, default=8)

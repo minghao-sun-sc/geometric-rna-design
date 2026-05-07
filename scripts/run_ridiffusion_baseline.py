@@ -4,7 +4,7 @@ for the DAS test set.
 For each PDB, generates `--n-samples` (default 8) sequences via DDIM sampling
 and writes them to:
 
-    runs/phase2/baselines/ridiffusion/designs/<gid>/sample{0..7}.fasta
+    runs/baselines/ridiffusion/designs/<gid>/sample{0..7}.fasta
 
 Then `python -m dpo.bench.eval_full --config <cfg> --from_fasta_dir <DIR>`
 consumes the directory.
@@ -13,7 +13,7 @@ Run from the `grnade` conda env on a GPU node. RIdiffusion's deps are all
 present in grnade (torch_geometric, torch_scatter, biotite, ema_pytorch).
 The submodule's `seq_generator.py` references `./mean_attr.pt`, but that file
 is only used when `if_transform=True`, which is NOT the default — so we don't
-need it. Set `--gids-from runs/phase2/baselines/test_gids.txt` to enumerate the
+need it. Set `--gids-from runs/baselines/test_gids.txt` to enumerate the
 canonical 98 test structures.
 """
 
@@ -38,7 +38,7 @@ NT_TYPES = ["A", "U", "G", "C"]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb-dir", default=str(ROOT / "data/das_split_raw_data/das_split_raw_pdb"))
-    parser.add_argument("--out-dir", default=str(ROOT / "runs/phase2/baselines/ridiffusion/designs"))
+    parser.add_argument("--out-dir", default=str(ROOT / "runs/baselines/ridiffusion/designs"))
     parser.add_argument("--ckpt", default=str(RID_SRC / "weight/weight3.pt"))
     parser.add_argument("--n-samples", type=int, default=8)
     parser.add_argument("--ddim-step", type=int, default=100,
@@ -47,7 +47,7 @@ def main():
                         help="Use multinomial sampling instead of argmax (default off — argmax-greedy)")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--gids-from", default=str(ROOT / "runs/phase2/baselines/test_gids.txt"))
+    parser.add_argument("--gids-from", default=str(ROOT / "runs/baselines/test_gids.txt"))
     args = parser.parse_args()
 
     out_root = Path(args.out_dir)

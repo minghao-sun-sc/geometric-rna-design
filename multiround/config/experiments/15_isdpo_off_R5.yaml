@@ -31,11 +31,11 @@ multiround:
   final_eval_temperature: 0.1
   # NOTE: defaults use these key names — n_samples_* would be silently ignored
   # and the eval would default to 64 samples × 98 structures = ~5-7h per round
-  eval_samples: 8                   # per-round eval (matches phase-2 protocol)
+  eval_samples: 8                   # per-round eval (standard protocol)
   final_eval_samples: 8             # final-round eval
   save_eval_data: true
   # The built-in per-round eval has reshape bugs; we'll run eval separately via
-  # eval_phase2_checkpoint.sh on each round_N_best.pt to populate scMCC-vs-R curve.
+  # the SSTT eval driver on each round_N_best.pt to populate scMCC-vs-R curve.
   skip_per_round_eval: true
   output_root: runs/multiround
 

@@ -28,12 +28,11 @@ Optional extensions:
 │   ├── train.py                 # CLI: --loss_type {dpo, simpo, ipo, kto, pareto_dpo}
 │   ├── bench/eval_full.py       # SSTT evaluation pipeline
 │   ├── ckpts/                   # canonical paper checkpoints (.pt files)
-│   └── configs/                 # YAML configs (defaults + experiments_phase2/)
+│   └── configs/                 # YAML configs (defaults + experiments/)
 ├── multiround/                  # multi-round DPO with curriculum and clipped IS
 ├── data/
 │   ├── pairs_margin125/         # ε=0.125·σ preference pairs (canonical)
-│   ├── das_split.pt             # DAS test split index
-│   └── README.md
+│   └── das_split.pt             # DAS test split index
 ├── scripts/                     # data prep, baseline eval, analysis utilities
 ├── external/                    # baseline submodules (RDesign, RhoDesign, RiFold, RIdiffusion)
 ├── checkpoints/                 # gRNAde upstream checkpoints (download separately; see below)
@@ -42,7 +41,6 @@ Optional extensions:
 ├── main.py                      # gRNAde upstream training entry
 ├── gRNAde.py                    # gRNAde upstream inference entry
 ├── evaluate_baselines.py        # SSTT evaluation harness for baseline models
-├── env.md                       # environment / dependency notes
 ├── LICENSE
 └── README.md
 ```
@@ -53,7 +51,7 @@ Optional extensions:
 
 ### 1. Conda environment
 
-A working RNA-design environment with PyTorch + PyTorch-Geometric is required. The end-to-end recipe (CUDA, PyG wheels, ViennaRNA, optional dependencies) is documented in `env.md`. In summary:
+A working RNA-design environment with PyTorch + PyTorch-Geometric is required. In summary:
 
 ```bash
 mamba create -n grnade python=3.10 -y
@@ -104,7 +102,7 @@ Optional environment variables to set before training:
 ### Train RiboPO (single-round DPO at the canonical operating point)
 
 ```bash
-python -m dpo.train --config dpo/configs/experiments_phase2/beta_012.yaml
+python -m dpo.train --config dpo/configs/experiments/beta_012.yaml
 ```
 
 ### Train multi-round RiboPO with the decreasing-margin curriculum
@@ -122,21 +120,21 @@ python -m multiround.train --config multiround/config/experiments/16_isdpo_on_R5
 ### Train the thermodynamic-surplus variant (GC-controlled pair filter)
 
 ```bash
-python -m dpo.train --config dpo/configs/experiments_phase2/thermo_surplus_m25.yaml
+python -m dpo.train --config dpo/configs/experiments/thermo_surplus_m25.yaml
 ```
 
 ### Train a Stage-2 weight-conditioned policy (FiLM)
 
 ```bash
-python -m dpo.train --config dpo/configs/experiments_phase2/pareto_stage2_b012.yaml
+python -m dpo.train --config dpo/configs/experiments/pareto_stage2_b012.yaml
 ```
 
 ### Loss-form ablations (IPO / KTO / Pareto-DPO Stage 1)
 
 ```bash
-python -m dpo.train --config dpo/configs/experiments_phase2/ipo_b012.yaml
-python -m dpo.train --config dpo/configs/experiments_phase2/kto_b012.yaml
-python -m dpo.train --config dpo/configs/experiments_phase2/pareto_dpo_b012.yaml
+python -m dpo.train --config dpo/configs/experiments/ipo_b012.yaml
+python -m dpo.train --config dpo/configs/experiments/kto_b012.yaml
+python -m dpo.train --config dpo/configs/experiments/pareto_dpo_b012.yaml
 ```
 
 ### Full SSTT evaluation on the DAS test set

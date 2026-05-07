@@ -1,5 +1,5 @@
 """Parse a baseline's full_eval_test.csv into eval_summary.json — same format
-as the per-checkpoint summaries written by scripts/eval_phase2_checkpoint.sh.
+as the per-checkpoint summaries written by scripts/the SSTT eval driver.
 """
 from __future__ import annotations
 import argparse, csv, json, math
@@ -9,7 +9,7 @@ from pathlib import Path
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--baseline-dir", required=True,
-                   help="e.g. runs/phase2/baselines/rhodesign")
+                   help="e.g. runs/baselines/rhodesign")
     p.add_argument("--tag", required=True, help="e.g. rhodesign")
     args = p.parse_args()
 

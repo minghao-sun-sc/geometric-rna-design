@@ -93,27 +93,16 @@ RiFold.pdf
 # ----------------------------------------------------------------------------
 # Internal docs, planning files, debug artefacts (research-non-relevant)
 #
-# Keep README.md and dpo/README_DPO.md; everything below is internal.
+# Keep top-level README.md only; every other markdown is internal.
 # ----------------------------------------------------------------------------
-# Internal docs
-docs/post_compact_playbook.md
-docs/is_dpo_integration_plan.md
-docs/phase2_experiments.md
-docs/gRNAde_readme.md
-docs/gRNAde_tutorial.txt
-docs/ribopo_v1.txt
-docs/evaluation_guide.md
-docs/evaluation_modules.md
-docs/neurips2026_submission_progress.md
-docs/next_phase_internal_review.md
-docs/reproducibility_audit.md
-
-# Multi-round / DPO internal status & analysis files
-multiround/EVALUATION_SYSTEM_READY.md
-multiround/IMPLEMENTATION_SUMMARY.md
-multiround/RESUME_TRAINING_GUIDE.md
-multiround/passk_individual_analysis.json
-multiround/distribution_analysis.py
+docs/
+**/docs/
+*.private.md
+**/EVALUATION_SYSTEM_READY.md
+**/IMPLEMENTATION_SUMMARY.md
+**/RESUME_TRAINING_GUIDE.md
+**/passk_individual_analysis.json
+**/distribution_analysis.py
 
 # Debug / scratch dirs (kept local, not redistributed)
 multiround/debug/
@@ -144,11 +133,9 @@ dpo/configs/experiments/full_eval_v10_checkpoints.yaml
 dpo/hpo/optuna_results/
 
 # Scripts experimental output (figures + json results)
-scripts/phase2_results.json
-scripts/phase2_beta_recovery.pdf
-scripts/thermo_surplus_analysis.json
-scripts/thermo_surplus_figure.pdf
-scripts/thermo_surplus_report.json
+scripts/*.json
+scripts/*.pdf
+scripts/*.png
 
 
 # ----------------------------------------------------------------------------
@@ -294,7 +281,6 @@ secrets/
 # ----------------------------------------------------------------------------
 # Misc scratch / temp files
 # ----------------------------------------------------------------------------
-test_vienna_fix.py
 *.fasta
 arnie_file.txt
 molprobity*

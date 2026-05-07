@@ -2021,11 +2021,11 @@ def _vienna_fc(seq: str, T: float):
             "  mamba install -c conda-forge viennarna"
         ) from e
     
-    # SEGFAULT FIX: Comprehensive input validation before ViennaRNA calls
+    # Comprehensive input validation before ViennaRNA calls
     if not isinstance(seq, str) or len(seq) == 0:
         raise ValueError(f"Invalid sequence: must be non-empty string, got {type(seq)} with length {len(seq) if hasattr(seq, '__len__') else 'N/A'}")
     
-    # SEGFAULT FIX: Validate sequence characters
+    # Validate sequence characters
     valid_chars = set('ACGURYWSMKBDHVN.-')  # Include ambiguous and gap characters
     invalid_chars = set(seq.upper()) - valid_chars
     if invalid_chars:
@@ -2033,7 +2033,7 @@ def _vienna_fc(seq: str, T: float):
         seq = ''.join(c if c.upper() in valid_chars else 'N' for c in seq)
     
     try:
-        # SEGFAULT FIX: Wrap ViennaRNA C library calls in try-catch
+        # Wrap ViennaRNA C library calls in try-catch
         md = RNA.md()
         md.temperature = float(T)
         fc = RNA.fold_compound(seq, md)
@@ -2047,21 +2047,21 @@ def vienna_mfe(seq: str, T: float = 37.0):
     """
     Return (mfe_kcal_per_mol, mfe_dotbracket) at temperature T°C.
     """
-    # SEGFAULT FIX: Skip MFE calculation for very long sequences that crash ViennaRNA  
+    # Skip MFE calculation for very long sequences that crash ViennaRNA  
     max_vienna_length = 1000  # Conservative limit to prevent segfaults
     if len(seq) > max_vienna_length:
         print(f"WARNING: Sequence too long for ViennaRNA MFE calculation ({len(seq)} > {max_vienna_length}). Returning NaN.")
         return float("nan"), "." * len(seq)  # All unpaired structure
     
     try:
-        # SEGFAULT FIX: Wrap fold_compound creation in try-catch
+        # Wrap fold_compound creation in try-catch
         fc, _ = _vienna_fc(seq, T)
     except Exception as e:
         print(f"ERROR: Failed to create ViennaRNA fold_compound for MFE: {e}")
         return float("nan"), "." * len(seq)
     
     try:
-        # SEGFAULT FIX: Wrap MFE calculation in try-catch
+        # Wrap MFE calculation in try-catch
         db, mfe = fc.mfe()
         return float(mfe), db
     except Exception as e:
@@ -2084,7 +2084,7 @@ def vienna_ensemble_metrics(seq: str,
     """
     assert isinstance(seq, str) and len(seq) > 0
     
-    # SEGFAULT FIX: Comprehensive input validation to prevent all crashes
+    # Comprehensive input validation to prevent all crashes
     
     # Check 1: Length limits to prevent segfaults
     max_vienna_length = 1000  # Conservative limit to prevent segfaults
@@ -2191,14 +2191,14 @@ def vienna_ensemble_metrics(seq: str,
             chars[i] = '.'  # unmatched '('
         target_db = ''.join(chars)
     
-    # SEGFAULT FIX: Initialize default values in case any ViennaRNA call fails
+    # Initialize default values in case any ViennaRNA call fails
     mfe_db, mfe = "." * len(seq), float('nan')
     ED, pS0 = float('nan'), float('nan')
     H, entropy_mean = [], 0.0
     diversity = float('nan')
     
     try:
-        # SEGFAULT FIX: Wrap fold_compound creation in try-catch
+        # Wrap fold_compound creation in try-catch
         fc, RNA = _vienna_fc(seq, T)
     except Exception as e:
         print(f"ERROR: Failed to create ViennaRNA fold_compound: {e}")
@@ -2215,21 +2215,21 @@ def vienna_ensemble_metrics(seq: str,
             nan_result["entropy_list"] = [float('nan')] * len(seq)
         return nan_result
 
-    # SEGFAULT FIX: Wrap MFE calculation in try-catch
+    # Wrap MFE calculation in try-catch
     try:
         mfe_db, mfe = fc.mfe()
     except Exception as e:
         print(f"WARNING: ViennaRNA MFE calculation failed: {e}")
         mfe_db, mfe = "." * len(seq), float('nan')
 
-    # SEGFAULT FIX: Wrap partition function in try-catch
+    # Wrap partition function in try-catch
     try:
         fc.pf()
     except Exception as e:
         print(f"WARNING: ViennaRNA partition function failed: {e}")
         # Continue with remaining calculations that don't need pf()
 
-    # SEGFAULT FIX: Validate and fix target structure length before using it
+    # Validate and fix target structure length before using it
     db = target_db if (target_db is not None) else mfe_db
     if db is not None and len(db) != len(seq):
         print(f"WARNING: target_db length {len(db)} != seq length {len(seq)}. Fixing mismatch to prevent segfault.")
@@ -2240,7 +2240,7 @@ def vienna_ensemble_metrics(seq: str,
             db = db + "." * (len(seq) - len(db))  # Pad structure with unpaired dots
             print(f"   Padded structure from {len(target_db)} to {len(seq)} characters")
     
-    # SEGFAULT FIX: Validate structure characters to prevent crashes
+    # Validate structure characters to prevent crashes
     if db is not None:
         valid_structure_chars = set('().')
         invalid_chars = set(db) - valid_structure_chars
@@ -2248,21 +2248,21 @@ def vienna_ensemble_metrics(seq: str,
             print(f"WARNING: Structure contains invalid characters: {invalid_chars}. Using MFE structure instead.")
             db = None  # Fall back to MFE structure
 
-    # SEGFAULT FIX: Wrap ensemble defect calculation in try-catch
+    # Wrap ensemble defect calculation in try-catch
     try:
         ED = float(fc.ensemble_defect(db)) if db is not None else float('nan')
     except Exception as e:
         print(f"WARNING: ViennaRNA ensemble_defect failed: {e}")
         ED = float('nan')
 
-    # SEGFAULT FIX: Wrap structure probability calculation in try-catch
+    # Wrap structure probability calculation in try-catch
     try:
         pS0 = float(fc.pr_structure(db)) if db is not None else float('nan')
     except Exception as e:
         print(f"WARNING: ViennaRNA pr_structure failed: {e}")
         pS0 = float('nan')
 
-    # SEGFAULT FIX: Wrap positional entropy calculation in try-catch
+    # Wrap positional entropy calculation in try-catch
     try:
         H = fc.positional_entropy()  # list with indices 1..N
         if H and len(H) == len(seq) + 1:
@@ -2273,7 +2273,7 @@ def vienna_ensemble_metrics(seq: str,
         H = []
         entropy_mean = float('nan')
 
-    # SEGFAULT FIX: Wrap ensemble diversity calculation in try-catch
+    # Wrap ensemble diversity calculation in try-catch
     try:
         diversity = float(fc.mean_bp_distance())
     except Exception as e:
@@ -2328,7 +2328,7 @@ def vienna_Tm_by_pS0(seq: str,
         chars[i] = '.'
     target_db = ''.join(chars)
 
-    # SEGFAULT FIX: Skip Tm calculation for very long sequences that crash ViennaRNA
+    # Skip Tm calculation for very long sequences that crash ViennaRNA
     max_vienna_length = 1000  # Conservative limit to prevent segfaults
     if len(seq) > max_vienna_length:
         print(f"WARNING: Sequence too long for ViennaRNA Tm calculation ({len(seq)} > {max_vienna_length}). Returning NaN.")

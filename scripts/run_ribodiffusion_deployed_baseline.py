@@ -9,7 +9,7 @@ The CLI is `main.py --PDB_file <PDB> --save_folder <out> --config.eval.n_samples
 Output goes to `<save_folder>/fasta/<pdb_id>_<i>.fasta` (one file per sample).
 We re-pack into our standard layout:
 
-    runs/phase2/baselines/ribodiffusion/designs/<gid>/sample{0..7}.fasta
+    runs/baselines/ribodiffusion/designs/<gid>/sample{0..7}.fasta
 
 Compute: ~20-40 sec per structure × 98 = ~30-60 min on a single A40/A100.
 """
@@ -23,8 +23,8 @@ RIBODIFF = Path("tools/RiboDiffusion")
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--pdb-dir", default="./data/das_split_raw_data/das_split_raw_pdb")
-    p.add_argument("--out-dir", default="./runs/phase2/baselines/ribodiffusion/designs")
-    p.add_argument("--gids-from", default="./runs/phase2/baselines/test_gids.txt")
+    p.add_argument("--out-dir", default="./runs/baselines/ribodiffusion/designs")
+    p.add_argument("--gids-from", default="./runs/baselines/test_gids.txt")
     p.add_argument("--n-samples", type=int, default=8)
     p.add_argument("--limit", type=int, default=None)
     args = p.parse_args()

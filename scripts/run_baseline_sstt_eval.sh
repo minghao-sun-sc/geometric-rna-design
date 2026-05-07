@@ -6,8 +6,8 @@
 # Example:
 #   bash scripts/run_baseline_sstt_eval.sh 4790774 rhodesign
 #
-# Reads FASTAs from runs/phase2/baselines/<tag>/designs/<gid>/sample{0..7}.fasta
-# Writes SSTT eval JSON + summary to runs/phase2/baselines/<tag>/eval_summary.json.
+# Reads FASTAs from runs/baselines/<tag>/designs/<gid>/sample{0..7}.fasta
+# Writes SSTT eval JSON + summary to runs/baselines/<tag>/eval_summary.json.
 
 set -eo pipefail
 JOBID="${1:?usage: $0 <jobid> <tag>}"
@@ -15,8 +15,8 @@ TAG="${2:?usage: $0 <jobid> <tag>}"
 ROOT=.
 cd "$ROOT"
 
-DESIGNS="${ROOT}/runs/phase2/baselines/${TAG}/designs"
-OUT="${ROOT}/runs/phase2/baselines/${TAG}"
+DESIGNS="${ROOT}/runs/baselines/${TAG}/designs"
+OUT="${ROOT}/runs/baselines/${TAG}"
 mkdir -p "${OUT}"
 
 if [[ ! -d "$DESIGNS" ]]; then
@@ -62,7 +62,7 @@ python -m dpo.bench.eval_full --config '${TMP_CFG}' --from_fasta_dir '${DESIGNS}
 " | tee "${OUT}/eval.log"
 
 # Build a compact eval_summary.json by reusing the parser logic from
-# scripts/eval_phase2_checkpoint.sh
+# scripts/the SSTT eval driver
 python3 - <<'PY'
 import json, glob, os
 from pathlib import Path

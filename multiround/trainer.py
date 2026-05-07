@@ -268,7 +268,7 @@ class MultiRoundDPOTrainer:
         is_final_round = (round_num == self.num_rounds)
         if getattr(self.cfg.multiround, 'skip_per_round_eval', False):
             print("⏭ skip_per_round_eval=True — bypassing built-in evaluator. "
-                  "Run eval_phase2_checkpoint.sh on round_N_best.pt afterwards.")
+                  "Run the SSTT eval driver on round_N_best.pt afterwards.")
             eval_result = {}  # empty; checkpoint will be saved by Step 5 anyway
         else:
             eval_result = self.evaluator.evaluate_round(

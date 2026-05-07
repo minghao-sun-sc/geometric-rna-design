@@ -21,7 +21,7 @@ paths:
     val:   data/pairs_thermo_surplus_margin25/by_das/clean/val.clean.jsonl
     test:  data/pairs_thermo_surplus_margin25/by_das/clean/test.clean.jsonl
   base_checkpoint: checkpoints/gRNAde_ARv1_1state_das.h5
-  save_dir: runs/phase2/thermo_surplus/m25
+  save_dir: runs/thermo_surplus/m25
   external_tools_dir: tools
   project_root: .
   data_root: ./data
